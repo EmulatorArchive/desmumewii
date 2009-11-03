@@ -32,14 +32,96 @@ bool (*oglrender_beginOpenGL)() = 0;
 void (*oglrender_endOpenGL)() = 0;
 
 static bool BEGINGL() {
-	if(oglrender_beginOpenGL) 
-		return oglrender_beginOpenGL();
+	if(oglrender_beginOpenGL){
+	
+	/**Initialize VIDEO and GX**/
+		
+	static unsigned int *xfb[2] = { NULL, NULL }; //Double buffered
+
+	static GXRModeObj *vmode; //Menu video mode
+	static unsigned char gp_fifo[DEFAULT_FIFO_SIZE] ATTRIBUTE_ALIGN (32);
+
+
+	VIDEO_Init();
+	vmode = VIDEO_GetPreferredMode(NULL); //Get default video mode
+
+	//Widescreen Fix
+	if(CONF_GetAspectRatio() == CONF_ASPECT_16_9)
+	{
+		vmode->viWidth = VI_MAX_WIDTH_PAL-12;
+		vmode->viXOrigin = ((VI_MAX_WIDTH_PAL - vmode->viWidth) / 2) + 2;
+	}
+
+	VIDEO_Configure (vmode);
+	
+	int screenwidth, screenheight = 0;
+
+	screenheight = vmode->xfbHeight;
+	screenwidth = vmode->fbWidth;
+
+	// Allocate the video buffers
+	xfb[0] = (u32 *) MEM_K0_TO_K1 (SYS_AllocateFramebuffer (vmode));
+	xfb[1] = (u32 *) MEM_K0_TO_K1 (SYS_AllocateFramebuffer (vmode));
+
+	//A console is always useful while debugging
+	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
+
+	//Clear framebuffers etc.
+	VIDEO_ClearFrameBuffer (vmode, xfb[0], COLOR_BLACK);
+	VIDEO_ClearFrameBuffer (vmode, xfb[1], COLOR_BLACK);
+	VIDEO_SetNextFramebuffer (xfb[0]);
+
+	VIDEO_SetBlack (FALSE);
+	VIDEO_Flush ();
+	VIDEO_WaitVSync ();
+	if (vmode->viTVMode & VI_NON_INTERLACE)
+		VIDEO_WaitVSync ();
+
+	GXColor background = { 0, 0, 0, 0xff };
+
+	//Clear out FIFO area
+	memset (&gp_fifo, 0, DEFAULT_FIFO_SIZE);
+
+	//Initialise GX
+	GX_Init (&gp_fifo, DEFAULT_FIFO_SIZE);
+	GX_SetCopyClear (background, 0x00ffffff);
+
+	GX_SetDispCopyGamma (GX_GM_1_0);
+	GX_SetCullMode (GX_CULL_NONE);
+	
+	VIDEO_Flush();
+		
+	}
+	
 	else return true;
+	
 }
 
 static void ENDGL() {
-	if(oglrender_endOpenGL) 
-		oglrender_endOpenGL();
+	if(oglrender_endOpenGL){
+	    //End GX and Kill the VIDEO
+		
+		void* _frameBuffer[2];
+		void* _gp_fifo;
+	
+		GX_AbortFrame();
+		GX_Flush();
+
+		free(MEM_K1_TO_K0(_frameBuffer[0])); _frameBuffer[0] = NULL;
+		free(MEM_K1_TO_K0(_frameBuffer[1])); _frameBuffer[1] = NULL;
+		free(_gp_fifo); _gp_fifo = NULL;
+	}
+}
+
+//Thanks for the following function profetlyn
+const char* glGetString(GLenum name)
+{
+	const char* returnString="ERROR";
+	if (name==GL_EXTENSIONS)
+	{
+		returnString="";
+	}
+	return returnString;
 }
 
 #ifdef _WIN32
@@ -52,8 +134,8 @@ static void ENDGL() {
 	#include <OpenGL/gl.h>
 	#include <OpenGL/glext.h>
 #else
-	#include <GL/gl.h>
-	#include <GL/glext.h>
+//	#include <GL/gl.h> This is replaced by libogc's GX
+//	#include <GL/glext.h> This is replaced by libogc's GX
 #endif
 #endif
 
@@ -78,9 +160,9 @@ static void ENDGL() {
 static ALIGN(16) u8  GPU_screen3D			[256*192*4];
 
 
-static const unsigned short map3d_cull[4] = {GL_FRONT_AND_BACK, GL_FRONT, GL_BACK, 0};
-static const int texEnv[4] = { GL_MODULATE, GL_DECAL, GL_MODULATE, GL_MODULATE };
-static const int depthFunc[2] = { GL_LESS, GL_EQUAL };
+static const unsigned short map3d_cull[4] = {GX_FRONT_AND_BACK, GX_FRONT, GX_BACK, 0};
+static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
+static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
 //derived values extracted from polyattr etc
 static bool wireframe=false, alpha31=false;
@@ -102,7 +184,7 @@ static u32 textureFormat=0, texturePalette=0;
 #ifdef _WIN32
 #define INITOGLEXT(x,y) y = (x)wglGetProcAddress(#y);
 #elif !defined(DESMUME_COCOA)
-#include <GL/glx.h>
+//#include <GL/glx.h> this is replaced by libogc's GX
 #define INITOGLEXT(x,y) y = (x)glXGetProcAddress((const GLubyte *) #y);
 #endif
 

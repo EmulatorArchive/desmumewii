@@ -30,6 +30,21 @@
 #include <assert.h>
 #include "debug.h"
 #include "render3D.h"
+#include <gccore.h> //Main libogc header
+
+#define DEFAULT_FIFO_SIZE (1024*1024)
+
+#define GX_FRONT 1028
+#define GX_BACK 1029
+#define GX_FRONT_AND_BACK 1032
+
+//Thanks profetlyn for "OpenGL types" code to get the Wii version to compile:
+
+// OpenGl types
+typedef u64 GLenum;
+typedef u8 GLboolean;
+typedef u64 GLuint;
+GLenum GL_EXTENSIONS = 5;
 
 extern GPU3DInterface gpu3Dgl;
 
