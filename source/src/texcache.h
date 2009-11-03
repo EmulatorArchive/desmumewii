@@ -44,7 +44,7 @@ extern void (*TexCache_BindTextureData)(u32 texnum, u8* data);
 void TexCache_Reset();
 
 template<TexCache_TexFormat format>
-void TexCache_SetTexture(u32 format, u32 texpal);
+void TexCache_SetTexture(u32 Format, u32 texpal);
 
 void TexCache_Invalidate();
 
