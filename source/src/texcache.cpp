@@ -183,7 +183,7 @@ static int lastTexture = -1;
 #define CONVERT(color,alpha) ((TEXFORMAT == TexFormat_32bpp)?(RGB15TO32(color,alpha)):RGB15TO5555(color,alpha))
 
 template<TexCache_TexFormat TEXFORMAT>
-void TexCache_SetTexture(u32 Format, u32 texpal)
+void TexCache_SetTexture(u32 format, u32 texpal)
 {
 	//for each texformat, number of palette entries
 	const int palSizes[] = {0, 32, 4, 16, 256, 0, 8, 0};
@@ -196,9 +196,9 @@ void TexCache_SetTexture(u32 Format, u32 texpal)
 
 	u32 *dwdst = (u32*)TexCache_texMAP;
 	
-	u32 textureMode = (unsigned short)((Format>>26)&0x07);
-	unsigned int sizeX=(8 << ((Format>>20)&0x07));
-	unsigned int sizeY=(8 << ((Format>>23)&0x07));
+	u32 textureMode = (unsigned short)((format>>26)&0x07);
+	unsigned int sizeX=(8 << ((format>>20)&0x07));
+	unsigned int sizeY=(8 << ((format>>23)&0x07));
 	unsigned int imageSize = sizeX*sizeY;
 
 	u8 *adr;
@@ -224,15 +224,15 @@ void TexCache_SetTexture(u32 Format, u32 texpal)
 	//analyze the texture memory mapping and the specifications of this texture
 	int palSize = palSizes[textureMode];
 	int texSize = (imageSize*texSizes[textureMode])>>2; //shifted because the texSizes multiplier is fixed point
-	MemSpan ms = MemSpan_TexMem((Format&0xFFFF)<<3,texSize);
+	MemSpan ms = MemSpan_TexMem((format&0xFFFF)<<3,texSize);
 	MemSpan mspal = MemSpan_TexPalette(paletteAddress,palSize*2);
 
 	//determine the location for 4x4 index data
 	u32 indexBase;
-	if((Format & 0xc000) == 0x8000) indexBase = 0x30000;
+	if((format & 0xc000) == 0x8000) indexBase = 0x30000;
 	else indexBase = 0x20000;
 
-	u32 indexOffset = (Format&0x3FFF)<<2;
+	u32 indexOffset = (format&0x3FFF)<<2;
 
 	int indexSize = 0;
 	MemSpan msIndex;
@@ -265,7 +265,7 @@ void TexCache_SetTexture(u32 Format, u32 texpal)
 		//conditions where we reject matches:
 		//when the teximage or texpal params dont match 
 		//(this is our key for identifying palettes in the cache)
-		if (texcache[tx].frm != Format) goto REJECT;
+		if (texcache[tx].frm != format) goto REJECT;
 		if (texcache[tx].pal != texpal) goto REJECT;
 
 		//the texture matches params, but isnt suspected invalid. accept it.
@@ -320,7 +320,7 @@ REJECT:
 	//glBindTexture(GL_TEXTURE_2D, texcache[tx].id);
 
 	texcache[tx].suspectedInvalid = false;
-	texcache[tx].frm=Format;
+	texcache[tx].frm=format;
 	texcache[tx].mode=textureMode;
 	texcache[tx].pal=texpal;
 	texcache[tx].sizeX=sizeX;
@@ -347,7 +347,7 @@ REJECT:
 
 	//============================================================================ Texture conversion
 	const u32 opaqueColor = TEXFORMAT==TexFormat_32bpp?255:31;
-	u32 palZeroTransparent = (1-((Format>>29)&1))*opaqueColor;
+	u32 palZeroTransparent = (1-((format>>29)&1))*opaqueColor;
 
 	switch (texcache[tx].mode)
 	{

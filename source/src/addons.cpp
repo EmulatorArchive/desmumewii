@@ -50,7 +50,7 @@ u8				addon_type = NDS_ADDON_CFLASH;*/
 
 BOOL addonsInit()
 {
-//	return addon.init();
+	return addon.init();
 }
 
 void addonsClose()
@@ -60,7 +60,7 @@ void addonsClose()
 
 void addonsReset()
 {
-//	addon.reset();
+	addon.reset();
 }
 
 BOOL addonsChangePak(u8 type)
