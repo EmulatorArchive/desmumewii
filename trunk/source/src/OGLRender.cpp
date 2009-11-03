@@ -31,445 +31,15 @@ bool (*oglrender_init)() = 0;
 bool (*oglrender_beginOpenGL)() = 0;
 void (*oglrender_endOpenGL)() = 0;
 
-//Stuff GX will need
-
-static void *frameBuffer[2] = { NULL, NULL};
-GXRModeObj *rmode;
-
-/** Open GL Stuff From Profetylen**/
-
-// Static variables
-static bool glHasBegun=false;
-
-/*
-	The following 2 functions is not finsished.
-*/
-void glBegin()
-{
-	glHasBegun=true;
-}
-
-void glEnd()
-{
-	glHasBegun=false;
-}
-
-
-// Shader stuff *************************************************************************************
-
-// OpenGL enumerators
-GLenum GL_VERTEX_SHADER=0;
-GLenum GL_FRAGMENT_SHADER_=1;
-
-GLenum SHADER_OBJECT=2;
-GLenum PROGRAM_OBJECT=3;
-
-GLenum GL_SHADER_TYPE=4;
-GLenum GL_DELETE_STATUS=5;
-GLenum GL_COMPILE_STATUS_=6;
-GLenum GL_INFO_LOG_LENGTH_=7;
-GLenum GL_SHADER_SOURCE_LENGTH=8;
-
-//GLenum GL_DELETE_STATUS=9;
-GLenum GL_LINK_STATUS_=10;
-GLenum GL_VALIDATE_STATUS=11;
-//GLenum GL_INFO_LOG_LENGTH=12;
-GLenum GL_ATTACHED_SHADERS=13;
-GLenum GL_ACTIVE_ATTRIBUTES=14;
-GLenum GL_ACTIVE_ATTRIBUTE_MAX_LENGTH=15;
-GLenum GL_ACTIVE_UNIFORMS=16;
-GLenum GL_ACTIVE_UNIFORM_MAX_LENGTH=17;
-
-/*
-	"error: expected unqualified-id before numeric constant" was given with the
-	name GL_FRAGMENT_SHADER, GL_COMPILE_STATUS and GL_INFO_LOG_LENGTH, GLenum GL_LINK_STATUS, so I added
-	a "_" after each of those enums.
-*/
-
-
-/*
-	Creates a shader object with a specified type.
-*/
-GLuint glCreateShader(GLenum type)
-{
-	GLuint returnValue=0;
-	bool createObject=true;
-	if ((type!=GL_VERTEX_SHADER)&&(type!=GL_FRAGMENT_SHADER))
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_ENUM
-		createObject=false;
-	}
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		createObject=false;
-	}
-	if (createObject)
-	{
-		Shader* shader = new Shader(type);
-		if (shader!=NULL)
-		{
-			returnValue=(GLuint) shader;
-		}
-	}
-	return returnValue;
-}
-
-/*
-	Deletes a shader object if it isn't attached to a program (The latter is not implemeted yet).
-*/
-void glDeleteShader(GLuint shader)
-{
-	// Abort if it's a null shader object
-	if (shader==0)
-	{
-		return;
-	}
-	Shader* shaderObject=(Shader*) shader;
-	delete shaderObject;
-	return;
-}
-
-/*
-	Returns to params the given parameter to return from the
-	given shader.
-*/
-void glGetShaderiv(GLuint shader,GLenum pname,GLint* params)
-{
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		return;
-	}
-	Shader* shaderObject=(Shader*) shader;
-	if (pname==GL_SHADER_TYPE)
-	{
-		*params=shaderObject->getType();
-	} else if (pname==GL_DELETE_STATUS)
-	{
-		*params=shaderObject->getDeletionFlag();
-	} else if (pname==GL_COMPILE_STATUS)
-	{
-		// Not yet implemented because glCompileShader is not done.
-	} else if (pname==GL_INFO_LOG_LENGTH)
-	{
-		// Not yet implemented because glGetInfoLog is not done.
-	}else if (pname==GL_SHADER_SOURCE_LENGTH)
-	{
-		// Not yet implemented because glShaderSource is not done.
-	} else
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_ENUM
-	}
-	// TODO: Add code that checks for object type errors or non openGL values.
-	return;
-}
-
-/*
-	Replaces the source code in the shader object.
-	I don't know how to do this at all.
-*/
-void glShaderSource(GLuint shader,GLsizei count,const GLchar** string,GLint* length)
-{
-	return;
-}
-
-/*
-	Compiles the source code in the shader object.
-	I don't know how to do this at all.
-*/
-void glCompileShader(GLuint shader)
-{
-	return;
-}
-
-/*
-	Returns the infolog of a shader object to GLchar* infoLog
-	I don't know how to do this because glShaderSource(...) and
-	glCompileShader(...) isn't done.
-*/
-void glGetShaderInfoLog(GLuint shader,GLsizei maxLength,GLint* length,GLchar* infoLog)
-{
-	return;
-}
-
-// Program stuff ************************************************************************************
-
-/*
-	Links the program with the help of the shaders that are attached
-	to it.
-	I don't know how to do this at all.
-*/
-void glLinkProgram(GLuint shader)
-{
-	return;
-}
-
-/*
-	Returns the infolog of a shader object to GLchar* infoLog
-	I don't know how to do this because glShaderSource(...) and
-	glCompileShader(...) isn't done.
-*/
-void glGetProgramInfoLog(GLuint program,GLsizei maxLength,GLint* length,GLchar* infoLog)
-{
-	return;
-}
-
-/*
-	Creates a shader object and returns a reference to it cast to
-	a GLuint.
-*/
-GLuint glCreateProgram()
-{
-	GLuint returnValue=0;
-	bool createObject=true;
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		createObject=false;
-	}
-	if (createObject)
-	{
-		Program* program = new Program();
-		if (program!=NULL)
-		{
-			returnValue=(GLuint) program;
-		}
-	}
-	return returnValue;
-}
-
-/*
-	Deletes a program object if it isn't in use (The latter is not implemeted yet).
-*/
-void glDeleteProgram(GLuint program)
-{
-	bool deleteObject=true;
-	// Abort if it's a null program object
-	if (program==0)
-	{
-		return;
-	}
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		deleteObject=false;
-	}
-	if (deleteObject)
-	{
-		Program* programObject=(Program*) program;
-		if (programObject->isDeletable())
-		{
-			delete programObject;
-		} else
-		{
-			programObject->setDeletionFlag();
-		}
-	} 
-	return;
-}
-
-/*
-	Attaches a shader to a program.
-*/
-
-void glAttachShader(GLuint program,GLuint shader)
-{
-	Program* programObject=(Program*) program;
-	bool perform=true;
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		perform=false;
-	}
-	if (programObject->shaderIsAttached(shader))
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		perform=false;
-	}
-	// TODO: Add code that checks for object type errors or non openGL values.
-	if (perform)
-	{
-		programObject->attachShader(shader);
-	}
-}
-
-/*
-	Detaches a shader from a program.
-*/
-
-void glDetachShader(GLuint program,GLuint shader)
-{
-	Program* programObject=(Program*) program;
-	bool perform=true;
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		perform=false;
-	}
-	if (programObject->shaderIsAttached(shader))
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		perform=false;
-	}
-	// TODO: Add code that checks for object type errors or non openGL values.
-	if (perform)
-	{
-		programObject->detachShader(shader);
-	}
-}
-
-/*
-	Returns to params the given parameter to return from the
-	given program.
-*/
-void glGetProgramiv(GLuint program,GLenum pname,GLint* params)
-{
-	if (glHasBegun)
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_OPERATION
-		return;
-	}
-	Program* programObject=(Program*) program;
-	if (pname==GL_DELETE_STATUS)
-	{
-		*params=programObject->getDeletionFlag();
-	} else if (pname==GL_LINK_STATUS)
-	{
-		// Not yet implemented.
-	} else if (pname==GL_COMPILE_STATUS)
-	{
-		// Not yet implemented.
-	} else if (pname==GL_VALIDATE_STATUS)
-	{
-		// Not yet implemented.
-	}else if (pname==GL_INFO_LOG_LENGTH)
-	{
-		// Not yet implemented.
-	}else if (pname==GL_ATTACHED_SHADERS)
-	{
-		*params=programObject->getNumberOfAttachedShaders();
-	}else if (pname==GL_ACTIVE_ATTRIBUTES)
-	{
-		// Not yet implemented.
-	}else if (pname==GL_ACTIVE_ATTRIBUTE_MAX_LENGTH)
-	{
-		// Not yet implemented.
-	}else if (pname==GL_ACTIVE_UNIFORMS)
-	{
-		// Not yet implemented.
-	}else if (GL_ACTIVE_UNIFORM_MAX_LENGTH)
-	{
-		// Not yet implemented.
-	} else
-	{
-		// This line should be replaced by a line that generates error: GL_INVALID_ENUM
-	}
-	// TODO: Add code that checks for object type errors or non openGL values.
-	return;
-}
-
-/*
-	Checks to see whether the executables contained in program
-	can execute given the current OpenGL state.
-	I don't know how to do this.
-*/
-void glValidateProgram(GLuint program)
-{
-	return;
-}
-
-/*
-	Installs the program object specified by program as part
-	of current rendering state.
-	I don't know how to do this.
-*/
-void glUseProgram(GLuint program)
-{
-	return;
-}
-
-/**End OpenGL Stuff from Profetylen**/
-
-
 static bool BEGINGL() {
-	if(oglrender_beginOpenGL){
-	//This function is called just before rendering anything
-	
-	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
-		
-	}
-	
+	if(oglrender_beginOpenGL) 
+		return oglrender_beginOpenGL();
 	else return true;
-	
 }
 
 static void ENDGL() {
-	if(oglrender_endOpenGL){
-	    //This function is called after rendering is finished
-		
-		GX_DrawDone();
-		
-		VIDEO_Flush();
- 
-		VIDEO_WaitVSync();
-	}
-}
-
-//Thanks for the following functions profetlyn
-const char* glGetString(GLenum name)
-{
-	const char* returnString="ERROR";
-	if (name==GL_EXTENSIONS)
-	{
-		returnString="";
-	}
-	return returnString;
-}
-
-// profetlyn: glEnable and glDisable perhaps to be filled with more things to enable / disable
-void glEnable(GLenum cap)
-{
-	if (cap==GL_DEPTH_TEST)
-	{
-		depthTestEnabled=true;
-	}
-}
-
-void glDisable(GLenum cap)
-{
-	if (cap==GL_DEPTH_TEST)
-	{
-		depthTestEnabled=false;
-	}
-}
-
-// profetlyn: Sets the function to use in depth comparisions.
-void glDepthFunc(GLenum func)
-{
-	currentDepthFunction=func;
-}
-
-// profetlyn: Enables or disables wring do the depth buffer.
-void glDepthMask(bool flag)
-{
-	depthBufferWritingEnabled=flag;
-}
-
-/*profetlyn:
-	Sets polygon face and polygon mode.
-	
-	Face specifies wheter only the backs, only the fronts or both of the backs
-	and the fronts of the polygons will be drawn. I didn't find a GX constant
-	for this so this isn't implemented in the function (at least not yet).
-	
-	Mode specifies how the polygon is drawn. I set GX_POINTS as default and
-	I am not sure it corresponds to GL_POINT. I don't even think so because there
-	is also a constant GL_POINTS.
-*/
-void glPolygonMode(GLenum face,GLenum mode)
-{
-	currentPolygonMode=mode;
+	if(oglrender_endOpenGL) 
+		oglrender_endOpenGL();
 }
 
 #ifdef _WIN32
@@ -477,13 +47,14 @@ void glPolygonMode(GLenum face,GLenum mode)
 	#include <windows.h>
 	#include <GL/gl.h>
 	#include <GL/glext.h>
+	#include <GL/glut.h>
 #else
 #ifdef DESMUME_COCOA
 	#include <OpenGL/gl.h>
 	#include <OpenGL/glext.h>
 #else
-//	#include <GL/gl.h> This is replaced by libogc's GX
-//	#include <GL/glext.h> This is replaced by libogc's GX
+	#include <GL/gl.h>
+	#include <GL/glext.h>
 #endif
 #endif
 
@@ -505,12 +76,19 @@ void glPolygonMode(GLenum face,GLenum mode)
 #define	CTASSERT(x)		typedef char __assert ## y[(x) ? 1 : -1]
 #endif
 
+//Define glActiveTexture for Wii Port
+void glActiveTexture(GLenum texture)
+{
+    texture = GL_ACTIVE_TEXTURE_ARB;
+    return;
+}
+
 static ALIGN(16) u8  GPU_screen3D			[256*192*4];
 
 
-static const unsigned short map3d_cull[4] = {GX_FRONT_AND_BACK, GX_FRONT, GX_BACK, 0};
-static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
-static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
+static const unsigned short map3d_cull[4] = {GL_FRONT_AND_BACK, GL_FRONT, GL_BACK, 0};
+static const int texEnv[4] = { GL_MODULATE, GL_DECAL, GL_MODULATE, GL_MODULATE };
+static const int depthFunc[2] = { GL_LESS, GL_EQUAL };
 
 //derived values extracted from polyattr etc
 static bool wireframe=false, alpha31=false;
@@ -532,19 +110,16 @@ static u32 textureFormat=0, texturePalette=0;
 #ifdef _WIN32
 #define INITOGLEXT(x,y) y = (x)wglGetProcAddress(#y);
 #elif !defined(DESMUME_COCOA)
-//#include <GL/glx.h> this is replaced by libogc's GX
+#include <GL/glext.h>
 #define INITOGLEXT(x,y) y = (x)glXGetProcAddress((const GLubyte *) #y);
 #endif
 
 #ifndef DESMUME_COCOA
-//Arikado: I've commented out the below section because I have no idea what it does
-// OGLEXT is an extension of OpenGL but I have no idea what the original authors were attempting to use it for
-
-/*OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
+OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 //zero: i dont understand this at all. my glext.h has the wrong thing declared here... so I have to do it myself
 typedef void (APIENTRYP X_PFNGLGETSHADERSOURCEPROC) (GLuint shader, GLsizei bufSize, const GLchar **source, GLsizei *length);
 OGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
-OGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
+OGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader) 
 OGLEXT(PFNGLCREATEPROGRAMPROC,glCreateProgram)
 OGLEXT(PFNGLATTACHSHADERPROC,glAttachShader)
 OGLEXT(PFNGLDETACHSHADERPROC,glDetachShader)
@@ -560,11 +135,11 @@ OGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram)
 OGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
 OGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
 OGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
-OGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)*/
+OGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
 #endif
 
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
-//OGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
+OGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
 #endif
 
 
@@ -582,9 +157,9 @@ static void xglDepthFunc(GLenum func) {
 static void xglPolygonMode(GLenum face,GLenum mode) {
 	static GLenum oldmodes[2] = {-1,-1};
 	switch(face) {
-		case GX_FRONT: if(oldmodes[0]==mode) return; else glPolygonMode(GX_FRONT,oldmodes[0]=mode); return;
-		case GX_BACK: if(oldmodes[1]==mode) return; else glPolygonMode(GX_BACK,oldmodes[1]=mode); return;
-		case GX_FRONT_AND_BACK: if(oldmodes[0]==mode && oldmodes[1]==mode) return; else glPolygonMode(GX_FRONT_AND_BACK,oldmodes[0]=oldmodes[1]=mode);
+		case GL_FRONT: if(oldmodes[0]==mode) return; else glPolygonMode(GL_FRONT,oldmodes[0]=mode); return;
+		case GL_BACK: if(oldmodes[1]==mode) return; else glPolygonMode(GL_BACK,oldmodes[1]=mode); return;
+		case GL_FRONT_AND_BACK: if(oldmodes[0]==mode && oldmodes[1]==mode) return; else glPolygonMode(GL_FRONT_AND_BACK,oldmodes[0]=oldmodes[1]=mode);
 	}
 }
 
@@ -728,7 +303,7 @@ static void createShaders()
 		(strstr(extString, "GL_ARB_fragment_shader") == NULL))
 		NOSHADERS("Shaders aren't supported by your system.");
 
-	vertexShaderID = glCreateShader(GX_VERTEX_SHADER);
+	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	if(!vertexShaderID)
 		NOSHADERS("Failed to create the vertex shader.");
 
@@ -813,7 +388,6 @@ static void BindTextureData(u32 tx, u8* data)
 
 
 static char OGLInit(void)
-//This function initializes and creates the variables used for rendering with OpenGL
 {
 	GLuint loc = 0;
 
@@ -846,10 +420,7 @@ static char OGLInit(void)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 #ifndef DESMUME_COCOA
-
-/*	Arikado: Again, I have no idea what the point of this is
-
-    INITOGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
+#define glXGetProcAddress(x)((const GLubyte*)x) //Check out this line for legitimacy
 	INITOGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
 	INITOGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
 	INITOGLEXT(PFNGLCREATEPROGRAMPROC,glCreateProgram)
@@ -863,18 +434,18 @@ static char OGLInit(void)
 	INITOGLEXT(PFNGLDELETEPROGRAMPROC,glDeleteProgram)
 	INITOGLEXT(PFNGLGETPROGRAMIVPROC,glGetProgramiv)
 	INITOGLEXT(PFNGLGETPROGRAMINFOLOGPROC,glGetProgramInfoLog)
-	INITOGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram) */
+	INITOGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram)
 #ifdef HAVE_LIBOSMESA
 	glBlendFuncSeparateEXT = NULL;
 #else
-//	INITOGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
+	INITOGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
 #endif
-//	INITOGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
-//	INITOGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
-//	INITOGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
+	INITOGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
+	INITOGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
+	INITOGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
 #endif
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
-//	INITOGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
+	INITOGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
 #endif
 
 	/* Create the shaders */
@@ -920,7 +491,6 @@ static char OGLInit(void)
 }
 
 static void OGLClose()
-//This functions gets rid of the shaders and textures
 {
 	if(!BEGINGL())
 		return;
@@ -946,7 +516,6 @@ static void OGLClose()
 }
 
 static void setTexture(unsigned int format, unsigned int texpal)
-//This functin sets textures to polygons
 {
 	textureFormat = format;
 	texturePalette = texpal;
@@ -985,7 +554,6 @@ static u32 stencilStateSet = -1;
 static u32 polyalpha=0;
 
 static void BeginRenderPoly()
-//This function renders the polygons
 {
 	bool enableDepthWrite = true;
 
@@ -1002,11 +570,11 @@ static void BeginRenderPoly()
 
 	if (!wireframe)
 	{
-		xglPolygonMode (GX_FRONT_AND_BACK, GL_FILL);
+		xglPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
 	}
 	else
 	{
-		xglPolygonMode (GX_FRONT_AND_BACK, GL_LINE);
+		xglPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
 	}
 
 	setTexture(textureFormat, texturePalette);
@@ -1072,11 +640,10 @@ static void BeginRenderPoly()
 		}
 	}
 
-	xglDepthMask(enableDepthWrite?GX_TRUE:GX_FALSE);
+	xglDepthMask(enableDepthWrite?GL_TRUE:GL_FALSE);
 }
 
 static void InstallPolygonAttrib(unsigned long val)
-//Adjust polygons for rendering
 {
 	// Light enable/disable
 	lightMask = (val&0xF);
@@ -1116,11 +683,11 @@ static void Control()
 
 	if(gfx3d.enableAlphaBlending)
 	{
-		glEnable		(GX_BLEND);
+		glEnable		(GL_BLEND);
 	}
 	else
 	{
-		glDisable		(GX_BLEND);
+		glDisable		(GL_BLEND);
 	}
 }
 
@@ -1128,9 +695,9 @@ static void Control()
 static void GL_ReadFramebuffer()
 {
 	if(!BEGINGL()) return; 
-	GX_End();
+	glFinish();
 //	glReadPixels(0,0,256,192,GL_STENCIL_INDEX,		GL_UNSIGNED_BYTE,	GPU_screenStencil);
-	glReadPixels(0,0,256,192,GL_BGRA,			GL_UNSIGNED_BYTE,	GPU_screen3D);	
+	glReadPixels(0,0,256,192,GL_BGRA_EXT,			GL_UNSIGNED_BYTE,	GPU_screen3D);	
 	ENDGL();
 
 	//convert the pixels to a different format which is more convenient
@@ -1168,7 +735,6 @@ static void GL_ReadFramebuffer()
 
 
 static void OGLRender()
-//Renders the frame buffer
 {
 	if(!BEGINGL()) return;
 
@@ -1200,7 +766,7 @@ static void OGLRender()
 	glClearStencil((gfx3d.clearColor >> 24) & 0x3F);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	GX_SetCurrentMtx(GL_PROJECTION);
+	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
 
@@ -1269,7 +835,7 @@ static void OGLRender()
 				lastViewport = poly->viewport;
 			}
 
-			GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 12);//Begin rendering polygons with GX
+			glBegin(GL_TRIANGLES);
 
 			VERT *vert0 = &gfx3d.vertlist->list[poly->vertIndexes[0]];
 			u8 alpha =	material_5bit_to_8bit[poly->getAlpha()];
@@ -1297,10 +863,8 @@ static void OGLRender()
 					material_5bit_to_8bit[vert2->color[2]],
 					alpha
 				};
-				
-				//Parameters for GX_Position3f32() are x, y, z -- We somehow need to get those out of VERT*
 
-				GX_Position3f32(vert0->texcoord);
+				glTexCoord2fv(vert0->texcoord);
 				glColor4ubv((GLubyte*)color0);
 				glVertex4fv(vert0->coord);
 
@@ -1313,7 +877,7 @@ static void OGLRender()
 				glVertex4fv(vert2->coord);
 			}
 
-			GX_End();//This is called after the rendering done by GX_Begin() is done
+			glEnd();
 		}
 	}
 
@@ -1335,234 +899,3 @@ GPU3DInterface gpu3Dgl = {
 	OGLRender,
 	OGLVramReconfigureSignal,
 };
-
-//Shader class functionality
-/*
-	Constructor
-	Sets the shader's type.
-*/
-Shader::Shader(GLenum itsType)
-{
-	type=itsType;
-	deletionFlag=false;
-}
-
-/*
-	Flags the shader for deletion.
-*/
-void Shader::setDeletionFlag()
-{
-	deletionFlag=true;
-}
-
-/*
-	Returns true if the shader is flagged for deletion, false otherwise.
-*/
-bool Shader::getDeletionFlag()
-{
-	return deletionFlag;
-}
-
-/*
-	Returns the shader's type.
-*/
-GLenum Shader::getType()
-{
-	return type;
-}
-
-//Program List Node Class Functionality
-
-/*
-	Constructor
-*/
-ProgramListNode::ProgramListNode(GLuint itsShader)
-{
-	shader=itsShader;
-	nextNode=0;
-}
-
-/*
-	Returns the node's shader.
-*/
-GLuint ProgramListNode::getShader()
-{
-	return shader;
-}
-
-/*
-	Returns the next node.
-*/
-GLuint ProgramListNode::getNextNode()
-{
-	return nextNode;
-}
-
-/*
-	Sets the next node.
-*/
-void ProgramListNode::setNextNode(GLuint itsNextNode)
-{
-	nextNode=itsNextNode;
-	return;
-}
-
-//Program class functionality
-/*
-	Constructor
-*/
-Program::Program()
-{
-	deletionFlag=false;
-	deletableFlag=true;
-	firstNode=0;
-	numberOfAttachedShaders=0;
-}
-
-/*
-	Destructor
-	Deletes all attached shaders that are flagged for deletion.
-*/
-Program::~Program()
-{
-	if (firstNode==0)
-	{
-		return;
-	} else
-	{
-		ProgramListNode* nodeObject=(ProgramListNode*) firstNode;
-		while (true)
-		{
-			Shader* shader=(Shader*) nodeObject->getShader();
-			{
-				if (shader->getDeletionFlag()==true)
-				{
-					delete shader;
-				}
-			}
-			if (nodeObject->getNextNode()==0)
-			{
-				break;
-			}
-		}
-	}
-	return;
-}
-
-/*
-	Flags the program for deletion.
-*/
-void Program::setDeletionFlag()
-{
-	deletionFlag=true;
-}
-
-/*
-	Checks whether shader is attached. Returns true if it is, otherwise false.
-*/
-bool Program::shaderIsAttached(GLuint shader)
-{
-	if (firstNode==0)
-	{
-		return false;
-	} else
-	{
-		ProgramListNode* nodeObject=(ProgramListNode*) firstNode;
-		while(true)
-		{
-			if (shader==nodeObject->getShader())
-			{
-				return true;
-			}
-			if (nodeObject->getNextNode()==0)
-			{
-				break;
-			}
-		}
-	}
-	return false;
-}
-
-/*
-	Attaches a shader to the program.
-*/
-void Program::attachShader(GLuint shader)
-{
-	if (firstNode==0)
-	{
-		ProgramListNode* node=new ProgramListNode(shader);
-		firstNode=(GLuint) node;
-	} else
-	{
-		ProgramListNode* nodeObject=(ProgramListNode*) firstNode;
-		while (true)
-		{
-			ProgramListNode* tempNodeObject=(ProgramListNode*) nodeObject->getNextNode();
-			if (tempNodeObject==0)
-			{
-				break;
-			} else
-			{
-				nodeObject=tempNodeObject;
-			}
-		}
-		ProgramListNode* newNode=new ProgramListNode(shader);
-		nodeObject->setNextNode((GLuint) newNode);
-	}
-	numberOfAttachedShaders++;
-	return;
-}
-
-/*
-	Detaches a shader from the program.
-*/
-void Program::detachShader(GLuint shader)
-{
-	ProgramListNode* nodeObject=(ProgramListNode*) firstNode;
-	ProgramListNode* previousNodeObject=NULL;
-	while(true)
-	{
-		if (nodeObject->getShader()==shader)
-		{
-			GLuint nextNode=nodeObject->getNextNode();
-			if (previousNodeObject==NULL)
-			{
-				firstNode=nextNode;
-			} else
-			{
-				previousNodeObject->setNextNode(nextNode);
-			}
-			break;
-		} else
-		{
-			previousNodeObject=nodeObject;
-			nodeObject=(ProgramListNode*) nodeObject->getNextNode();
-		}
-	}
-	numberOfAttachedShaders--;
-	return;
-}
-
-/*
-	Returns true if the program can be deleted.
-*/
-bool Program::isDeletable()
-{
-	return deletableFlag;
-}
-
-/*
-	Returns true if the program is flagged for deletion, false otherwise.
-*/
-bool Program::getDeletionFlag()
-{
-	return deletionFlag;
-}
-
-/*
-	Returns the number of attached shaders.
-*/
-int Program::getNumberOfAttachedShaders()
-{
-	return numberOfAttachedShaders;
-}
