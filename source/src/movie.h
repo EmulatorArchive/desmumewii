@@ -23,7 +23,7 @@ typedef struct
 	MD5DATA md5_of_rom_used;
 	std::string name_of_rom_used;
 
-	std::vector<std::wstring> comments; 
+	std::vector<std::string> comments; 
 	std::vector<std::string> subtitles;
 } MOVIE_INFO;
 
@@ -123,7 +123,7 @@ public:
 	std::vector<char> savestate;
 	std::vector<char> sram;
 	std::vector<MovieRecord> records;
-	std::vector<std::wstring> comments;
+	std::vector<std::string> comments;
 	
 	int rerecordCount;
 	Desmume_Guid guid;
@@ -194,7 +194,7 @@ extern bool movie_reset_command;
 extern bool movie_lid;
 
 bool FCEUI_MovieGetInfo(std::istream* fp, MOVIE_INFO& info, bool skipFrameCount);
-void _CDECL_ FCEUI_SaveMovie(const char *fname, std::string author, int flag, std::wstring sramfname);
+void _CDECL_ FCEUI_SaveMovie(const char *fname, std::string author, int flag, std::string sramfname);
 void _CDECL_ FCEUI_LoadMovie(const char *fname, bool _read_only, bool tasedit, int _pauseframe);
 void FCEUI_StopMovie();
 void FCEUMOV_AddInputState();

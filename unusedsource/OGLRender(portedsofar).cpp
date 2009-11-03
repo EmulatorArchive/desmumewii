@@ -31,15 +31,90 @@ bool (*oglrender_init)() = 0;
 bool (*oglrender_beginOpenGL)() = 0;
 void (*oglrender_endOpenGL)() = 0;
 
+//Stuff GX will need
+
+static void *frameBuffer[2] = { NULL, NULL};
+GXRModeObj *rmode;
+
+
 static bool BEGINGL() {
-	if(oglrender_beginOpenGL) 
-		return oglrender_beginOpenGL();
+	if(oglrender_beginOpenGL){
+	//This function is called before rendering anything
+	
+	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
+		
+	}
+	
 	else return true;
+	
 }
 
 static void ENDGL() {
-	if(oglrender_endOpenGL) 
-		oglrender_endOpenGL();
+	if(oglrender_endOpenGL){
+	    //This function is called after rendering is finished
+		
+		GX_DrawDone();
+		
+		VIDEO_Flush();
+ 
+		VIDEO_WaitVSync();
+	}
+}
+
+//Thanks for the following functions profetlyn
+const char* glGetString(GLenum name)
+{
+	const char* returnString="ERROR";
+	if (name==GL_EXTENSIONS)
+	{
+		returnString="";
+	}
+	return returnString;
+}
+
+// profetlyn: glEnable and glDisable perhaps to be filled with more things to enable / disable
+void glEnable(GLenum cap)
+{
+	if (cap==GL_DEPTH_TEST)
+	{
+		depthTestEnabled=true;
+	}
+}
+
+void glDisable(GLenum cap)
+{
+	if (cap==GL_DEPTH_TEST)
+	{
+		depthTestEnabled=false;
+	}
+}
+
+// profetlyn: Sets the function to use in depth comparisions.
+void glDepthFunc(GLenum func)
+{
+	currentDepthFunction=func;
+}
+
+// profetlyn: Enables or disables wring do the depth buffer.
+void glDepthMask(bool flag)
+{
+	depthBufferWritingEnabled=flag;
+}
+
+/*profetlyn:
+	Sets polygon face and polygon mode.
+	
+	Face specifies wheter only the backs, only the fronts or both of the backs
+	and the fronts of the polygons will be drawn. I didn't find a GX constant
+	for this so this isn't implemented in the function (at least not yet).
+	
+	Mode specifies how the polygon is drawn. I set GX_POINTS as default and
+	I am not sure it corresponds to GL_POINT. I don't even think so because there
+	is also a constant GL_POINTS.
+*/
+void glPolygonMode(GLenum face,GLenum mode)
+{
+	currentPolygonMode=mode;
 }
 
 #ifdef _WIN32
@@ -52,8 +127,8 @@ static void ENDGL() {
 	#include <OpenGL/gl.h>
 	#include <OpenGL/glext.h>
 #else
-	#include <GL/gl.h>
-	#include <GL/glext.h>
+//	#include <GL/gl.h> This is replaced by libogc's GX
+//	#include <GL/glext.h> This is replaced by libogc's GX
 #endif
 #endif
 
@@ -78,9 +153,9 @@ static void ENDGL() {
 static ALIGN(16) u8  GPU_screen3D			[256*192*4];
 
 
-static const unsigned short map3d_cull[4] = {GL_FRONT_AND_BACK, GL_FRONT, GL_BACK, 0};
-static const int texEnv[4] = { GL_MODULATE, GL_DECAL, GL_MODULATE, GL_MODULATE };
-static const int depthFunc[2] = { GL_LESS, GL_EQUAL };
+static const unsigned short map3d_cull[4] = {GX_FRONT_AND_BACK, GX_FRONT, GX_BACK, 0};
+static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
+static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
 //derived values extracted from polyattr etc
 static bool wireframe=false, alpha31=false;
@@ -102,12 +177,15 @@ static u32 textureFormat=0, texturePalette=0;
 #ifdef _WIN32
 #define INITOGLEXT(x,y) y = (x)wglGetProcAddress(#y);
 #elif !defined(DESMUME_COCOA)
-#include <GL/glx.h>
+//#include <GL/glx.h> this is replaced by libogc's GX
 #define INITOGLEXT(x,y) y = (x)glXGetProcAddress((const GLubyte *) #y);
 #endif
 
 #ifndef DESMUME_COCOA
-OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
+//Arikado: I've commented out the below section because I have no idea what it does
+// OGLEXT is an extension of OpenGL but I have no idea what the original authors were attempting to use it for
+
+/*OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 //zero: i dont understand this at all. my glext.h has the wrong thing declared here... so I have to do it myself
 typedef void (APIENTRYP X_PFNGLGETSHADERSOURCEPROC) (GLuint shader, GLsizei bufSize, const GLchar **source, GLsizei *length);
 OGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
@@ -127,11 +205,11 @@ OGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram)
 OGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
 OGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
 OGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
-OGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
+OGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)*/
 #endif
 
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
-OGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
+//OGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
 #endif
 
 
@@ -149,9 +227,9 @@ static void xglDepthFunc(GLenum func) {
 static void xglPolygonMode(GLenum face,GLenum mode) {
 	static GLenum oldmodes[2] = {-1,-1};
 	switch(face) {
-		case GL_FRONT: if(oldmodes[0]==mode) return; else glPolygonMode(GL_FRONT,oldmodes[0]=mode); return;
-		case GL_BACK: if(oldmodes[1]==mode) return; else glPolygonMode(GL_BACK,oldmodes[1]=mode); return;
-		case GL_FRONT_AND_BACK: if(oldmodes[0]==mode && oldmodes[1]==mode) return; else glPolygonMode(GL_FRONT_AND_BACK,oldmodes[0]=oldmodes[1]=mode);
+		case GX_FRONT: if(oldmodes[0]==mode) return; else glPolygonMode(GX_FRONT,oldmodes[0]=mode); return;
+		case GX_BACK: if(oldmodes[1]==mode) return; else glPolygonMode(GX_BACK,oldmodes[1]=mode); return;
+		case GX_FRONT_AND_BACK: if(oldmodes[0]==mode && oldmodes[1]==mode) return; else glPolygonMode(GX_FRONT_AND_BACK,oldmodes[0]=oldmodes[1]=mode);
 	}
 }
 
@@ -295,7 +373,7 @@ static void createShaders()
 		(strstr(extString, "GL_ARB_fragment_shader") == NULL))
 		NOSHADERS("Shaders aren't supported by your system.");
 
-	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+	vertexShaderID = glCreateShader(GX_VERTEX_SHADER);
 	if(!vertexShaderID)
 		NOSHADERS("Failed to create the vertex shader.");
 
@@ -380,6 +458,7 @@ static void BindTextureData(u32 tx, u8* data)
 
 
 static char OGLInit(void)
+//This function initializes and creates the variables used for rendering with OpenGL
 {
 	GLuint loc = 0;
 
@@ -412,7 +491,10 @@ static char OGLInit(void)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 #ifndef DESMUME_COCOA
-	INITOGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
+
+/*	Arikado: Again, I have no idea what the point of this is
+
+    INITOGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 	INITOGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
 	INITOGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
 	INITOGLEXT(PFNGLCREATEPROGRAMPROC,glCreateProgram)
@@ -426,18 +508,18 @@ static char OGLInit(void)
 	INITOGLEXT(PFNGLDELETEPROGRAMPROC,glDeleteProgram)
 	INITOGLEXT(PFNGLGETPROGRAMIVPROC,glGetProgramiv)
 	INITOGLEXT(PFNGLGETPROGRAMINFOLOGPROC,glGetProgramInfoLog)
-	INITOGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram)
+	INITOGLEXT(PFNGLVALIDATEPROGRAMPROC,glValidateProgram) */
 #ifdef HAVE_LIBOSMESA
 	glBlendFuncSeparateEXT = NULL;
 #else
-	INITOGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
+//	INITOGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
 #endif
-	INITOGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
-	INITOGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
-	INITOGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
+//	INITOGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
+//	INITOGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
+//	INITOGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
 #endif
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
-	INITOGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
+//	INITOGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
 #endif
 
 	/* Create the shaders */
@@ -483,6 +565,7 @@ static char OGLInit(void)
 }
 
 static void OGLClose()
+//This functions gets rid of the shaders and textures
 {
 	if(!BEGINGL())
 		return;
@@ -508,6 +591,7 @@ static void OGLClose()
 }
 
 static void setTexture(unsigned int format, unsigned int texpal)
+//This functin sets textures to polygons
 {
 	textureFormat = format;
 	texturePalette = texpal;
@@ -546,6 +630,7 @@ static u32 stencilStateSet = -1;
 static u32 polyalpha=0;
 
 static void BeginRenderPoly()
+//This function renders the polygons
 {
 	bool enableDepthWrite = true;
 
@@ -562,11 +647,11 @@ static void BeginRenderPoly()
 
 	if (!wireframe)
 	{
-		xglPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+		xglPolygonMode (GX_FRONT_AND_BACK, GL_FILL);
 	}
 	else
 	{
-		xglPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+		xglPolygonMode (GX_FRONT_AND_BACK, GL_LINE);
 	}
 
 	setTexture(textureFormat, texturePalette);
@@ -632,10 +717,11 @@ static void BeginRenderPoly()
 		}
 	}
 
-	xglDepthMask(enableDepthWrite?GL_TRUE:GL_FALSE);
+	xglDepthMask(enableDepthWrite?GX_TRUE:GX_FALSE);
 }
 
 static void InstallPolygonAttrib(unsigned long val)
+//Adjust polygons for rendering
 {
 	// Light enable/disable
 	lightMask = (val&0xF);
@@ -675,11 +761,11 @@ static void Control()
 
 	if(gfx3d.enableAlphaBlending)
 	{
-		glEnable		(GL_BLEND);
+		glEnable		(GX_BLEND);
 	}
 	else
 	{
-		glDisable		(GL_BLEND);
+		glDisable		(GX_BLEND);
 	}
 }
 
@@ -687,9 +773,9 @@ static void Control()
 static void GL_ReadFramebuffer()
 {
 	if(!BEGINGL()) return; 
-	glFinish();
+	GX_End();
 //	glReadPixels(0,0,256,192,GL_STENCIL_INDEX,		GL_UNSIGNED_BYTE,	GPU_screenStencil);
-	glReadPixels(0,0,256,192,GL_BGRA_EXT,			GL_UNSIGNED_BYTE,	GPU_screen3D);	
+	glReadPixels(0,0,256,192,GL_BGRA,			GL_UNSIGNED_BYTE,	GPU_screen3D);	
 	ENDGL();
 
 	//convert the pixels to a different format which is more convenient
@@ -727,6 +813,7 @@ static void GL_ReadFramebuffer()
 
 
 static void OGLRender()
+//Renders the frame buffer
 {
 	if(!BEGINGL()) return;
 
@@ -758,7 +845,7 @@ static void OGLRender()
 	glClearStencil((gfx3d.clearColor >> 24) & 0x3F);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	glMatrixMode(GL_PROJECTION);
+	GX_SetCurrentMtx(GL_PROJECTION);
 	glLoadIdentity();
 
 
@@ -827,7 +914,7 @@ static void OGLRender()
 				lastViewport = poly->viewport;
 			}
 
-			glBegin(GL_TRIANGLES);
+			GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 12);//Begin rendering polygons with GX
 
 			VERT *vert0 = &gfx3d.vertlist->list[poly->vertIndexes[0]];
 			u8 alpha =	material_5bit_to_8bit[poly->getAlpha()];
@@ -855,8 +942,10 @@ static void OGLRender()
 					material_5bit_to_8bit[vert2->color[2]],
 					alpha
 				};
+				
+				//Parameters for GX_Position3f32() are x, y, z -- We somehow need to get those out of VERT*
 
-				glTexCoord2fv(vert0->texcoord);
+				GX_Position3f32(vert0->texcoord);
 				glColor4ubv((GLubyte*)color0);
 				glVertex4fv(vert0->coord);
 
@@ -869,7 +958,7 @@ static void OGLRender()
 				glVertex4fv(vert2->coord);
 			}
 
-			glEnd();
+			GX_End();//This is called after the rendering done by GX_Begin() is done
 		}
 	}
 

@@ -43,19 +43,20 @@ const char *key_names[NB_KEYS] =
 };
 
 /* Default joypad configuration */
+//Joypad configuration rewritten for the wii port by Arikado to work with the classic controller
 const u16 default_joypad_cfg[NB_KEYS] =
-  { 1,  // A
-    0,  // B
-    5,  // select
-    8,  // start
+  { 9,  // A
+    10,  // B
+    17,  // select
+    18,  // start
     256, // Right -- Start cheating abit...
     256, // Left
     512, // Up
     512, // Down  -- End of cheating.
-    7,  // R
-    6,  // L
-    4,  // X
-    3,  // Y
+    14,  // R
+    13,  // L
+    11,  // X
+    12,  // Y
     -1, // DEBUG
     -1  // BOOST
   };

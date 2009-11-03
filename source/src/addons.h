@@ -29,6 +29,8 @@
 #include "types.h"
 #include "debug.h"
 
+#define MAX_PATH 200
+
 typedef struct
 {
 	// The name of the plugin, this name will appear in the plugins list
@@ -61,7 +63,7 @@ typedef struct
 } ADDONINTERFACE; 
 
 enum {
-	NDS_ADDON_NONE,
+	NDS_ADDON_NONE = 0,
 	NDS_ADDON_CFLASH,		// compact flash
 	NDS_ADDON_RUMBLEPAK,	// rumble pack
 	NDS_ADDON_GBAGAME,		// gba game in slot

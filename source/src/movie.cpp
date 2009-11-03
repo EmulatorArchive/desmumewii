@@ -533,7 +533,7 @@ void MovieData::dumpSramTo(std::vector<char>* buf, std::string sramfname) {
 
 //begin recording a new movie
 //TODO - BUG - the record-from-another-savestate doesnt work.
-void _CDECL_ FCEUI_SaveMovie(const char *fname, std::wstring author, int flag, std::string sramfname)
+void _CDECL_ FCEUI_SaveMovie(const char *fname, std::string author, int flag, std::string sramfname)
 {
 	//if(!FCEU_IsValidUI(FCEUI_RECORDMOVIE))
 	//	return;
@@ -550,7 +550,7 @@ void _CDECL_ FCEUI_SaveMovie(const char *fname, std::wstring author, int flag, s
 	currMovieData = MovieData();
 	currMovieData.guid.newGuid();
 
-	if(author != L"") currMovieData.comments.push_back(L"author " + author);
+	if(author != "") currMovieData.comments.push_back("author " + author);
 	currMovieData.romChecksum = gameInfo.crc;
 	currMovieData.romSerial = gameInfo.ROMserial;
 	currMovieData.romFilename = GetRomName();

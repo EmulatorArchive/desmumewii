@@ -37,14 +37,16 @@ extern ADDONINTERFACE addonRumblePak;
 extern ADDONINTERFACE addonGBAgame;
 //extern ADDONINTERFACE addonExternalMic;
 
-ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
+//Commented out below for happy compiling - Arikado
+
+/*ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
 		addonNone,
 		addonCFlash,
 		addonRumblePak,
 		addonGBAgame};
 
 ADDONINTERFACE	addon = addonCFlash;		// default none pak
-u8				addon_type = NDS_ADDON_CFLASH;
+u8				addon_type = NDS_ADDON_CFLASH;*/
 
 BOOL addonsInit()
 {
