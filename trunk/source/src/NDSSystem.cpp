@@ -1588,8 +1588,9 @@ void NDS_SkipNextFrame() { SkipNext2DFrame = true; SkipCur3DFrame = true; }
 
 
 template<bool FORCE>
-void NDS_exec(s32 nb)
+void NDS_exec(int nb) //Originally (s32 nb) - changed to get the wii version to compile
 {
+  
 	int i, j;
 
 	LagFrameFlag=1;

@@ -19,11 +19,10 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <stdio.h>
 #include <fat.h>
 #include <wiiuse/wpad.h>
 #include <SDL/SDL.h>
-
+#include <stdio.h>
 #include "MMU.h"
 #include "NDSSystem.h"
 #include "cflash.h"
@@ -34,6 +33,7 @@
 #include "gdbstub.h"
 #include "FrontEnd.h"
 #include "Version.h"
+
 
 NDS_header * header;
 
@@ -58,7 +58,7 @@ u8 *GPU_mergeB[256*192*4];
 
 SoundInterface_struct *SNDCoreList[] = {
   &SNDDummy,
-  //&SNDFile,
+  &SNDFile,
   &SNDSDL,
   NULL
 };
@@ -164,17 +164,17 @@ void DSonpspExec()
     
 	
     // Update mouse position and click
-    //if(mouse.down) {
-	//	NDS_setTouchPos(mouse.x, mouse.y);
-	//}
+    if(mouse.down) {
+		NDS_setTouchPos(mouse.x, mouse.y);
+	}
 	
-   // if(mouse.click)
-     // { 
-     //   NDS_releaseTouch();
-     //   mouse.click = FALSE;
-   //   }
+    if(mouse.click)
+      { 
+        NDS_releaseTouch();
+        mouse.click = FALSE;
+      }
 	
-	//update_keypad(keypad);     /* Update keypad */
+	update_keypad(keypad);     /* Update keypad */
 	
 	int nb = 0;
     
@@ -216,7 +216,7 @@ int main(int argc, char **argv){
   
   enable_sound = true;
 
-  if (enable_sound) {
+  if ( enable_sound) {
     SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
   }
   
@@ -286,7 +286,6 @@ if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
   NDS_DeInit();
   return 0;
 }
-
 
 /*
 int module_start(SceSize args, void *argp)
