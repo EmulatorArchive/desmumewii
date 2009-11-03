@@ -24,6 +24,8 @@
 #ifndef NDSSYSTEM_H
 #define NDSSYSTEM_H
 
+#define MAX_PATH 200
+
 #include <string.h>
 #include "armcpu.h"
 #include "MMU.h"

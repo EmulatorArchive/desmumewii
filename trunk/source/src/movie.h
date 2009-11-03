@@ -11,6 +11,8 @@
 #include "utils/guid.h"
 #include "utils/md5.h"
 
+#define wstring basic_string
+
 typedef struct
 {
 	int movie_version;					// version of the movie format in the file
