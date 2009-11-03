@@ -60,8 +60,8 @@ public:
 	CommandLine();
 	~CommandLine();
 
-	GError *error;
-	GOptionContext *ctx;
+	//GError *error;
+	//GOptionContext *ctx;
 };
 
 #endif

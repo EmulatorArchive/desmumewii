@@ -103,8 +103,8 @@ template<typename T, int DIGITS, bool PAD> void putdec(std::ostream* os, T dec)
 
 std::string mass_replace(const std::string &source, const std::string &victim, const std::string &replacement);
 
-std::wstring mbstowcs(std::string str);
-std::string wcstombs(std::wstring str);
+std::string mbstowcs(std::string str);
+std::string wcstombs(std::string str);
 
 
 
