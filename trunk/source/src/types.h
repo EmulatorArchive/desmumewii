@@ -142,7 +142,7 @@ typedef u32 uint32;
 
 /*---------- GPU3D fixed-points types -----------*/
 
-typedef s32 f32;
+typedef float f32;
 #define inttof32(n)          ((n) << 12)
 #define f32toint(n)          ((n) >> 12)
 #define floattof32(n)        ((int32)((n) * (1 << 12)))
@@ -172,7 +172,7 @@ typedef s16 v10;
 /*----------------------*/
 
 #ifndef OBJ_C
-typedef int BOOL;
+typedef unsigned int BOOL;
 #else
 //apple also defines BOOL
 typedef int desmume_BOOL;
