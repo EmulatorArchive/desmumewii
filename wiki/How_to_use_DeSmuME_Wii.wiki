@@ -1,4 +1,4 @@
-#This page describes how-to use the emulator DeSmuME Wii.
+*This page describes how to use the emulator DeSmuME Wii.*
 
 = Set-up on your SD Card =
 
