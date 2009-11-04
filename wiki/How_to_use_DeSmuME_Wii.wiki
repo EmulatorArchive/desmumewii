@@ -1,0 +1,24 @@
+#This page describes how-to use the emulator DeSmuME Wii.
+
+= Set-up on your SD Card =
+
+Goto the downloads page and download the latest .dol
+
+Rename it to boot.dol
+
+Place it in your SD Card in sd:/apps/desmumewii/boot.dol
+
+Download a Nintendo DS ROM
+
+Name your ROM boot.nds
+
+Place your ROM in the root of your SD Card.
+
+Go to the homebrew channel and launch DeSmuME Wii.
+
+Most likely, you will get a black frozen inescapable screen. If this occurs, unplug your Wii.
+
+
+= Working ROMs =
+
+Right now, it appears that no ROMs work but not very many have been tested. As we work on the emulator, we will frequently update the build available for download. Please let us know immediately if you get a ROM to work.
