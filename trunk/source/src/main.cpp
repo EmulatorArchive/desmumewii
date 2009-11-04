@@ -58,7 +58,7 @@ u8 *GPU_mergeB[256*192*4];
 
 SoundInterface_struct *SNDCoreList[] = {
   &SNDDummy,
-  &SNDFile,
+  //&SNDFile,
   &SNDSDL,
   NULL
 };
