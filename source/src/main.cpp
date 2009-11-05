@@ -162,13 +162,14 @@ void DSonpspExec()
 {  
 //	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
     
+	WPAD_ScanPads();
 	
     // Update mouse position and click
-    if(mouse.down) {
-		NDS_setTouchPos(mouse.x, mouse.y);
+    if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) {
+		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
 	}
 	
-    if(mouse.click)
+    if(!WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
       { 
         NDS_releaseTouch();
         mouse.click = FALSE;
@@ -192,9 +193,34 @@ void DSonpspExec()
 }
 
 int main(int argc, char **argv){
-
-  WPAD_Init();
+  
+  //Lets make a console window
+  static void *xfb = NULL;
+  static GXRModeObj *rmode = NULL;
+  
+  VIDEO_Init();
+  rmode = VIDEO_GetPreferredMode(NULL);
+  xfb = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+  console_init(xfb,20,20,rmode->fbWidth,rmode->xfbHeight,rmode->fbWidth*VI_DISPLAY_PIX_SZ);
+  VIDEO_Configure(rmode);
+  VIDEO_SetNextFramebuffer(xfb);
+  VIDEO_SetBlack(FALSE);
+  VIDEO_Flush();	
+  VIDEO_WaitVSync();
+  
+  printf("\x1b[2;0H");
+  printf("Welcome to DeSmuME Wii!!!\n");
+  
+  printf("Looking for sd:/boot.nds...\n");
   fatInitDefault();
+  FILE *fp = NULL;
+  fp = fopen("sd:/boot.nds", "rb");
+  if(!fp){
+  printf("sd:/boot.nds not found. Returning to loader...");
+  sleep(1);
+  exit(0);
+  }
+  printf("sd:/boot.nds found!\n");
 
   int f;
   struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
@@ -208,20 +234,24 @@ int main(int argc, char **argv){
  
   //DSEmuGui(argp,rom_filename);
   
+  printf("Configuring...\n");
   DoConfig();
 
   cflash_disk_image_file = NULL;
 
+  printf("Initializing virtual Nintendo DS...\n");
   NDS_Init();
   
   enable_sound = true;
 
   if ( enable_sound) {
+  printf("Setting up for sound...\n");
     SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
   }
   
   rom_filename = "sd:/rom.nds";
  
+ printf("Placing ROM into virtual NDS...\n");
 if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
 	printf("Error loading sd:/boot.nds\n");
 	exit(0);
@@ -229,6 +259,7 @@ if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
 
   execute = TRUE;
   
+  printf("Initializing SDL...\n");
    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1)
     {
       fprintf(stderr, "Error trying to initialize SDL: %s\n",
