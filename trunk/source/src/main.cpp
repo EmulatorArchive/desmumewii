@@ -33,6 +33,7 @@
 #include "gdbstub.h"
 #include "FrontEnd.h"
 #include "Version.h"
+#include "log_console.h"
 
 
 NDS_header * header;
@@ -197,10 +198,18 @@ int main(int argc, char **argv){
   //Lets make a console window
   static GXRModeObj *rmode = NULL;
   rmode = VIDEO_GetPreferredMode(NULL);
-  CON_InitEx(rmode, 0, 0, rmode->fbWidth, rmode->xfbHeight);
-  
+  log_console_init(rmode, 0, 0, 0, 200, 200);
+  log_console_enable_video(true);
+  //log_console_enable_log(true);
+
   printf("\x1b[2;0H");
   printf("Welcome to DeSmuME Wii!!!\n");
+  VIDEO_WaitVSync();
+  
+  //Removing this infinite loop produces a frozen balck screen. IE: No text shows up
+  for(;;){
+  
+  }
   
   printf("Looking for sd:/boot.nds...\n");
   fatInitDefault();
