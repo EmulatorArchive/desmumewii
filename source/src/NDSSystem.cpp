@@ -505,7 +505,7 @@ int NDS_Init( void) {
 	if (Screen_Init(GFXCORE_DUMMY) != 0)
 		return -1;
 
-	gfx3d_init();
+	//gfx3d_init(); gl2gx initialization -- we're not ready for this yet
 
 #ifdef GDB_STUB
 	armcpu_new(&NDS_ARM7,1, arm7_mem_if, arm7_ctrl_iface);
@@ -518,10 +518,11 @@ int NDS_Init( void) {
 	if (SPU_Init(SNDCORE_DUMMY, 740) != 0)
 		return -1;
 
-#ifdef EXPERIMENTAL_WIFI
+//We're not ready for wifi yet
+/*#ifdef EXPERIMENTAL_WIFI
 	WIFI_Init(&wifiMac) ;
 	WIFI_SoftAP_Init(&wifiMac);
-#endif
+#endif*/
 
 	nds.FW_ARM9BootCode = NULL;
 	nds.FW_ARM7BootCode = NULL;

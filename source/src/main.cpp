@@ -193,12 +193,25 @@ void DSonpspExec()
       ShowFPS();
 }
 
+void Pause(){
+
+   for(;;){
+   
+      WPAD_ScanPads();
+	  
+	  if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
+	     break;
+		 
+	}
+
+}
+
 int main(int argc, char **argv){
   
   //Lets make a console window
   static GXRModeObj *rmode = NULL;
   rmode = VIDEO_GetPreferredMode(NULL);
-  log_console_init(rmode, 0, 0, 0, 200, 200);
+  log_console_init(rmode, 0, 0, 0, 400, 400);
   log_console_enable_video(true);
   //log_console_enable_log(true);
 
@@ -206,11 +219,7 @@ int main(int argc, char **argv){
   printf("Welcome to DeSmuME Wii!!!\n");
   VIDEO_WaitVSync();
   
-  //Removing this infinite loop produces a frozen balck screen. IE: No text shows up
-  for(;;){
-  
-  }
-  
+  //Check for the ROM
   printf("Looking for sd:/boot.nds...\n");
   fatInitDefault();
   FILE *fp = NULL;
@@ -221,6 +230,7 @@ int main(int argc, char **argv){
   exit(0);
   }
   printf("sd:/boot.nds found!\n");
+  VIDEO_WaitVSync();
 
   int f;
   struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
@@ -233,14 +243,13 @@ int main(int argc, char **argv){
   const SDL_VideoInfo *videoInfo;
  
   //DSEmuGui(argp,rom_filename);
-  
-  printf("Configuring...\n");
-  DoConfig();
 
   cflash_disk_image_file = NULL;
 
   printf("Initializing virtual Nintendo DS...\n");
   NDS_Init();
+  printf("initialization successful!\n");
+  for(;;){}
   
   enable_sound = true;
 
