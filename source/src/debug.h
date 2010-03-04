@@ -1,4 +1,5 @@
 /*  Copyright (C) 2008 Guillaume Duhamel
+	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -17,12 +18,35 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef DEBUG_H
+#define DEBUG_H
 
 #include <vector>
 #include <iostream>
 #include <cstdarg>
+
+#include "types.h"
+
+struct DebugStatistics
+{
+	DebugStatistics();
+	struct InstructionHits {
+		InstructionHits();
+		u32 thumb[1024];
+		u32 arm[4096];
+	} instructionHits[2]; //one for each cpu
+
+	s32 sequencerExecutionCounters[32];
+
+	void print();
+	void printSequencerExecutionCounters();
+};
+
+extern DebugStatistics DEBUG_statistics;
+
+void DEBUG_reset();
+
+struct armcpu_t;
 
 class Logger {
 protected:
@@ -111,5 +135,7 @@ public:
 
 #define INFOC(channel, ...) Logger::log(channel, __FILE__, __LINE__, __VA_ARGS__)
 #define INFO(...) INFOC(10, __VA_ARGS__)
+
+void IdeasLog(armcpu_t* cpu);
 
 #endif

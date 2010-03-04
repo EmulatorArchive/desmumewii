@@ -29,7 +29,7 @@ static BOOL regMainLoop = FALSE;
 
 
 static BOOL noticed_3D=FALSE;
-volatile BOOL execute = FALSE;
+volatile bool execute = false;
 BOOL click = FALSE;
 
 void desmume_mem_init();
@@ -49,12 +49,12 @@ void desmume_init( struct armcpu_memory_iface *arm9_mem_if,
         NDS_Init();
 #endif
         SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
-	execute = FALSE;
+	execute = false;
 }
 
 void desmume_free()
 {
-	execute = FALSE;
+	execute = false;
 	NDS_DeInit();
 }
 
@@ -63,11 +63,7 @@ int desmume_open(const char *filename)
   int i;
   noticed_3D=FALSE;
   clear_savestates();
-#ifdef EXPERIMENTAL_GBASLOT
   i = NDS_LoadROM(filename);
-#else
-  i = NDS_LoadROM(filename, NULL);
-#endif
   return i;
 }
 
@@ -78,14 +74,14 @@ void desmume_savetype(int type) {
 
 void desmume_pause()
 {
-	execute = FALSE;
+	execute = false;
 	SPU_Pause(1);
 }
 
 void desmume_resume()
 {
 	SPU_Pause(0);
-	execute = TRUE;
+	execute = true;
 	if(!regMainLoop)
 		g_idle_add_full(EMULOOP_PRIO, &EmuLoop, NULL, NULL);
 	regMainLoop = TRUE;
@@ -100,7 +96,7 @@ void desmume_reset()
 
 void desmume_toggle()
 {
-	execute = (execute) ? FALSE : TRUE;
+	execute ^= true;
 }
 /*INLINE BOOL desmume_running()
 {

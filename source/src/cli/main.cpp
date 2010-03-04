@@ -18,8 +18,8 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#include <SDL/SDL.h>
-#include <SDL/SDL_thread.h>
+#include <SDL.h>
+#include <SDL_thread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -46,7 +46,6 @@
 
 #include "../MMU.h"
 #include "../NDSSystem.h"
-#include "../cflash.h"
 #include "../debug.h"
 #include "../sndsdl.h"
 #include "../ctrlssdl.h"
@@ -54,11 +53,12 @@
 #include "../rasterize.h"
 #include "../saves.h"
 #include "../mic.h"
+#include "../GPU_osd.h"
 #ifdef GDB_STUB
 #include "../gdbstub.h"
 #endif
 
-volatile BOOL execute = FALSE;
+volatile bool execute = false;
 
 static float nds_screen_size_ratio = 1.0f;
 
@@ -121,7 +121,9 @@ const u16 cli_kb_cfg[NB_KEYS] =
     SDLK_o          // BOOST
   };
 
+#ifdef FAKE_MIC
 static BOOL enable_fake_mic;
+#endif
 
 struct my_config {
   int load_slot;
@@ -670,6 +672,7 @@ static void desmume_cycle(int *sdl_quit, int *boost, struct my_config * my_confi
               {
                 focused = 1;
                 SPU_Pause(0);
+                osd->addLine("Auto pause disabled\n");
               }
               else
               {
@@ -685,12 +688,22 @@ static void desmume_cycle(int *sdl_quit, int *boost, struct my_config * my_confi
               case SDLK_ESCAPE:
                 *sdl_quit = 1;
                 break;
+#ifdef FAKE_MIC
               case SDLK_m:
                 enable_fake_mic = !enable_fake_mic;
                 Mic_DoNoise(enable_fake_mic);
+                if (enable_fake_mic)
+                  osd->addLine("Fake mic enabled\n");
+                else
+                  osd->addLine("Fake mic disabled\n");
                 break;
+#endif
               case SDLK_o:
                 *boost = !(*boost);
+                if (*boost)
+                  osd->addLine("Boost mode enabled\n");
+                else
+                  osd->addLine("Boost mode disabled\n");
                 break;
               default:
                 break;
@@ -807,11 +820,7 @@ int main(int argc, char ** argv) {
 
   backup_setManualBackupType(my_config.savetype);
 
-#ifdef EXPERIMENTAL_GBASLOT
   error = NDS_LoadROM( my_config.nds_file );
-#else
-  error = NDS_LoadROM( my_config.nds_file, my_config.cflash_disk_image_file );
-#endif
   if (error < 0) {
     fprintf(stderr, "error while loading %s\n", my_config.nds_file);
     exit(-1);
@@ -830,7 +839,7 @@ int main(int argc, char ** argv) {
   }
 #endif
 
-  execute = TRUE;
+  execute = true;
 
   if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1)
     {
@@ -936,9 +945,15 @@ int main(int argc, char ** argv) {
     loadstate_slot(my_config.load_slot);
   }
 
+  Desmume_InitOnce();
+  Hud.reset();
+  aggDraw.hud->attach(GPU_screen, 256, 384, 512);
+
   while(!sdl_quit) {
     desmume_cycle(&sdl_quit, &boost, &my_config);
 
+    osd->update();
+    DrawHUD();
 #ifdef INCLUDE_OPENGL_2D
     if ( my_config.opengl_2d) {
       opengl_Draw( screen_texture, my_config.soft_colour_convert);
@@ -946,6 +961,7 @@ int main(int argc, char ** argv) {
     else
 #endif
       Draw();
+    osd->clear();
 
     for ( int i = 0; i < my_config.frameskip; i++ ) {
         NDS_SkipNextFrame();

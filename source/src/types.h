@@ -26,20 +26,49 @@
 #include "config.h"
 #endif
 
-#ifndef _MSC_VER
-#define NOSSE2
+#ifdef DEVELOPER
+#define IF_DEVELOPER(X) X
+#else
+#define IF_DEVELOPER(X)
+#endif
+
+#ifdef _MSC_VER
+#define ENABLE_SSE
+#define ENABLE_SSE2
+#endif
+
+#ifdef __GNUC__
+#ifdef __SSE__
+#define ENABLE_SSE
+#endif
+#ifdef __SSE2__
+#define ENABLE_SSE2
+#endif
+#endif
+
+#ifdef NOSSE
+#undef ENABLE_SSE
+#endif
+
+#ifdef NOSSE2
+#undef ENABLE_SSE2
 #endif
 
 #ifdef _WIN32
 #define strcasecmp(x,y) _stricmp(x,y)
+#define snprintf _snprintf
 #else
 #define WINAPI
 #endif
 
-/*#ifdef __GNUC__
+#ifdef __GNUC__
 #include <limits.h>
+#ifndef PATH_MAX
+#define MAX_PATH 1024
+#else
 #define MAX_PATH PATH_MAX
-#endif*/
+#endif
+#endif
 
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 #define ALIGN(X) __declspec(align(X))
@@ -82,30 +111,16 @@
 #define FORCEINLINE __forceinline
 #define MSC_FORCEINLINE __forceinline
 #else
-#define FORCEINLINE INLINE
+#define FORCEINLINE inline __attribute__((always_inline)) 
 #define MSC_FORCEINLINE
 #endif
 #endif
-
-//#ifndef _PREFETCH
-//#if (defined(_MSC_VER) || defined(__INTEL_COMPILER)) && !defined(NOSSE2)
-//#include <xmmintrin.h>
-//#include <intrin.h>
-//#define _PREFETCH(X) _mm_prefetch((char*)(X),_MM_HINT_T0);
-//#define _PREFETCHNTA(X) _mm_prefetch((char*)(X),_MM_HINT_NTA);
-//#else
-#define _PREFETCH(X) {}
-#define _PREFETCHNTA(X) {}
-//#endif
-//#endif
-
-
 
 #if defined(__LP64__)
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
-typedef unsigned long u64;
+typedef unsigned long long u64;
 
 typedef signed char s8;
 typedef signed short s16;
@@ -142,7 +157,7 @@ typedef u32 uint32;
 
 /*---------- GPU3D fixed-points types -----------*/
 
-typedef float f32;
+typedef s32 f32;
 #define inttof32(n)          ((n) << 12)
 #define f32toint(n)          ((n) >> 12)
 #define floattof32(n)        ((int32)((n) * (1 << 12)))
@@ -172,7 +187,7 @@ typedef s16 v10;
 /*----------------------*/
 
 #ifndef OBJ_C
-typedef unsigned int BOOL;
+typedef int BOOL;
 #else
 //apple also defines BOOL
 typedef int desmume_BOOL;
@@ -291,16 +306,16 @@ inline float u32_to_float(u32 u) {
 ///stores a 32bit value into the provided byte array in guaranteed little endian form
 inline void en32lsb(u8 *buf, u32 morp)
 { 
-	buf[0]=morp;
-	buf[1]=morp>>8;
-	buf[2]=morp>>16;
-	buf[3]=morp>>24;
+	buf[0]=(u8)(morp);
+	buf[1]=(u8)(morp>>8);
+	buf[2]=(u8)(morp>>16);
+	buf[3]=(u8)(morp>>24);
 } 
 
 inline void en16lsb(u8* buf, u16 morp)
 {
-	buf[0]=morp;
-	buf[1]=morp>>8;
+	buf[0]=(u8)morp;
+	buf[1]=(u8)(morp>>8);
 }
 
 ///unpacks a 64bit little endian value from the provided byte array into host byte order
@@ -331,5 +346,69 @@ char (*BLAHBLAHBLAH( UNALIGNED T (&)[N] ))[N];
 #endif
 
 
+//fairly standard for loop macros
+#define MACRODO1(TRICK,TODO) { const int X = TRICK; TODO; }
+#define MACRODO2(X,TODO)   { MACRODO1((X),TODO)   MACRODO1(((X)+1),TODO) }
+#define MACRODO4(X,TODO)   { MACRODO2((X),TODO)   MACRODO2(((X)+2),TODO) }
+#define MACRODO8(X,TODO)   { MACRODO4((X),TODO)   MACRODO4(((X)+4),TODO) }
+#define MACRODO16(X,TODO)  { MACRODO8((X),TODO)   MACRODO8(((X)+8),TODO) }
+#define MACRODO32(X,TODO)  { MACRODO16((X),TODO)  MACRODO16(((X)+16),TODO) }
+#define MACRODO64(X,TODO)  { MACRODO32((X),TODO)  MACRODO32(((X)+32),TODO) }
+#define MACRODO128(X,TODO) { MACRODO64((X),TODO)  MACRODO64(((X)+64),TODO) }
+#define MACRODO256(X,TODO) { MACRODO128((X),TODO) MACRODO128(((X)+128),TODO) }
+
+//this one lets you loop any number of times (as long as N<256)
+#define MACRODO_N(N,TODO) {\
+	if((N)&0x100) MACRODO256(0,TODO); \
+	if((N)&0x080) MACRODO128((N)&(0x100),TODO); \
+	if((N)&0x040) MACRODO64((N)&(0x100|0x080),TODO); \
+	if((N)&0x020) MACRODO32((N)&(0x100|0x080|0x040),TODO); \
+	if((N)&0x010) MACRODO16((N)&(0x100|0x080|0x040|0x020),TODO); \
+	if((N)&0x008) MACRODO8((N)&(0x100|0x080|0x040|0x020|0x010),TODO); \
+	if((N)&0x004) MACRODO4((N)&(0x100|0x080|0x040|0x020|0x010|0x008),TODO); \
+	if((N)&0x002) MACRODO2((N)&(0x100|0x080|0x040|0x020|0x010|0x008|0x004),TODO); \
+	if((N)&0x001) MACRODO1((N)&(0x100|0x080|0x040|0x020|0x010|0x008|0x004|0x002),TODO); \
+}
+
+//---------------------------
+//Binary constant generator macro By Tom Torfs - donated to the public domain
+
+//turn a numeric literal into a hex constant
+//(avoids problems with leading zeroes)
+//8-bit constants max value 0x11111111, always fits in unsigned long
+#define HEX__(n) 0x##n##LU
+
+//8-bit conversion function 
+#define B8__(x) ((x&0x0000000FLU)?1:0) \
++((x&0x000000F0LU)?2:0) \
++((x&0x00000F00LU)?4:0) \
++((x&0x0000F000LU)?8:0) \
++((x&0x000F0000LU)?16:0) \
++((x&0x00F00000LU)?32:0) \
++((x&0x0F000000LU)?64:0) \
++((x&0xF0000000LU)?128:0)
+
+//for upto 8-bit binary constants
+#define B8(d) ((unsigned char)B8__(HEX__(d)))
+
+// for upto 16-bit binary constants, MSB first
+#define B16(dmsb,dlsb) (((unsigned short)B8(dmsb)<<8) \
++ B8(dlsb))
+
+// for upto 32-bit binary constants, MSB first */
+#define B32(dmsb,db2,db3,dlsb) (((unsigned long)B8(dmsb)<<24) \
++ ((unsigned long)B8(db2)<<16) \
++ ((unsigned long)B8(db3)<<8) \
++ B8(dlsb))
+
+//Sample usage:
+//B8(01010101) = 85
+//B16(10101010,01010101) = 43605
+//B32(10000000,11111111,10101010,01010101) = 2164238933
+//---------------------------
+
+#ifndef CTASSERT
+#define	CTASSERT(x)		typedef char __assert ## y[(x) ? 1 : -1]
+#endif
 
 #endif

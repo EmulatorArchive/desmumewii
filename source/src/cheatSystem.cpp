@@ -35,6 +35,7 @@ static	u32					cheatsCurrentGet = 0;
 
 static	u8					*cheatsStack = NULL;
 static	u16					cheatsNumStack = 0;
+static	bool				cheatsDisabled = false;
 
 static void cheatsClear()
 {
@@ -393,7 +394,7 @@ static void cheats_ARparser(CHEATS_LIST cheat)
 
 static BOOL cheatsXXcodePreparser(CHEATS_LIST *cheat, char *code)
 {
-	u16		count = 0;
+	int		count = 0;
 	u16		t = 0;
 	char	tmp_buf[sizeof(cheat->hi)+sizeof(cheat->lo)];
 
@@ -710,6 +711,7 @@ void cheatsStackClear()
 
 void cheatsProcess()
 {
+	if (cheatsDisabled) return;
 	if (!cheatsNum) return;
 	for (int i = 0; i < cheatsNum; i++)
 	{
@@ -754,6 +756,11 @@ void cheatGetXXcodeString(CHEATS_LIST cheat, char *res_buf)
 		sprintf(buf, "%08X %08X\n", cheat.hi[i], cheat.lo[i]);
 		strcat(res_buf, buf);
 	}
+}
+
+void cheatsDisable(bool disable)
+{
+	cheatsDisabled = disable;
 }
 
 // ========================================== search

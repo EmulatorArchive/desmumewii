@@ -27,6 +27,8 @@
 #define SRAM_SIZE	0x10000
 #define NB_STATES       10
 
+extern int lastSaveState;
+
 typedef struct 
 {
   BOOL exists;
@@ -63,5 +65,11 @@ bool savestate_save (const char *file_name);
 
 void savestate_slot(int num);
 void loadstate_slot(int num);
+
+bool savestate_load(class EMUFILE* is);
+bool savestate_save(class EMUFILE* outstream, int compressionLevel);
+
+void dorewind();
+void rewindsave();
 
 #endif

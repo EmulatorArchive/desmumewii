@@ -23,11 +23,16 @@
 */
 
 #include "addons.h"
+#include <string>
 
-char CFlashName[MAX_PATH];
-char CFlashPath[MAX_PATH];
-u8	 CFlashUseRomPath = TRUE;
-u8	 CFlashUsePath = TRUE;
+std::string CFlash_Path;
+ADDON_CFLASH_MODE CFlash_Mode;
+
+
+//char CFlashName[MAX_PATH];
+//char CFlashPath[MAX_PATH];
+//u8	 CFlashUseRomPath = TRUE;
+//u8	 CFlashUsePath = TRUE;
 
 char GBAgameName[MAX_PATH];
 
@@ -35,22 +40,25 @@ extern ADDONINTERFACE addonNone;
 extern ADDONINTERFACE addonCFlash;
 extern ADDONINTERFACE addonRumblePak;
 extern ADDONINTERFACE addonGBAgame;
+extern ADDONINTERFACE addonGuitarGrip;
+extern ADDONINTERFACE addonExpMemory;
 //extern ADDONINTERFACE addonExternalMic;
 
-//Commented out below for happy compiling - Arikado
-
-/*ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
+ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
 		addonNone,
 		addonCFlash,
 		addonRumblePak,
-		addonGBAgame};
+		addonGBAgame,
+		addonGuitarGrip,
+		addonExpMemory
+};
 
 ADDONINTERFACE	addon = addonCFlash;		// default none pak
-u8				addon_type = NDS_ADDON_CFLASH;*/
+u8				addon_type = NDS_ADDON_CFLASH;
 
 BOOL addonsInit()
 {
-//	return addon.init();
+	return addon.init();
 }
 
 void addonsClose()
@@ -60,11 +68,12 @@ void addonsClose()
 
 void addonsReset()
 {
-//	addon.reset();
+	addon.reset();
 }
 
 BOOL addonsChangePak(u8 type)
 {
+	printf("addonsChangePak\n");
 	if (type > NDS_ADDON_COUNT) return FALSE;
 	addon.close();
 	addon = addonList[type];

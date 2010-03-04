@@ -26,12 +26,9 @@
 
 #include <stdio.h>
 #include "types.h"
+#include <string>
 
-extern u8	gba_header_data_0x04[156];
-const char* GetRomName();	//adelikat: return the name of the Rom currently loaded
-void SetRomName(const char *filename);
-
-
+extern u8	logo_data[156];
 #ifdef WIN32
 
 	#include <winsock2.h>
@@ -69,13 +66,15 @@ void SetRomName(const char *filename);
 
 	extern HINSTANCE hAppInst;
 
-	extern BOOL romloaded;
+	extern bool romloaded;
 
 	extern char IniName[MAX_PATH];
 	extern void GetINIPath();
 	extern void WritePrivateProfileInt(char* appname, char* keyname, int val, char* file);
 
-	#define EXPERIMENTAL_GBASLOT 1
+	bool GetPrivateProfileBool(const char* appname, const char* keyname, bool defval, const char* filename);
+	void WritePrivateProfileBool(char* appname, char* keyname, bool val, char* file);
+
 #else		// non Windows
 
 #define sscanf_s sscanf

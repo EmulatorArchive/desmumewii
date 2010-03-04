@@ -265,7 +265,7 @@ const char MSR_FIELD[16][5] = {
                }\
           }\
      }\
-     lreg[strlen(lreg)-1]='\0';
+     if(*lreg) lreg[strlen(lreg)-1]='\0';
 
 static char * OP_UND(u32 adr, u32 i, char * txt)
 {
@@ -3760,13 +3760,14 @@ static char * OP_BL_THUMB(u32 adr, u32 i, char * txt)
      return txt;
 } 
 
-#define TYPE_RETOUR char *
-#define PARAMETRES  u32 adr, u32 i, char * txt
-#define CALLTYPE     
-#define NOM_TAB     des_arm_instructions_set
-#define NOM_THUMB_TAB     des_thumb_instructions_set
+
+
 #define TABDECL(x) x
 
+const DisasmOpFunc des_arm_instructions_set[4096] = {
 #include "instruction_tabdef.inc"
-#include "thumb_tabdef.inc"
+};
 
+const DisasmOpFunc des_thumb_instructions_set[1024] = {
+#include "thumb_tabdef.inc"
+};

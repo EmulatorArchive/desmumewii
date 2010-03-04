@@ -26,8 +26,6 @@
 #ifndef FIFO_H
 #define FIFO_H
 
-//#define USE_GEOMETRY_FIFO_EMULATION
-
 #include "types.h"
 
 //=================================================== IPC FIFO
@@ -35,7 +33,9 @@ typedef struct
 {
 	u32		buf[16];
 	
+	u8		head;
 	u8		tail;
+	u8		size;
 } IPC_FIFO;
 
 extern IPC_FIFO ipc_fifo[2];
@@ -45,18 +45,38 @@ extern u32 IPC_FIFOrecv(u8 proc);
 extern void IPC_FIFOcnt(u8 proc, u16 val);
 
 //=================================================== GFX FIFO
+
+//yeah, its oversize for now. thats a simpler solution
+//moon seems to overdrive the fifo with immediate dmas
+//i think this might be nintendo code too
+#define HACK_GXIFO_SIZE 200000
+
 typedef struct
 {
-	u8		cmd[261];
-	u32		param[261];
+	u8		cmd[HACK_GXIFO_SIZE];
+	u32		param[HACK_GXIFO_SIZE];
 
-	u16		tail;		// tail
+	u32		head;		// start position
+	u32		tail;		// tail
+	u32		size;		// size FIFO buffer
 } GFX_FIFO;
 
+typedef struct
+{
+	u8		cmd[4];
+	u32		param[4];
+
+	u8		head;
+	u8		tail;
+	u8		size;
+} GFX_PIPE;
+
+extern GFX_PIPE gxPIPE;
 extern GFX_FIFO gxFIFO;
+extern void GFX_PIPEclear();
 extern void GFX_FIFOclear();
 extern void GFX_FIFOsend(u8 cmd, u32 param);
-extern BOOL GFX_FIFOrecv(u8 *cmd, u32 *param);
+extern BOOL GFX_PIPErecv(u8 *cmd, u32 *param);
 extern void GFX_FIFOcnt(u32 val);
 
 //=================================================== Display memory FIFO

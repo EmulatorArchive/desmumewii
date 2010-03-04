@@ -23,12 +23,26 @@
 #ifndef SPU_H
 #define SPU_H
 
-#include "types.h"
 #include <iosfwd>
 #include <string>
+#include <assert.h>
+#include "types.h"
+#include "matrix.h"
+#include "emufile.h"
+
 
 #define SNDCORE_DEFAULT         -1
 #define SNDCORE_DUMMY           0
+
+#define CHANSTAT_STOPPED          0
+#define CHANSTAT_PLAY             1
+
+static FORCEINLINE u32 sputrunc(float f) { return u32floor(f); }
+static FORCEINLINE u32 sputrunc(double d) { return u32floor(d); }
+static FORCEINLINE s32 spumuldiv7(s32 val, u8 multiplier) {
+	assert(multiplier <= 127);
+	return (multiplier == 127) ? val : ((val * multiplier) >> 7);
+}
 
 enum SPUInterpolationMode
 {
@@ -48,20 +62,18 @@ struct SoundInterface_struct
    void (*MuteAudio)();
    void (*UnMuteAudio)();
    void (*SetVolume)(int volume);
+   void (*ClearBuffer)();
 };
 
 extern SoundInterface_struct SNDDummy;
 extern SoundInterface_struct SNDFile;
 extern int SPU_currentCoreNum;
 
-class ADPCMCacheItem;
-
 struct channel_struct
 {
 	channel_struct()
-		: cacheItem(NULL)
 	{}
-	int num;
+	u32 num;
    u8 vol;
    u8 datashift;
    u8 hold;
@@ -85,10 +97,11 @@ struct channel_struct
    // ADPCM specific
    u32 lastsampcnt;
    s16 pcm16b, pcm16b_last;
+   s16 loop_pcm16b;
    int index;
+   int loop_index;
    u16 x;
    s16 psgnoise_last;
-   ADPCMCacheItem *cacheItem;
 } ;
 
 class SPU_struct
@@ -119,21 +132,29 @@ SoundInterface_struct *SPU_SoundCore();
 int SPU_Init(int coreid, int buffersize);
 void SPU_Pause(int pause);
 void SPU_SetVolume(int volume);
+void SPU_SetSynchMode(int mode, int method);
+void SPU_ClearOutputBuffer(void);
 void SPU_Reset(void);
 void SPU_DeInit(void);
 void SPU_KeyOn(int channel);
 void SPU_WriteByte(u32 addr, u8 val);
 void SPU_WriteWord(u32 addr, u16 val);
 void SPU_WriteLong(u32 addr, u32 val);
-u32 SPU_ReadLong(u32 addr);
 void SPU_Emulate_core(void);
-void SPU_Emulate_user(void);
+void SPU_Emulate_user(bool mix = true);
 
 extern SPU_struct *SPU_core, *SPU_user;
 extern int spu_core_samples;
 
-void spu_savestate(std::ostream* os);
-bool spu_loadstate(std::istream* is, int size);
+void spu_savestate(EMUFILE* os);
+bool spu_loadstate(EMUFILE* is, int size);
+
+enum WAVMode
+{
+	WAVMODE_ANY = -1,
+	WAVMODE_CORE = 0,
+	WAVMODE_USER = 1
+};
 
 class WavWriter
 {
@@ -143,14 +164,19 @@ public:
 	void close();
 	void update(void* soundData, int numSamples);
 	bool isRecording() const;
+	WAVMode mode;
 private:
 	FILE *spufp;
 };
 
-
 void WAV_End();
-bool WAV_Begin(const char* fname);
-bool WAV_IsRecording();
-void WAV_WavSoundUpdate(void* soundData, int numSamples);
+bool WAV_Begin(const char* fname, WAVMode mode=WAVMODE_CORE);
+bool WAV_IsRecording(WAVMode mode=WAVMODE_ANY);
+void WAV_WavSoundUpdate(void* soundData, int numSamples, WAVMode mode=WAVMODE_CORE);
+
+// we should make this configurable eventually
+// but at least defining it somewhere is probably a step in the right direction
+#define DESMUME_SAMPLE_RATE 44100
+//#define DESMUME_SAMPLE_RATE 48000
 
 #endif

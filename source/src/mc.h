@@ -1,5 +1,6 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006 Theo Berkau
+	Copyright (C) 2008-2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -25,6 +26,7 @@
 #include <vector>
 #include <string>
 #include "types.h"
+#include "emufile.h"
 
 #define MC_TYPE_AUTODETECT      0x0
 #define MC_TYPE_EEPROM1         0x1
@@ -76,12 +78,12 @@ public:
 	void reset();
 	void close_rom();
 
-	bool save_state(std::ostream* os);
-	bool load_state(std::istream* is);
+	bool save_state(EMUFILE* os);
+	bool load_state(EMUFILE* is);
 	
 	//commands from mmu
 	void reset_command();
-	u8 data_command(u8);
+	u8 data_command(u8,int);
 
 	//this info was saved before the last reset (used for savestate compatibility)
 	struct SavedInfo
@@ -98,9 +100,11 @@ public:
 	void raw_applyUserSettings(u32& size);
 
 	bool load_duc(const char* filename);
+	bool load_no_gba(const char *fname);
+	bool save_no_gba(const char* fname);
 	bool load_raw(const char* filename);
 	bool save_raw(const char* filename);
-	bool load_movie(std::istream* is);
+	bool load_movie(EMUFILE* is);
 
 	//call me once a second or so to lazy flush the save data
 	//here's the reason for this system: we want to dump save files when theyre READ
@@ -108,14 +112,16 @@ public:
 	//way too much if we flush whenever we read.
 	void lazy_flush();
 
+public: //SHOULD BE PRIVATE!!!!!!!!
+	std::string filename;
+
 private:
-	BOOL write_enable;	//is write enabled?
+	bool write_enable;	//is write enabled?
 	u32 com;	//persistent command actually handled
 	u32 addr_size, addr_counter;
 	u32 addr;
 	bool isMovieMode;
 
-	std::string filename;
 	std::vector<u8> data;
 	std::vector<u8> data_autodetect;
 	enum STATE {
