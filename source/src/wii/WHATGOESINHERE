@@ -1,8 +1,0 @@
-The Wii folder should be a port/rewrite of the Windows folder.
-
-#includes in the source will then need to be changed to link to the Wii folder
-instead of the Windows folder.
-
-For the record, the Windows folder is basically the GUI for desmume and uses
-the source in the src folder to emulate roms. The Windows folder also contains
-source for things we don't neeed (and shouldn't want) like gameplay video recording.
