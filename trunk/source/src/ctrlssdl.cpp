@@ -43,20 +43,19 @@ const char *key_names[NB_KEYS] =
 };
 
 /* Default joypad configuration */
-//Joypad configuration rewritten for the wii port by Arikado to work with the classic controller
 const u16 default_joypad_cfg[NB_KEYS] =
-  { 9,  // A
-    10,  // B
-    17,  // select
-    18,  // start
+  { 1,  // A
+    0,  // B
+    5,  // select
+    8,  // start
     256, // Right -- Start cheating abit...
     256, // Left
     512, // Up
     512, // Down  -- End of cheating.
-    14,  // R
-    13,  // L
-    11,  // X
-    12,  // Y
+    7,  // R
+    6,  // L
+    4,  // X
+    3,  // Y
     -1, // DEBUG
     -1  // BOOST
   };
@@ -294,12 +293,12 @@ void set_mouse_coord(signed long x,signed long y)
 void update_keypad(u16 keys)
 {
 #ifdef WORDS_BIGENDIAN
-  ARM9Mem.ARM9_REG[0x130] = ~keys & 0xFF;
-  ARM9Mem.ARM9_REG[0x131] = (~keys >> 8) & 0x3;
+  MMU.ARM9_REG[0x130] = ~keys & 0xFF;
+  MMU.ARM9_REG[0x131] = (~keys >> 8) & 0x3;
   MMU.ARM7_REG[0x130] = ~keys & 0xFF;
   MMU.ARM7_REG[0x131] = (~keys >> 8) & 0x3;
 #else
-  ((u16 *)ARM9Mem.ARM9_REG)[0x130>>1] = ~keys & 0x3FF;
+  ((u16 *)MMU.ARM9_REG)[0x130>>1] = ~keys & 0x3FF;
   ((u16 *)MMU.ARM7_REG)[0x130>>1] = ~keys & 0x3FF;
 #endif
   /* Update X and Y buttons */
@@ -313,9 +312,9 @@ u16 get_keypad( void)
   keypad = ~MMU.ARM7_REG[0x136];
   keypad = (keypad & 0x3) << 10;
 #ifdef WORDS_BIGENDIAN
-  keypad |= ~(ARM9Mem.ARM9_REG[0x130] | (ARM9Mem.ARM9_REG[0x131] << 8)) & 0x3FF;
+  keypad |= ~(MMU.ARM9_REG[0x130] | (MMU.ARM9_REG[0x131] << 8)) & 0x3FF;
 #else
-  keypad |= ~((u16 *)ARM9Mem.ARM9_REG)[0x130>>1] & 0x3FF;
+  keypad |= ~((u16 *)MMU.ARM9_REG)[0x130>>1] & 0x3FF;
 #endif
   return keypad;
 }

@@ -36,7 +36,7 @@ typedef struct
 	u32		hi[255];
 	u32		lo[255];
 	char	description[75];
-	u8		num;
+	int		num;
 	u8		size;
 
 } CHEATS_LIST;
@@ -60,6 +60,7 @@ extern BOOL cheatsPop();
 extern void cheatsStackClear();
 extern void cheatsProcess();
 extern void cheatGetXXcodeString(CHEATS_LIST cheat, char *res_buf);
+extern void cheatsDisable(bool disable);
 
 // ==================================================== cheat search
 extern void cheatsSearchInit(u8 type, u8 size, u8 sign);

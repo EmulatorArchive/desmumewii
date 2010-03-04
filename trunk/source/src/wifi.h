@@ -1,5 +1,5 @@
-/*  
-    Copyright (C) 2007 Tim Seidel
+/*  Copyright (C) 2007 Tim Seidel
+    Copyright (C) 2008-2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -23,23 +23,19 @@
 #include <stdio.h>
 #include "types.h"
 
-#ifdef EXPERIMENTAL_WIFI
-
-#ifdef WIN32
-#include "windriver.h"
-#else
-#include "pcap/pcap.h"
-#endif
+#ifdef EXPERIMENTAL_WIFI_COMM
 
 #define HAVE_REMOTE
 #define WPCAP
 #define PACKET_SIZE 65535
 #define _INC_STDIO
 
+#endif
 
 #define		REG_WIFI_ID					0x000
 #define     REG_WIFI_MODE       		0x004
 #define     REG_WIFI_WEP        		0x006
+#define		REG_WIFI_TXSTATCNT			0x008
 #define     REG_WIFI_IF     			0x010
 #define     REG_WIFI_IE     			0x012
 #define     REG_WIFI_MAC0       		0x018
@@ -54,6 +50,7 @@
 #define		REG_WIFI_RXCNT				0x030
 #define		REG_WIFI_WEPCNT				0x032
 #define		REG_WIFI_POWER_US			0x036
+#define		REG_WIFI_POWER_TX			0x038
 #define     REG_WIFI_POWERSTATE 		0x03C
 #define     REG_WIFI_FORCEPS    		0x040
 #define     REG_WIFI_RANDOM     		0x044
@@ -71,16 +68,18 @@
 #define     REG_WIFI_CIRCBUFWRITE       0x070
 #define     REG_WIFI_CIRCBUFWR_END      0x074
 #define     REG_WIFI_CIRCBUFWR_SKIP     0x076
-#define     REG_WIFI_BEACONTRANS        0x080
+#define     REG_WIFI_TXLOCBEACON        0x080
 #define     REG_WIFI_LISTENCOUNT        0x088
 #define     REG_WIFI_BEACONPERIOD       0x08C
 #define     REG_WIFI_LISTENINT          0x08E
+#define 	REG_WIFI_TXLOCEXTRA			0x090
 #define     REG_WIFI_TXLOC1             0x0A0
 #define     REG_WIFI_TXLOC2             0x0A4
 #define     REG_WIFI_TXLOC3             0x0A8
 #define     REG_WIFI_TXOPT              0x0AC
 #define     REG_WIFI_TXCNT              0x0AE
 #define		REG_WIFI_TXREQ_READ			0x0B0
+#define		REG_WIFI_TXRESET			0x0B4
 #define		REG_WIFI_TXBUSY				0x0B6
 #define     REG_WIFI_TXSTAT             0x0B8
 #define     REG_WIFI_RXFILTER           0x0D0
@@ -96,6 +95,8 @@
 #define     REG_WIFI_USCOUNTER2         0x0FC
 #define     REG_WIFI_USCOUNTER3         0x0FE
 #define		REG_WIFI_EXTRACOUNT			0x118
+#define 	REG_WIFI_BEACONCOUNT1		0x11C
+#define 	REG_WIFI_BEACONCOUNT2		0x134
 #define     REG_WIFI_BBSIOCNT           0x158
 #define     REG_WIFI_BBSIOWRITE         0x15A
 #define     REG_WIFI_BBSIOREAD          0x15C
@@ -104,7 +105,10 @@
 #define     REG_WIFI_RFIODATA1  		0x17E
 #define     REG_WIFI_RFIOBSY    		0x180
 #define     REG_WIFI_RFIOCNT    		0x184
+#define		REG_WIFI_RFPINS				0x19C
+#define		REG_WIFI_RFSTATUS			0x214
 #define		REG_WIFI_IF_SET				0x21C
+#define 	REG_WIFI_TXSEQNO			0x210
 #define		REG_WIFI_POWERACK			0x2D0
 
 /* WIFI misc constants */
@@ -261,6 +265,7 @@ typedef struct rffilter_t
 /* 6*/      unsigned MID_POWER:6;
 /*12*/      unsigned MAX_POWER:6;
 		} bits ;
+		u32 val ;
 	} PCNT2 ;
 	union VCOT1
 	{
@@ -329,15 +334,19 @@ typedef union
 	u16 val ;
 } bbIOCnt_t ;
 
-#define WIFI_IRQ_RECVCOMPLETE       	0
-#define WIFI_IRQ_SENDCOMPLETE           1
-#define WIFI_IRQ_COUNTUP                2
-#define WIFI_IRQ_SENDERROR              3
-#define WIFI_IRQ_STATCOUNTUP            4
-#define WIFI_IRQ_STATACKUP              5
-#define WIFI_IRQ_RECVSTART              6
-#define WIFI_IRQ_SENDSTART              7
+#define WIFI_IRQ_RXEND					0
+#define WIFI_IRQ_TXEND					1
+#define WIFI_IRQ_RXINC					2
+#define WIFI_IRQ_TXERROR	            3
+#define WIFI_IRQ_RXOVF					4
+#define WIFI_IRQ_TXERROVF				5
+#define WIFI_IRQ_RXSTART				6
+#define WIFI_IRQ_TXSTART				7
+#define WIFI_IRQ_TXCOUNTEXP				8
+#define WIFI_IRQ_RXCOUNTEXP				9
 #define WIFI_IRQ_RFWAKEUP               11
+#define WIFI_IRQ_UNK					12
+#define WIFI_IRQ_TIMEPOSTBEACON			13
 #define WIFI_IRQ_TIMEBEACON             14
 #define WIFI_IRQ_TIMEPREBEACON          15
 
@@ -365,6 +374,7 @@ typedef union
 
 /* wifimac_t: the buildin mac (arm7 addressrange: 0x04800000-0x04FFFFFF )*/
 /* http://www.akkit.org/info/dswifi.htm#WifiIOMap */
+
 typedef struct 
 {
 	/* power */
@@ -385,12 +395,16 @@ typedef struct
 	BOOL WEP_enable ;
 
 	/* sending */
+	u16 TXStatCnt;
+	u16 TXPower;
 	u16 TXSlot[3] ;
 	u16 TXCnt ;
 	u16 TXOpt ;
 	u16 TXStat;
-	u16 BEACONSlot ;
-	BOOL BEACON_enable ;
+	u16 BeaconAddr;
+	BOOL BeaconEnable;
+	u16 TXSlotExtra;
+	u16 TXSeqNo;
 	u8 txCurSlot;
 	u8 txSlotBusy[3];
 	u32 txSlotAddr[3];
@@ -400,10 +414,14 @@ typedef struct
 	/* receiving */
 	u16 RXCnt ;
 	u16 RXCheckCounter ;
+	u8 RXNum;
+
+	u16 RXTXAddr;
 
 	/* addressing/handshaking */
 	union
 	{
+		//TODO - is this endian safe? don't think so
 		u16  words[3] ;
 		u8	 bytes[6] ;
 	} mac ;
@@ -422,8 +440,13 @@ typedef struct
 	BOOL usecEnable ;
 	u64 ucmp ;
 	BOOL ucmpEnable ;
-	u16 eCount ;
+	u32 eCount ;
 	BOOL eCountEnable ;
+	u16 BeaconInterval;
+	u16 BeaconCount1;
+	u16 BeaconCount2;
+	u16 ListenInterval;
+	u16 ListenCount;
 
 	/* subchips */
     rffilter_t 	RF ;
@@ -455,9 +478,8 @@ typedef struct
 	u16         CircBufWrSkip ;
 
 	/* tx packets */
-	u8 *curPacket[3];
-	int curPacketSize[3];
-	int curPacketPos[3];
+	s32 curPacketSize[3];
+	s32 curPacketPos[3];
 	BOOL curPacketSending[3];
 
 	/* i/o mem */
@@ -466,65 +488,56 @@ typedef struct
 	/* others */
 	u16			randomSeed ;
 
+	struct _Adhoc
+	{
+		u64 usecCounter;
+
+	} Adhoc;
+
 	/* SoftAP */
 	struct _SoftAP
 	{
-		pcap_t *bridge;
-
 		u64 usecCounter;
 
-		u8 *curPacket;
-		int curPacketSize;
-		int curPacketPos;
+		u8 curPacket[4096];
+		s32 curPacketSize;
+		s32 curPacketPos;
 		BOOL curPacketSending;
 
 	} SoftAP;
 
-	/* desmume host communication */
-	bool		netEnabled;
-
 } wifimac_t ;
 
-extern wifimac_t wifiMac ;
+// desmume host communication
+#ifdef EXPERIMENTAL_WIFI_COMM
+typedef struct pcap pcap_t;
+extern pcap_t *wifi_bridge;
+#endif
+extern bool wifi_netEnabled;
 
-void WIFI_Init(wifimac_t *wifi);
+extern wifimac_t wifiMac;
+
+bool WIFI_Init();
+void WIFI_DeInit();
+void WIFI_Reset();
 
 /* subchip communication IO functions */
-void WIFI_setRF_CNT(wifimac_t *wifi, u16 val) ;
-void WIFI_setRF_DATA(wifimac_t *wifi, u16 val, u8 part) ;
-u16  WIFI_getRF_DATA(wifimac_t *wifi, u8 part) ;
-u16  WIFI_getRF_STATUS(wifimac_t *wifi) ;
+void WIFI_setRF_CNT(u16 val) ;
+void WIFI_setRF_DATA(u16 val, u8 part) ;
+u16  WIFI_getRF_DATA(u8 part) ;
+u16  WIFI_getRF_STATUS() ;
 
-void WIFI_setBB_CNT(wifimac_t *wifi,u16 val) ;
-u8   WIFI_getBB_DATA(wifimac_t *wifi) ;
-void WIFI_setBB_DATA(wifimac_t *wifi, u8 val) ;
+void WIFI_setBB_CNT(u16 val) ;
+u8   WIFI_getBB_DATA() ;
+void WIFI_setBB_DATA(u8 val) ;
 
 /* wifimac io */
-void WIFI_write16(wifimac_t *wifi,u32 address, u16 val) ;
-u16  WIFI_read16(wifimac_t *wifi,u32 address) ;
+void WIFI_write16(u32 address, u16 val) ;
+u16  WIFI_read16(u32 address) ;
 
 /* wifimac timing */
-void WIFI_usTrigger(wifimac_t *wifi) ;
+void WIFI_usTrigger() ;
 
-/* SoftAP */
-
-typedef struct _WIFI_FrameHeader
-{
-	u8 FrameControl[2];
-	u8 DurationID[2];
-	u8 Receiver[6];
-	u8 Sender[6];
-	u8 BSSID[6];
-	u8 SeqCtl[2];
-
-} WIFI_FrameHeader;
-
-int WIFI_SoftAP_Init(wifimac_t *wifi);
-void WIFI_SoftAP_Shutdown(wifimac_t *wifi);
-void WIFI_SoftAP_RecvPacketFromDS(wifimac_t *wifi, u8 *packet, int len);
-void WIFI_SoftAP_usTrigger(wifimac_t *wifi);
-
-#endif
 
 /* DS WFC profile data documented here : */
 /* http://dsdev.bigredpimp.com/2006/07/31/aoss-wfc-profile-data/ */

@@ -1,6 +1,5 @@
 /*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
+	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -24,8 +23,12 @@
 
 #include "armcpu.h"
 
-extern u32 (FASTCALL* thumb_instructions_set_0[1024])();
-extern u32 (FASTCALL* thumb_instructions_set_1[1024])();
+typedef u32 (FASTCALL* ThumbOpFunc)(const u32 i);
+
+extern const ThumbOpFunc thumb_instructions_set_0[1024];
+extern const ThumbOpFunc thumb_instructions_set_1[1024];
+
+extern const char* thumb_instruction_names[1024];
 
 #endif
  

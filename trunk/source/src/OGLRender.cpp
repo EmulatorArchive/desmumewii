@@ -24,6 +24,8 @@
 //so, it doesnt composite to 2d correctly.
 //(re: new super mario brothers renders the stormclouds at the beginning)
 
+#include <queue>
+
 #include "OGLRender.h"
 #include "debug.h"
 
@@ -47,7 +49,6 @@ static void ENDGL() {
 	#include <windows.h>
 	#include <GL/gl.h>
 	#include <GL/glext.h>
-	#include <GL/glut.h>
 #else
 #ifdef DESMUME_COCOA
 	#include <OpenGL/gl.h>
@@ -55,6 +56,10 @@ static void ENDGL() {
 #else
 	#include <GL/gl.h>
 	#include <GL/glext.h>
+	/* This is a workaround needed to compile against nvidia GL headers */
+	#ifndef GL_ALPHA_BLEND_EQUATION_ATI
+	#undef GL_VERSION_1_3
+	#endif
 #endif
 #endif
 
@@ -70,21 +75,7 @@ static void ENDGL() {
 #include "shaders.h"
 #include "texcache.h"
 
-
-
-#ifndef CTASSERT
-#define	CTASSERT(x)		typedef char __assert ## y[(x) ? 1 : -1]
-#endif
-
-//Define glActiveTexture for Wii Port
-void glActiveTexture(GLenum texture)
-{
-    texture = GL_ACTIVE_TEXTURE_ARB;
-    return;
-}
-
 static ALIGN(16) u8  GPU_screen3D			[256*192*4];
-
 
 static const unsigned short map3d_cull[4] = {GL_FRONT_AND_BACK, GL_FRONT, GL_BACK, 0};
 static const int texEnv[4] = { GL_MODULATE, GL_DECAL, GL_MODULATE, GL_MODULATE };
@@ -110,7 +101,7 @@ static u32 textureFormat=0, texturePalette=0;
 #ifdef _WIN32
 #define INITOGLEXT(x,y) y = (x)wglGetProcAddress(#y);
 #elif !defined(DESMUME_COCOA)
-#include <GL/glext.h>
+#include <GL/glx.h>
 #define INITOGLEXT(x,y) y = (x)glXGetProcAddress((const GLubyte *) #y);
 #endif
 
@@ -119,7 +110,7 @@ OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 //zero: i dont understand this at all. my glext.h has the wrong thing declared here... so I have to do it myself
 typedef void (APIENTRYP X_PFNGLGETSHADERSOURCEPROC) (GLuint shader, GLsizei bufSize, const GLchar **source, GLsizei *length);
 OGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
-OGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader) 
+OGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
 OGLEXT(PFNGLCREATEPROGRAMPROC,glCreateProgram)
 OGLEXT(PFNGLATTACHSHADERPROC,glAttachShader)
 OGLEXT(PFNGLDETACHSHADERPROC,glDetachShader)
@@ -219,9 +210,8 @@ static void _xglDisable(GLenum cap) {
 	CTASSERT((cap-0x0B00)<0x100); \
 	_xglDisable(cap); }
 
+static std::queue<GLuint> freeTextureIds;
 
-
-GLenum			oglTempTextureID[MAX_TEXTURE];
 GLenum			oglToonTableTextureID;
 
 #define NOSHADERS(s)					{ hasShaders = false; INFO("Shaders aren't supported on your system, using fixed pipeline\n(%s)\n", s); return; }
@@ -263,16 +253,15 @@ GLenum			oglToonTableTextureID;
 
 bool hasShaders = false;
 
-/* Vertex shader */
 GLuint vertexShaderID;
-/* Fragment shader */
 GLuint fragmentShaderID;
-/* Shader program */
 GLuint shaderProgram;
 
 static GLuint hasTexLoc;
 static GLuint texBlendLoc;
 static bool hasTexture = false;
+
+static TexCacheItem* currTexture = NULL;
 
 /* Shaders init */
 
@@ -348,44 +337,53 @@ static void OGLReset()
 	}
 
 	TexCache_Reset();
-
-	for (int i = 0; i < MAX_TEXTURE; i++)
-		texcache[i].id=oglTempTextureID[i];
+	currTexture = NULL;
 
 //	memset(GPU_screenStencil,0,sizeof(GPU_screenStencil));
 	memset(GPU_screen3D,0,sizeof(GPU_screen3D));
 }
 
+//static class OGLTexCacheUser : public ITexCacheUser
+//{
+//public:
+//	virtual void BindTexture(u32 tx)
+//	{
+//		glBindTexture(GL_TEXTURE_2D,(GLuint)texcache[tx].id);
+//		glMatrixMode (GL_TEXTURE);
+//		glLoadIdentity ();
+//		glScaled (texcache[tx].invSizeX, texcache[tx].invSizeY, 1.0f);
+//
+//		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//
+//		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (BIT16(texcache[tx].frm) ? (BIT18(texcache[tx].frm)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
+//		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (BIT17(texcache[tx].frm) ? (BIT19(texcache[tx].frm)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
+//	}
+//
+//	virtual void BindTextureData(u32 tx, u8* data)
+//	{
+//		BindTexture(tx);
+//
+//	#if 0
+//		for (int i=0; i < texcache[tx].sizeX * texcache[tx].sizeY*4; i++)
+//			data[i] = 0xFF;
+//	#endif
+//		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 
+//			texcache[tx].sizeX, texcache[tx].sizeY, 0, 
+//			GL_RGBA, GL_UNSIGNED_BYTE, data);
+//	}
+//} textures;
+//
+//static TexCacheUnit texCacheUnit;
 
-
-
-static void BindTexture(u32 tx)
+static void expandFreeTextures()
 {
-	glBindTexture(GL_TEXTURE_2D,(GLuint)texcache[tx].id);
-	glMatrixMode (GL_TEXTURE);
-	glLoadIdentity ();
-	glScaled (texcache[tx].invSizeX, texcache[tx].invSizeY, 1.0f);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (BIT16(texcache[tx].frm) ? (BIT18(texcache[tx].frm)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (BIT17(texcache[tx].frm) ? (BIT19(texcache[tx].frm)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
+	const int kInitTextures = 128;
+	GLuint oglTempTextureID[kInitTextures];
+	glGenTextures(kInitTextures, &oglTempTextureID[0]);
+	for(int i=0;i<kInitTextures;i++)
+		freeTextureIds.push(oglTempTextureID[i]);
 }
-
-static void BindTextureData(u32 tx, u8* data)
-{
-	BindTexture(tx);
-
-#if 0
-	for (int i=0; i < texcache[tx].sizeX * texcache[tx].sizeY*4; i++)
-		data[i] = 0xFF;
-#endif
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 
-		texcache[tx].sizeX, texcache[tx].sizeY, 0, 
-		GL_RGBA, GL_UNSIGNED_BYTE, data);
-}
-
 
 static char OGLInit(void)
 {
@@ -399,9 +397,7 @@ static char OGLInit(void)
 	if(!BEGINGL())
 		return 0;
 
-	TexCache_BindTexture = BindTexture;
-	TexCache_BindTextureData = BindTextureData;
-	glGenTextures (MAX_TEXTURE, &oglTempTextureID[0]);
+	expandFreeTextures();
 
 	glPixelStorei(GL_PACK_ALIGNMENT,8);
 
@@ -420,7 +416,7 @@ static char OGLInit(void)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 #ifndef DESMUME_COCOA
-#define glXGetProcAddress(x)((const GLubyte*)x) //Check out this line for legitimacy
+	INITOGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 	INITOGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
 	INITOGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
 	INITOGLEXT(PFNGLCREATEPROGRAMPROC,glCreateProgram)
@@ -509,10 +505,26 @@ static void OGLClose()
 		hasShaders = false;
 	}
 
-	glDeleteTextures(MAX_TEXTURE, &oglTempTextureID[0]);
+	//kill the tex cache to free all the texture ids
+	TexCache_Reset();
+
+	while(!freeTextureIds.empty())
+	{
+		GLuint temp = freeTextureIds.front();
+		freeTextureIds.pop();
+		glDeleteTextures(1,&temp);
+	}
+	//glDeleteTextures(MAX_TEXTURE, &oglTempTextureID[0]);
 	glDeleteTextures(1, &oglToonTableTextureID);
 
 	ENDGL();
+}
+
+static void texDeleteCallback(TexCacheItem* item)
+{
+	freeTextureIds.push((GLuint)item->texid);
+	if(currTexture == item)
+		currTexture = NULL;
 }
 
 static void setTexture(unsigned int format, unsigned int texpal)
@@ -540,7 +552,43 @@ static void setTexture(unsigned int format, unsigned int texpal)
 	}
 
 
-	TexCache_SetTexture<TexFormat_32bpp>(format, texpal);
+//	texCacheUnit.TexCache_SetTexture<TexFormat_32bpp>(format, texpal);
+	TexCacheItem* newTexture = TexCache_SetTexture(TexFormat_32bpp,format,texpal);
+	if(newTexture != currTexture)
+	{
+		currTexture = newTexture;
+		//has the ogl renderer initialized the texture?
+		if(!currTexture->deleteCallback)
+		{
+			currTexture->deleteCallback = texDeleteCallback;
+			if(freeTextureIds.empty()) expandFreeTextures();
+			currTexture->texid = (u64)freeTextureIds.front();
+			freeTextureIds.pop();
+
+			glBindTexture(GL_TEXTURE_2D,(GLuint)currTexture->texid);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (BIT16(currTexture->texformat) ? (BIT18(currTexture->texformat)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (BIT17(currTexture->texformat) ? (BIT19(currTexture->texformat)?GL_MIRRORED_REPEAT:GL_REPEAT) : GL_CLAMP));
+
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 
+				currTexture->sizeX, currTexture->sizeY, 0, 
+				GL_RGBA, GL_UNSIGNED_BYTE, currTexture->decoded);
+		}
+		else
+		{
+			//otherwise, just bind it
+			glBindTexture(GL_TEXTURE_2D,(GLuint)currTexture->texid);
+		}
+
+		//in either case, we need to setup the tex mtx
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
+		glScalef(currTexture->invSizeX, currTexture->invSizeY, 1.0f);
+
+	}
 }
 
 
@@ -677,6 +725,7 @@ static void Control()
 	else glDisable (GL_TEXTURE_2D);
 
 	if(gfx3d.enableAlphaTest)
+		// FIXME: alpha test should pass gfx3d.alphaTestRef==poly->getAlpha
 		glAlphaFunc	(GL_GREATER, gfx3d.alphaTestRef/31.f);
 	else
 		glAlphaFunc	(GL_GREATER, 0);
@@ -704,17 +753,43 @@ static void GL_ReadFramebuffer()
 	//is it safe to modify the screen buffer? if not, we could make a temp copy
 	for(int i=0,y=191;y>=0;y--)
 	{
+		u8* dst = gfx3d_convertedScreen + (y<<(8+2));
+
+		for(int x=0;x<256;x++,i++)
+		{
+			u32 &u32screen3D = ((u32*)GPU_screen3D)[i];
+			u32screen3D>>=2;
+			u32screen3D &= 0x3F3F3F3F;
+			
+			const int t = i<<2;
+			const u8 a = GPU_screen3D[t+3] >> 1;
+			const u8 r = GPU_screen3D[t+2];
+			const u8 g = GPU_screen3D[t+1];
+			const u8 b = GPU_screen3D[t+0];
+			*dst++ = r;
+			*dst++ = g;
+			*dst++ = b;
+			*dst++ = a;
+		}
+	}
+
+#if 0
+	//convert the pixels to a different format which is more convenient
+	//is it safe to modify the screen buffer? if not, we could make a temp copy
+	for(int i=0,y=191;y>=0;y--)
+	{
 		u16* dst = gfx3d_convertedScreen + (y<<8);
 		u8* dstAlpha = gfx3d_convertedAlpha + (y<<8);
 
-		#ifndef NOSSE2
 			//I dont know much about this kind of stuff, but this seems to help
 			//for some reason I couldnt make the intrinsics work 
-			u8* wanx =  (u8*)&((u32*)GPU_screen3D)[i];
-			#define ASS(X,Y) __asm { prefetchnta [wanx+32*0x##X##Y] }
-			#define PUNK(X) ASS(X,0) ASS(X,1) ASS(X,2) ASS(X,3) ASS(X,4) ASS(X,5) ASS(X,6) ASS(X,7) ASS(X,8) ASS(X,9) ASS(X,A) ASS(X,B) ASS(X,C) ASS(X,D) ASS(X,E) ASS(X,F) 
-			PUNK(0); PUNK(1);
-		#endif
+			//u8* u8screen3D =  (u8*)&((u32*)GPU_screen3D)[i];
+			/*#define PREFETCH32(X,Y) __asm { prefetchnta [u8screen3D+32*0x##X##Y] }
+			#define PREFETCH128(X) 	PREFETCH32(X,0) PREFETCH32(X,1) PREFETCH32(X,2) PREFETCH32(X,3) \
+									PREFETCH32(X,4) PREFETCH32(X,5) PREFETCH32(X,6) PREFETCH32(X,7) \
+									PREFETCH32(X,8) PREFETCH32(X,9) PREFETCH32(X,A) PREFETCH32(X,B) \
+									PREFETCH32(X,C) PREFETCH32(X,D) PREFETCH32(X,E) PREFETCH32(X,F) 
+			PREFETCH128(0); PREFETCH128(1);*/
 
 		for(int x=0;x<256;x++,i++)
 		{
@@ -728,9 +803,10 @@ static void GL_ReadFramebuffer()
 			const u8 g = GPU_screen3D[t+1];
 			const u8 b = GPU_screen3D[t+0];
 			dst[x] = R5G5B5TORGB15(r,g,b) | alpha_lookup[a];
-			dstAlpha[x] = alpha_5bit_to_4bit[a];
+			dstAlpha[x] = a;
 		}
 	}
+#endif
 }
 
 
@@ -838,48 +914,55 @@ static void OGLRender()
 			glBegin(GL_TRIANGLES);
 
 			VERT *vert0 = &gfx3d.vertlist->list[poly->vertIndexes[0]];
-			u8 alpha =	material_5bit_to_8bit[poly->getAlpha()];
-			u8 color0[4] = {
-					material_5bit_to_8bit[vert0->color[0]],
-					material_5bit_to_8bit[vert0->color[1]],
-					material_5bit_to_8bit[vert0->color[2]],
+			float alpha = poly->getAlpha()/31.0f;
+			if(wireframe) alpha = 1.0;
+			float color0[4] = {
+					(vert0->color[0]<<2)/255.0f,
+					(vert0->color[1]<<2)/255.0f,
+					(vert0->color[2]<<2)/255.0f,
 					alpha
 				};
 
+			//this draws things as a fan to prepare for the day when the clipping is done in gfx3d
+			//and funny shaped polys find their way into here.
+			//of course it could really be drawn as a fan, i suppose.. i dont remember why we did it this way
 			for(int j = 1; j < (type-1); j++)
 			{
 				VERT *vert1 = &gfx3d.vertlist->list[poly->vertIndexes[j]];
 				VERT *vert2 = &gfx3d.vertlist->list[poly->vertIndexes[j+1]];
 				
-				u8 color1[4] = {
-					material_5bit_to_8bit[vert1->color[0]],
-					material_5bit_to_8bit[vert1->color[1]],
-					material_5bit_to_8bit[vert1->color[2]],
+				float color1[4] = {
+					(vert1->color[0]<<2)/255.0f,
+					(vert1->color[1]<<2)/255.0f,
+					(vert1->color[2]<<2)/255.0f,
 					alpha
 				};
-				u8 color2[4] = {
-					material_5bit_to_8bit[vert2->color[0]],
-					material_5bit_to_8bit[vert2->color[1]],
-					material_5bit_to_8bit[vert2->color[2]],
+				float color2[4] = {
+					(vert2->color[0]<<2)/255.0f,
+					(vert2->color[1]<<2)/255.0f,
+					(vert2->color[2]<<2)/255.0f,
 					alpha
 				};
 
 				glTexCoord2fv(vert0->texcoord);
-				glColor4ubv((GLubyte*)color0);
+				glColor4fv((GLfloat*)color0);
 				glVertex4fv(vert0->coord);
 
 				glTexCoord2fv(vert1->texcoord);
-				glColor4ubv((GLubyte*)color1);
+				glColor4fv((GLfloat*)color1);
 				glVertex4fv(vert1->coord);
 
 				glTexCoord2fv(vert2->texcoord);
-				glColor4ubv((GLubyte*)color2);
+				glColor4fv((GLfloat*)color2);
 				glVertex4fv(vert2->coord);
 			}
 
 			glEnd();
 		}
 	}
+
+	//needs to happen before endgl because it could free some textureids for expired cache items
+	TexCache_EvictFrame();
 
 	ENDGL();
 

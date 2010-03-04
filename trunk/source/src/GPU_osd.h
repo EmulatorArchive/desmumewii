@@ -28,13 +28,66 @@
 #include <time.h>
 #include "types.h"
 
+#include "aggdraw.h"
+
 #define OSD_MAX_LINES 4
 #define OSD_TIMER_SECS 2
+
+
+struct HudCoordinates{
+	int x;
+	int y;
+	int xsize;
+	int ysize;
+	int storedx;
+	int storedy;
+	int clicked;
+};
+
+struct HudStruct
+{
+public:
+	HudStruct()
+	{
+		resetTransient();
+	}
+
+	void resetTransient()
+	{
+		fps = 0;
+		fps3d = 0;
+		arm9load = 0;
+		cpuloopIterationCount = 0;
+		clicked = false;
+	}
+
+	HudCoordinates SavestateSlots;
+	HudCoordinates FpsDisplay;
+	HudCoordinates FrameCounter;
+	HudCoordinates InputDisplay;
+	HudCoordinates GraphicalInputDisplay;
+	HudCoordinates LagFrameCounter;
+	HudCoordinates Microphone;
+	HudCoordinates Dummy;
+
+	HudCoordinates &hud(int i) { return ((HudCoordinates*)this)[i]; }
+	void reset();
+
+	int fps, fps3d, arm9load, cpuloopIterationCount;
+	bool clicked;
+};
+
+void EditHud(s32 x, s32 y, HudStruct *hudstruct);
+void HudClickRelease(HudStruct *hudstruct);
+
+void DrawHUD();
+
+extern HudStruct Hud;
+extern bool HudEditorMode;
 
 class OSDCLASS
 {
 private:
-	u16		screen[256*192*2];
 	u64		offset;
 	u8		mode;
 
@@ -42,17 +95,21 @@ private:
 
 	u16		lineText_x;
 	u16		lineText_y;
-	u32		lineText_color;
+	AggColor		lineText_color;
 	u8		lastLineText;
 	char	*lineText[OSD_MAX_LINES+1];
 	time_t	lineTimer[OSD_MAX_LINES+1];
-	u32		lineColor[OSD_MAX_LINES+1];
+	AggColor lineColor[OSD_MAX_LINES+1];
 
 	bool	needUpdate;
 
 	bool	checkTimers();
+
 public:
 	char	name[7];		// for debuging
+	bool    singleScreen;
+	bool    swapScreens;
+
 	OSDCLASS(u8 core);
 	~OSDCLASS();
 

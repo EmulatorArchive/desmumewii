@@ -22,13 +22,11 @@
 #include "cp15.h"
 #include <math.h>
 #include "MMU.h"
-#include "SPU.h"
 #include "debug.h"
+#include "NDSSystem.h"
 
 #define cpu (&ARMPROC)
 #define TEMPLATE template<int PROCNUM> 
-
-extern BOOL execute;
 
 static const u16 getsinetbl[] = {
 0x0000, 0x0324, 0x0648, 0x096A, 0x0C8C, 0x0FAB, 0x12C8, 0x15E2, 
@@ -191,106 +189,32 @@ static const u8 getvoltbl[] = {
 
 TEMPLATE static u32 bios_nop()
 {
-     if (cpu->proc_ID == ARMCPU_ARM9)
-     {
-        LOG("Unimplemented bios function %02X(ARM9) was used. R0:%08X\n", (cpu->instruction)&0x1F, cpu->R[0]);
-     }
-     else
-     {
-        LOG("Unimplemented bios function %02X(ARM7) was used. R0:%08X\n", (cpu->instruction)&0x1F, cpu->R[0]);
-     }
-     return 3;
+	LOG("SWI: ARM%c Unimplemented BIOS function %02X was used. R0:%08X, R1:%08X, R2:%08X\n", PROCNUM?'7':'9',
+							(cpu->instruction)&0x1F, cpu->R[0], cpu->R[1], cpu->R[2]);
+	return 3;
 }
 
-TEMPLATE static u32 delayLoop()
+TEMPLATE static u32 WaitByLoop()
 {
-     return cpu->R[0] * 4;
-}
+	//printf("%lld waitbyloop\n",nds_timer);
+	//INFO("ARM%c: SWI 0x03 (WaitByLoop)\n", PROCNUM?'7':'9');
+	if (PROCNUM == ARMCPU_ARM9)
+	{
+		armcp15_t *cp = (armcp15_t*)(cpu->coproc[15]);
 
-//u32 oldmode[2];
-
-TEMPLATE u32 intrWaitARM()
-{
-     u32 intrFlagAdr;// = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
-     u32 intr;
-     u32 intrFlag = 0;
-
-	 BOOL noDiscard = ((cpu->R[0] == 0) && (PROCNUM == 1));
-     
-     //emu_halt();
-     if(cpu->proc_ID) 
-     {
-      intrFlagAdr = 0x380FFF8;
-     } else {
-      intrFlagAdr = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
-     }
-     intr = _MMU_read32<PROCNUM>(intrFlagAdr);
-     intrFlag = (cpu->R[1] & intr);
-
-	 if(!noDiscard)
-		 intrFlag &= ARMPROC.newIrqFlags;
-     
-     if(intrFlag)
-     {
-          // si une(ou plusieurs) des interruptions que l'on attend s'est(se sont) produite(s)
-          // on efface son(les) occurence(s).
-          intr ^= intrFlag;
-		  cpu->newIrqFlags ^= intrFlag;
-          _MMU_write32<PROCNUM>(intrFlagAdr, intr);
-          //cpu->switchMode(oldmode[cpu->proc_ID]);
-          return 1;
-     }
-         
-     cpu->R[15] = cpu->instruct_adr;
-     cpu->next_instruction = cpu->R[15];
-     cpu->waitIRQ = 1;
-     //oldmode[cpu->proc_ID] = cpu->switchMode(SVC);
-
-     return 1;
-}
-
-TEMPLATE static u32 waitVBlankARM()
-{
-	cpu->R[0] = 1;
-	cpu->R[1] = 1;
-	return intrWaitARM<PROCNUM>();
-#if 0
-     u32 intrFlagAdr;// = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
-     u32 intr;
-     u32 intrFlag = 0;
-     
-     //emu_halt();
-     if(cpu->proc_ID) 
-     {
-      intrFlagAdr = 0x380FFF8;
-     } else {
-      intrFlagAdr = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
-     }
-     intr = _MMU_read32<PROCNUM>(intrFlagAdr);
-     intrFlag = 1 & intr;
-     
-    // if(intrFlag)
-     {
-          // si une(ou plusieurs) des interruptions que l'on attend s'est(se sont) produite(s)
-          // on efface son(les) occurence(s).
-          intr ^= intrFlag;
-          _MMU_write32<PROCNUM>(intrFlagAdr, intr);
-          //cpu->switchMode(oldmode[cpu->proc_ID]);
-          return 1;
-     }
-         
-     cpu->R[15] = cpu->instruct_adr;
-     cpu->next_instruction = cpu->R[15];
-     cpu->waitIRQ = 1;
-     //oldmode[cpu->proc_ID] = cpu->switchMode(SVC);
-
-     return 1;
-#endif
+		if (cp->ctrl & ((1<<16)|(1<<18)))		// DTCM or ITCM is on (cache)
+			return cpu->R[0] * 2;
+		else
+			return cpu->R[0] * 8;
+	}
+    
+	return cpu->R[0] * 4;
 }
 
 TEMPLATE static u32 wait4IRQ()
 {
      //execute= FALSE;
+     u32 instructAddr = cpu->instruct_adr;
      if(cpu->wirq)
      {
           if(!cpu->waitIRQ)
@@ -300,16 +224,61 @@ TEMPLATE static u32 wait4IRQ()
                //cpu->switchMode(oldmode[cpu->proc_ID]);
                return 1;
           }
-          cpu->R[15] = cpu->instruct_adr;
-          cpu->next_instruction = cpu->R[15];
+          cpu->R[15] = instructAddr;
+          cpu->next_instruction = instructAddr;
           return 1;
      }
      cpu->waitIRQ = 1;
      cpu->wirq = 1;
-     cpu->R[15] = cpu->instruct_adr;
-     cpu->next_instruction = cpu->R[15];
+     cpu->R[15] = instructAddr;
+     cpu->next_instruction = instructAddr;
      //oldmode[cpu->proc_ID] = cpu->switchMode(SVC);
      return 1;
+}
+
+TEMPLATE u32 intrWaitARM()
+{
+	u32 intrFlagAdr = 0;
+	u32 intr = 0;
+	u32 intrFlag = 0;
+
+	//BOOL noDiscard = ((cpu->R[0] == 0) && (PROCNUM == ARMCPU_ARM7));
+
+	if(PROCNUM == ARMCPU_ARM7)
+		intrFlagAdr = 0x380FFF8;
+	else
+		intrFlagAdr = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
+
+	intr = _MMU_read32<PROCNUM>(intrFlagAdr);
+	intrFlag = (cpu->R[1] & intr);
+
+	//INFO("ARM%c: wait for IRQ r0=0x%02X, r1=0x%08X - 0x%08X (flag 0x%08X)\n", PROCNUM?'7':'9', cpu->R[0], cpu->R[1], intr, intrFlag);
+	//if(!noDiscard)
+	//	intrFlag &= cpu->newIrqFlags;
+
+	_MMU_write32<PROCNUM>(0x04000208, 1);			// set IME=1
+
+	if (intrFlag)
+	{
+		intr ^= intrFlag;
+		//if (intr)
+			_MMU_write32<PROCNUM>(intrFlagAdr, intr);
+		return wait4IRQ<PROCNUM>();
+	}
+	u32 instructAddr = cpu->instruct_adr;
+	cpu->R[15] = instructAddr;
+	cpu->next_instruction = instructAddr;
+	cpu->waitIRQ = 1;
+	cpu->wirq = 1;
+	
+	return 1;
+}
+
+TEMPLATE static u32 waitVBlankARM()
+{
+	cpu->R[0] = 1;
+	cpu->R[1] = 1;
+	return intrWaitARM<PROCNUM>();
 }
 
 TEMPLATE static u32 sleep()
@@ -325,10 +294,13 @@ TEMPLATE static u32 divide()
      
      if(dnum==0) return 0;
      
-     cpu->R[0] = (u32)(num / dnum);
+	 s32 res = num / dnum;
+     cpu->R[0] = (u32)res;
      cpu->R[1] = (u32)(num % dnum);
-     cpu->R[3] = (u32) (((s32)cpu->R[0])<0 ? -cpu->R[0] : cpu->R[0]);
-     
+     cpu->R[3] = (u32)abs(res);
+
+	 //INFO("ARM%c: SWI 0x09 (divide): in num %i, dnum %i, out R0:%i, R1:%i, R3:%i\n", PROCNUM?'7':'9', num, dnum, cpu->R[0], cpu->R[1], cpu->R[3]);
+
      return 6;
 }
 
@@ -857,17 +829,37 @@ TEMPLATE static u32 BitUnPack()
   dest = cpu->R[1];
   header = cpu->R[2];
 
-  //INFO("swi bitunpack\n");
-  
   len = _MMU_read16<PROCNUM>(header);
-  // check address
   bits = _MMU_read08<PROCNUM>(header+2);
+  switch (bits)
+  {
+	case 1:
+	case 2:
+	case 4:
+	case 8:
+	  break;
+	default: return (0);	// error
+  }
+  dataSize = _MMU_read08<PROCNUM>(header+3);
+  switch (dataSize)
+  {
+	case 1:
+	case 2:
+	case 4:
+	case 8:
+	case 16:
+	case 32:
+	  break;
+	default: return (0);	// error
+  }
+
   revbits = 8 - bits; 
   // u32 value = 0;
   base = _MMU_read08<PROCNUM>(header+4);
   addBase = (base & 0x80000000) ? 1 : 0;
   base &= 0x7fffffff;
-  dataSize = _MMU_read08<PROCNUM>(header+3);
+  
+  //INFO("SWI10: bitunpack src 0x%08X dst 0x%08X hdr 0x%08X (src len %05i src bits %02i dst bits %02i)\n\n", source, dest, header, len, bits, dataSize);
 
   data = 0; 
   bitwritecount = 0; 
@@ -1045,12 +1037,12 @@ TEMPLATE static u32 isDebugger()
 
 TEMPLATE static u32 SoundBias()
 {
-     u32 current = SPU_ReadLong(0x4000504);
-     if (cpu->R[0] > current)
-	SPU_WriteLong(0x4000504, current + 0x1);
-     else
-	SPU_WriteLong(0x4000504, current - 0x1);
-     return cpu->R[1];
+     u32 curBias = _MMU_read32<ARMCPU_ARM7>(0x04000504);
+	 u32 newBias = (curBias == 0) ? 0x000:0x200;
+	 u32 delay = (newBias > curBias) ? (newBias-curBias) : (curBias-newBias);
+
+	 _MMU_write32<ARMCPU_ARM7>(0x04000504, newBias);
+     return cpu->R[1] * delay;
 }
 
 TEMPLATE static u32 getBootProcs()
@@ -1065,7 +1057,7 @@ u32 (* ARM9_swi_tab[32])()={
          bios_nop<ARMCPU_ARM9>,             // 0x00
          bios_nop<ARMCPU_ARM9>,             // 0x01
          bios_nop<ARMCPU_ARM9>,             // 0x02
-         delayLoop<ARMCPU_ARM9>,            // 0x03
+         WaitByLoop<ARMCPU_ARM9>,           // 0x03
          intrWaitARM<ARMCPU_ARM9>,          // 0x04
          waitVBlankARM<ARMCPU_ARM9>,        // 0x05
          wait4IRQ<ARMCPU_ARM9>,             // 0x06
@@ -1100,7 +1092,7 @@ u32 (* ARM7_swi_tab[32])()={
          bios_nop<ARMCPU_ARM7>,             // 0x00
          bios_nop<ARMCPU_ARM7>,             // 0x01
          bios_nop<ARMCPU_ARM7>,             // 0x02
-         delayLoop<ARMCPU_ARM7>,            // 0x03
+         WaitByLoop<ARMCPU_ARM7>,           // 0x03
          intrWaitARM<ARMCPU_ARM7>,          // 0x04
          waitVBlankARM<ARMCPU_ARM7>,        // 0x05
          wait4IRQ<ARMCPU_ARM7>,             // 0x06

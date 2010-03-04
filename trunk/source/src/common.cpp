@@ -25,7 +25,7 @@
 #include <string>
 #include "common.h"
 
-u8	gba_header_data_0x04[156] = {
+u8	logo_data[156] = {
 	0x24,0xFF,0xAE,0x51,0x69,0x9A,0xA2,0x21,0x3D,0x84,0x82,0x0A,0x84,0xE4,0x09,0xAD,
 	0x11,0x24,0x8B,0x98,0xC0,0x81,0x7F,0x21,0xA3,0x52,0xBE,0x19,0x93,0x09,0xCE,0x20,
 	0x10,0x46,0x4A,0x4A,0xF8,0x27,0x31,0xEC,0x58,0xC7,0xE8,0x33,0x82,0xE3,0xCE,0xBF,
@@ -42,7 +42,7 @@ char IniName[MAX_PATH];
 
 void GetINIPath()
 {   
-	char		vPath[MAX_PATH], *szPath, currDir[MAX_PATH];
+	char		vPath[MAX_PATH], *szPath;
     /*if (*vPath)
        szPath = vPath;
     else
@@ -64,6 +64,18 @@ void GetINIPath()
 	{
 		memset(IniName,0,MAX_PATH) ;
 	}
+}
+
+void WritePrivateProfileBool(char* appname, char* keyname, bool val, char* file)
+{
+	char temp[256] = "";
+	sprintf(temp, "%d", val?1:0);
+	WritePrivateProfileString(appname, keyname, temp, file);
+}
+
+bool GetPrivateProfileBool(const char* appname, const char* keyname, bool defval, const char* filename)
+{
+	return GetPrivateProfileInt(appname,keyname,defval?1:0,filename) != 0;
 }
 
 void WritePrivateProfileInt(char* appname, char* keyname, int val, char* file)
@@ -107,38 +119,4 @@ u32 strlen_ws(char *buf)		// length without last spaces
 		if (buf[i]!=32) return (i-1);		// space
 	}
 	return 0;
-}
-
-std::string RomName = "";				//Stores the name of the Rom currently loaded in memory
-
-/***
- * Author: adelikat
- * Date Added: May 8, 2009
- * Description: Sets the Global variable RomName
- * Known Usage:
- *				LoadRom
- **/
-void SetRomName(const char *filename)
-{
-	std::string str = filename;
-	
-	//Truncate the path from filename
-	int x = str.find_last_of("/\\");
-	if (x > 0)
-		str = str.substr(x+1);
-	RomName = str;
-}
-
-/***
- * Author: adelikat
- * Date Added: May 8, 2009
- * Description: Returns the Global variable RomName
- * Known Usage:
- *				included in main.h
- *				ramwatch.cpp - SaveStrings
- **/
-
-const char *GetRomName()
-{
-	return RomName.c_str();
 }

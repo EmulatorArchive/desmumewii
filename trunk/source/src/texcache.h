@@ -2,53 +2,60 @@
 #define _TEXCACHE_H_
 
 #include "common.h"
+#include <map>
 
 enum TexCache_TexFormat
 {
-	TexFormat_32bpp,
-	TexFormat_15bpp
+	TexFormat_None, //used when nothing yet is cached
+	TexFormat_32bpp, //used by ogl renderer
+	TexFormat_15bpp //used by rasterizer
 };
 
-#define MAX_TEXTURE 500
-#ifndef NOSSE2
-struct ALIGN(16) TextureCache
-#else
-struct ALIGN(8) TextureCache
-#endif
+class TexCacheItem;
+
+typedef std::multimap<u32,TexCacheItem*> TTexCacheItemMultimap;
+
+class TexCacheItem
 {
-	u32					id;
-	u32					frm;
-	u32					mode;
-	u32					pal;
-	u32					sizeX;
-	u32					sizeY;
-	float				invSizeX;
-	float				invSizeY;
+public:
+	TexCacheItem() 
+		: decode_len(0)
+		, decoded(NULL)
+		, suspectedInvalid(false)
+		, deleteCallback(NULL)
+		, cacheFormat(TexFormat_None)
+	{}
+	~TexCacheItem() {
+		delete[] decoded;
+		if(deleteCallback) deleteCallback(this);
+	}
+	u32 decode_len;
+	u32 mode;
+	u8* decoded; //decoded texture data
+	bool suspectedInvalid;
+	TTexCacheItemMultimap::iterator iterator;
 
+	u32 texformat, texpal;
+	u32 sizeX, sizeY;
+	float invSizeX, invSizeY;
+
+	u64 texid; //used by ogl renderer for the texid
+	void (*deleteCallback)(TexCacheItem*);
+
+	TexCache_TexFormat cacheFormat;
+
+	//TODO - this is a little wasteful
 	struct {
-	int					textureSize, indexSize;
-	u8					texture[128*1024]; // 128Kb texture slot
-	u8					palette[256*2];
+		int					textureSize, indexSize;
+		u8					texture[128*1024]; // 128Kb texture slot
+		u8					palette[256*2];
 	} dump;
-
-	//set if this texture is suspected be invalid due to a vram reconfigure
-	bool				suspectedInvalid;
-
 };
-
-extern TextureCache	*texcache;
-
-extern void (*TexCache_BindTexture)(u32 texnum);
-extern void (*TexCache_BindTextureData)(u32 texnum, u8* data);
-
-void TexCache_Reset();
-
-template <TexCache_TexFormat format>
-void TexCache_SetTexture(u32 formatchosen, u32 texpal);
 
 void TexCache_Invalidate();
+void TexCache_Reset();
+void TexCache_EvictFrame();
 
-extern u8 *TexCache_texMAP;
-TextureCache* TexCache_Curr();
+TexCacheItem* TexCache_SetTexture(TexCache_TexFormat TEXFORMAT, u32 format, u32 texpal);
 
 #endif

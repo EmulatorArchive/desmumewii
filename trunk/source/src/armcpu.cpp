@@ -1,6 +1,5 @@
 /*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
+	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -22,6 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <algorithm>
 #include "types.h"
 #include "arm_instructions.h"
 #include "thumb_instructions.h"
@@ -29,11 +29,15 @@
 #include "bios.h"
 #include "debug.h"
 #include "Disassembler.h"
-
+#include "NDSSystem.h"
+#include "MMU_timing.h"
+#ifdef HAVE_LUA
+#include "lua-engine.h"
+#endif
 
 template<u32> static u32 armcpu_prefetch();
 
-inline u32 armcpu_prefetch(armcpu_t *armcpu) { 
+FORCEINLINE u32 armcpu_prefetch(armcpu_t *armcpu) { 
 	if(armcpu->proc_ID==0) return armcpu_prefetch<0>();
 	else return armcpu_prefetch<1>();
 }
@@ -214,8 +218,6 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	armcpu->waitIRQ = FALSE;
 	armcpu->wirq = FALSE;
 
-	armcpu->newIrqFlags = 0;
-
 #ifdef GDB_STUB
     armcpu->irq_flag = 0;
 #endif
@@ -318,7 +320,7 @@ u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 				
 			case FIQ :
 				{
-                                        u32 tmp;
+					u32 tmp;
 					SWAP(armcpu->R[8], armcpu->R8_fiq, tmp);
 					SWAP(armcpu->R[9], armcpu->R9_fiq, tmp);
 					SWAP(armcpu->R[10], armcpu->R10_fiq, tmp);
@@ -363,8 +365,7 @@ u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 }
 
 template<u32 PROCNUM>
-static u32
-armcpu_prefetch()
+FORCEINLINE static u32 armcpu_prefetch()
 {
 	armcpu_t* const armcpu = &ARMPROC;
 #ifdef GDB_STUB
@@ -373,6 +374,7 @@ armcpu_prefetch()
 
 	if(armcpu->CPSR.bits.T == 0)
 	{
+		u32 curInstruction = armcpu->next_instruction;
 #ifdef GDB_STUB
 		temp_instruction =
 			armcpu->mem_if->prefetch32( armcpu->mem_if->data,
@@ -385,20 +387,20 @@ armcpu_prefetch()
 			armcpu->R[15] = armcpu->next_instruction + 4;
 		}
 #else
-		armcpu->instruction = MMU_read32_acl(PROCNUM, armcpu->next_instruction&0xFFFFFFFC,CP15_ACCESS_EXECUTE);
-
-		armcpu->instruct_adr = armcpu->next_instruction;
-		armcpu->next_instruction += 4;
-		armcpu->R[15] = armcpu->next_instruction + 4;
+		armcpu->instruction = MMU_read32_acl(PROCNUM, curInstruction&0xFFFFFFFC,CP15_ACCESS_EXECUTE);
+		armcpu->instruct_adr = curInstruction;
+		armcpu->next_instruction = curInstruction + 4;
+		armcpu->R[15] = curInstruction + 8;
 #endif
-          
-        return MMU.MMU_WAIT32[PROCNUM][(armcpu->instruct_adr>>24)&0xF];
+
+		return MMU_codeFetchCycles<PROCNUM,32>(curInstruction);
 	}
 
+	u32 curInstruction = armcpu->next_instruction;
 #ifdef GDB_STUB
 	temp_instruction =
-          armcpu->mem_if->prefetch16( armcpu->mem_if->data,
-                                      armcpu->next_instruction);
+		armcpu->mem_if->prefetch16( armcpu->mem_if->data,
+		armcpu->next_instruction);
 
 	if ( !armcpu->stalled) {
 		armcpu->instruction = temp_instruction;
@@ -407,14 +409,22 @@ armcpu_prefetch()
 		armcpu->R[15] = armcpu->next_instruction + 2;
 	}
 #else
-	armcpu->instruction = MMU_read16_acl(PROCNUM, armcpu->next_instruction&0xFFFFFFFE,CP15_ACCESS_EXECUTE);
-
-	armcpu->instruct_adr = armcpu->next_instruction;
-	armcpu->next_instruction += 2;
-	armcpu->R[15] = armcpu->next_instruction + 2;
+	armcpu->instruction = MMU_read16_acl(PROCNUM, curInstruction&0xFFFFFFFE,CP15_ACCESS_EXECUTE);
+	armcpu->instruct_adr = curInstruction;
+	armcpu->next_instruction = curInstruction + 2;
+	armcpu->R[15] = curInstruction + 4;
 #endif
 
-	return MMU.MMU_WAIT16[PROCNUM][(armcpu->instruct_adr>>24)&0xF];
+	if(PROCNUM==0)
+	{
+		// arm9 fetches 2 instructions at a time in thumb mode
+		if(!(curInstruction == armcpu->instruct_adr + 2 && (curInstruction & 2)))
+			return MMU_codeFetchCycles<PROCNUM,32>(curInstruction);
+		else
+			return 0;
+	}
+
+	return MMU_codeFetchCycles<PROCNUM,16>(curInstruction);
 }
 
 #if 0 /* not used */
@@ -498,68 +508,94 @@ armcpu_flagIrq( armcpu_t *armcpu) {
 template<int PROCNUM>
 u32 armcpu_exec()
 {
-        u32 c = 1;
+	// Usually, fetching and executing are processed parallelly.
+	// So this function stores the cycles of each process to
+	// the variables below, and returns appropriate cycle count.
+	u32 cFetch = 0;
+	u32 cExecute = 0;
 
-		//this assert is annoying. but sometimes it is handy.
-		//assert(ARMPROC.instruct_adr!=0x00000000);
+	//this assert is annoying. but sometimes it is handy.
+	//assert(ARMPROC.instruct_adr!=0x00000000);
 
 #ifdef GDB_STUB
-        if (ARMPROC.stalled)
-          return STALLED_CYCLE_COUNT;
+	if (ARMPROC.stalled) {
+		return STALLED_CYCLE_COUNT;
+	}
 
-        /* check for interrupts */
-        if ( ARMPROC.irq_flag) {
-          armcpu_irqException( &ARMPROC);
-        }
+	/* check for interrupts */
+	if (ARMPROC.irq_flag) {
+		armcpu_irqException(&ARMPROC);
+	}
 
-        c = armcpu_prefetch(&ARMPROC);
+	cFetch = armcpu_prefetch(&ARMPROC);
 
-        if ( ARMPROC.stalled) {
-          return c;
-        }
+	if (ARMPROC.stalled) {
+		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
+	}
 #endif
 
 	if(ARMPROC.CPSR.bits.T == 0)
 	{
-        if((TEST_COND(CONDITION(ARMPROC.instruction), CODE(ARMPROC.instruction), ARMPROC.CPSR)))
+		if(
+			CONDITION(ARMPROC.instruction) == 0x0E  //fast path for unconditional instructions
+			|| (TEST_COND(CONDITION(ARMPROC.instruction), CODE(ARMPROC.instruction), ARMPROC.CPSR)) //handles any condition
+			)
 		{
+#ifdef HAVE_LUA
+			CallRegisteredLuaMemHook(ARMPROC.instruct_adr, 4, ARMPROC.instruction, LUAMEMHOOK_EXEC); // should report even if condition=false?
+#endif
 			if(PROCNUM==0) {
-#ifdef WANTASMLISTING
-        			char txt[128];
-				des_arm_instructions_set[INSTRUCTION_INDEX(ARMPROC.instruction)](ARMPROC.instruct_adr,ARMPROC.instruction,txt);
-				printf("%X: %X - %s\n", ARMPROC.instruct_adr,ARMPROC.instruction, txt);
-#endif
-				c += arm_instructions_set_0[INSTRUCTION_INDEX(ARMPROC.instruction)]();
-                        }
-			else
-				c += arm_instructions_set_1[INSTRUCTION_INDEX(ARMPROC.instruction)]();
+				#ifdef DEVELOPER
+				DEBUG_statistics.instructionHits[0].arm[INSTRUCTION_INDEX(ARMPROC.instruction)]++;
+				#endif
+				cExecute = arm_instructions_set_0[INSTRUCTION_INDEX(ARMPROC.instruction)](ARMPROC.instruction);
+			}
+			else {
+				#ifdef DEVELOPER
+				DEBUG_statistics.instructionHits[1].arm[INSTRUCTION_INDEX(ARMPROC.instruction)]++;
+				#endif
+				cExecute = arm_instructions_set_1[INSTRUCTION_INDEX(ARMPROC.instruction)](ARMPROC.instruction);
+			}
 		}
+		else
+			cExecute = 1; // If condition=false: 1S cycle
 #ifdef GDB_STUB
-        if ( ARMPROC.post_ex_fn != NULL) {
-            /* call the external post execute function */
-            ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data,
-                                ARMPROC.instruct_adr, 0);
-        }
+		if ( ARMPROC.post_ex_fn != NULL) {
+			/* call the external post execute function */
+			ARMPROC.post_ex_fn(ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 0);
+		}
 #else
-		c += armcpu_prefetch<PROCNUM>();
+		cFetch = armcpu_prefetch<PROCNUM>();
 #endif
-		return c;
+		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 	}
 
+#ifdef HAVE_LUA
+	CallRegisteredLuaMemHook(ARMPROC.instruct_adr, 2, ARMPROC.instruction, LUAMEMHOOK_EXEC);
+#endif
 	if(PROCNUM==0)
-		c += thumb_instructions_set_0[ARMPROC.instruction>>6]();
-	else
-		c += thumb_instructions_set_1[ARMPROC.instruction>>6]();
+	{
+		#ifdef DEVELOPER
+		DEBUG_statistics.instructionHits[0].thumb[ARMPROC.instruction>>6]++;
+		#endif
+		cExecute = thumb_instructions_set_0[ARMPROC.instruction>>6](ARMPROC.instruction);
+	}
+	else {
+		#ifdef DEVELOPER
+		DEBUG_statistics.instructionHits[1].thumb[ARMPROC.instruction>>6]++;
+		#endif
+		cExecute = thumb_instructions_set_1[ARMPROC.instruction>>6](ARMPROC.instruction);
+	}
 
 #ifdef GDB_STUB
-    if ( ARMPROC.post_ex_fn != NULL) {
-        /* call the external post execute function */
-        ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 1);
-    }
+	if ( ARMPROC.post_ex_fn != NULL) {
+		/* call the external post execute function */
+		ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 1);
+	}
 #else
-	c += armcpu_prefetch<PROCNUM>();
+	cFetch = armcpu_prefetch<PROCNUM>();
 #endif
-	return c;
+	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 }
 
 //these templates needed to be instantiated manually

@@ -46,8 +46,11 @@
 #include "dTool.h"
 #include "desmume_config.h"
 #include "cheatsGTK.h"
+#include "GPU_osd.h"
 
 #include "commandline.h"
+
+#include "addons.h"
 
 #ifdef GDB_STUB
 #include "gdbstub.h"
@@ -64,11 +67,13 @@
 
 #define EMULOOP_PRIO (G_PRIORITY_HIGH_IDLE + 20)
 
+#if GTK_CHECK_VERSION(2,10,0)
+#define HAVE_RECENT_FILES 1
+#endif
+
 #if GTK_CHECK_VERSION(2,14,0)
 #define HAVE_TIMEOUT 1
 #endif
-
-static const char *bad_glob_cflash_disk_image_file;
 
 #define SCREENS_PIXEL_SIZE (256*192*2)
 #define SCREEN_BYTES_PER_PIXEL 3
@@ -111,7 +116,9 @@ static void ToggleMenuVisible(GtkToggleAction *action);
 static void ToggleStatusbarVisible(GtkToggleAction *action);
 static void ToggleToolbarVisible(GtkToggleAction *action);
 static void ToggleAudio (GtkToggleAction *action);
+#ifdef FAKE_MIC
 static void ToggleMicNoise (GtkToggleAction *action);
+#endif
 static void ToggleGap (GtkToggleAction *action);
 static void SetRotation (GtkAction *action);
 static void ToggleLayerVisibility(GtkToggleAction* action, gpointer data);
@@ -124,6 +131,9 @@ static const char *ui_description =
 "  <menubar name='MainMenu'>"
 "    <menu action='FileMenu'>"
 "      <menuitem action='open'/>"
+#ifdef HAVE_RECENT_FILES
+"      <menu action='RecentMenu'/>"
+#endif
 "      <separator/>"
 "      <menuitem action='savestateto'/>"
 "      <menuitem action='loadstatefrom'/>"
@@ -167,7 +177,9 @@ static const char *ui_description =
 "      <menuitem action='pause'/>"
 "      <menuitem action='reset'/>"
 "      <menuitem action='enableaudio'/>"
+#ifdef FAKE_MIC
 "      <menuitem action='micnoise'/>"
+#endif
 "      <menu action='FrameskipMenu'>"
 "        <menuitem action='frameskip0'/>"
 "        <menuitem action='frameskip1'/>"
@@ -226,7 +238,7 @@ static const char *ui_description =
 "      </menu>"
 "    </menu>"
 "    <menu action='ToolsMenu'>"
-"      <menuitem action='ioregtool'/>"
+"      <menuitem action='ioregs'/>"
 "    </menu>"
 "    <menu action='HelpMenu'>"
 "      <menuitem action='about'/>"
@@ -243,6 +255,9 @@ static const char *ui_description =
 static const GtkActionEntry action_entries[] = {
     { "FileMenu", NULL, "_File" },
       { "open",          "gtk-open",    "_Open",         "<Ctrl>o",  NULL,   OpenNdsDialog },
+#ifdef HAVE_RECENT_FILES
+      { "RecentMenu", NULL, "Open _recent" },
+#endif
       { "savestateto",    NULL,         "Save state _to ...",         NULL,  NULL,   SaveStateDialog },
       { "loadstatefrom",  NULL,         "Load state _from ...",         NULL,  NULL,   LoadStateDialog },
       { "recordmovie",  NULL,         "Record movie _to ...",         NULL,  NULL,   RecordMovieDialog },
@@ -285,7 +300,9 @@ static const GtkActionEntry action_entries[] = {
 
 static const GtkToggleActionEntry toggle_entries[] = {
     { "enableaudio", NULL, "_Enable audio", NULL, NULL, G_CALLBACK(ToggleAudio), TRUE},
+#ifdef FAKE_MIC
     { "micnoise", NULL, "Fake mic _noise", NULL, NULL, G_CALLBACK(ToggleMicNoise), FALSE},
+#endif
     { "gap", NULL, "_Gap", NULL, NULL, G_CALLBACK(ToggleGap), FALSE},
     { "view_menu", NULL, "View _menu", NULL, NULL, G_CALLBACK(ToggleMenuVisible), TRUE},
     { "view_toolbar", NULL, "View _toolbar", NULL, NULL, G_CALLBACK(ToggleToolbarVisible), TRUE},
@@ -321,7 +338,6 @@ static const GtkRadioActionEntry savet_entries[] = {
 };
 
 SoundInterface_struct *SNDCoreList[] = {
-&SNDDummy,
 &SNDDummy,
 &SNDSDL,
 NULL
@@ -421,7 +437,6 @@ fill_configured_features( struct configured_features *config,
                                     "\t\t\t\t  4 = Italian\n"
                                     "\t\t\t\t  5 = Spanish\n",
                                     "LANG"},
-    { "cflash", 0, 0, G_OPTION_ARG_FILENAME, &config->cflash_disk_image_file, "Enable disk image GBAMP compact flash emulation", "PATH_TO_DISK_IMAGE"},
 #ifdef HAVE_TIMEOUT
     { "timeout", 0, 0, G_OPTION_ARG_INT, &config->timeout, "Quit desmume after the specified seconds for testing purpose.", "SECONDS"},
 #endif
@@ -574,14 +589,10 @@ static void ToggleStatusbarVisible(GtkToggleAction *action)
 
 
 
-static int Open(const char *filename, const char *cflash_disk_image)
+static int Open(const char *filename)
 {
     int res;
-#ifdef EXPERIMENTAL_GBASLOT
     res = NDS_LoadROM( filename );
-#else
-    res = NDS_LoadROM( filename, cflash_disk_image );
-#endif
     if(res > 0)
         gtk_action_set_sensitive(gtk_action_group_get_action(action_group, "cheatlist"), TRUE);
     return res;
@@ -893,7 +904,7 @@ static void OpenNdsDialog()
     switch(gtk_dialog_run(GTK_DIALOG(pFileSelection))) {
     case GTK_RESPONSE_OK:
         sPath = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(pFileSelection));
-        if(Open((const char*)sPath, bad_glob_cflash_disk_image_file) < 0) {
+        if(Open((const char*)sPath) < 0) {
             GtkWidget *pDialog = gtk_message_dialog_new(GTK_WINDOW(pFileSelection),
                     GTK_DIALOG_MODAL,
                     GTK_MESSAGE_ERROR,
@@ -902,6 +913,23 @@ static void OpenNdsDialog()
             gtk_dialog_run(GTK_DIALOG(pDialog));
             gtk_widget_destroy(pDialog);
         } else {
+#ifdef HAVE_RECENT_FILES
+            GtkRecentData recentData;
+            gchar *uri;
+            memset(&recentData, 0, sizeof(GtkRecentData));
+            recentData.mime_type = g_strdup("application/x-nintendo-ds-rom");
+            recentData.app_name = (gchar *) g_get_application_name ();
+            recentData.app_exec = g_strjoin (" ", g_get_prgname (), "%f", NULL);
+
+            GtkRecentManager *manager;
+            manager = gtk_recent_manager_get_default ();
+            uri = g_filename_to_uri (sPath, NULL, NULL);
+            gtk_recent_manager_add_full (manager, uri, &recentData);
+
+            g_free(uri);
+            g_free(recentData.app_name);
+            g_free(recentData.app_exec);
+#endif
             gtk_action_set_sensitive(gtk_action_group_get_action(action_group, "run"), TRUE);
         }
 
@@ -914,6 +942,15 @@ static void OpenNdsDialog()
     }
     gtk_widget_destroy(pFileSelection);
 }
+
+#ifdef HAVE_RECENT_FILES
+static void OpenRecent(GtkRecentChooser *chooser, gpointer user_data)
+{
+    Open(g_filename_from_uri(gtk_recent_chooser_get_current_uri(chooser), NULL, NULL));
+
+    gtk_action_set_sensitive(gtk_action_group_get_action(action_group, "run"), TRUE);
+}
+#endif
 
 static void Reset()
 {
@@ -1055,6 +1092,8 @@ static int ExposeDrawingArea (GtkWidget *widget, GdkEventExpose *event, gpointer
         yd = yoff;
     }
 
+    osd->update();
+    DrawHUD();
     gpu_screen_to_rgb(rgb, SCREENS_PIXEL_SIZE*SCREEN_BYTES_PER_PIXEL);
     origPixbuf = gdk_pixbuf_new_from_data(rgb, GDK_COLORSPACE_RGB, 
             0, 8, imgW, imgH, imgW*SCREEN_BYTES_PER_PIXEL, NULL, NULL);
@@ -1568,6 +1607,7 @@ gboolean EmuLoop(gpointer data)
 
     _updateDTools();
     gtk_widget_queue_draw( pDrawingArea );
+    osd->clear();
 
     if (!gtk_fps_limiter_disabled) {
         limiter_frame_counter += 1;
@@ -1672,23 +1712,32 @@ static void ToggleAudio (GtkToggleAction *action)
 {
     if (gtk_toggle_action_get_active(action) == TRUE) {
         SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
+        osd->addLine("Audio enabled\n");
     } else {
         SPU_ChangeSoundCore(0, 0);
+        osd->addLine("Audio disabled\n");
     }
 }
 
+#ifdef FAKE_MIC
 static void ToggleMicNoise (GtkToggleAction *action)
 {
-    Mic_DoNoise((BOOL)gtk_toggle_action_get_active(action));
+    BOOL doNoise = (BOOL)gtk_toggle_action_get_active(action);
+
+    Mic_DoNoise(doNoise);
+    if (doNoise)
+       osd->addLine("Fake mic enabled\n");
+    else
+       osd->addLine("Fake mic disabled\n");
 }
+#endif
 
 static void desmume_gtk_menu_tools (GtkActionGroup *ag)
 {
     gint i;
     for(i = 0; i < dTools_list_size; i++) {
         GtkAction *act;
-        //FIXME: remove hardcoded 'ioregtool' from here and in ui_description
-        act = gtk_action_new("ioregtool", dTools_list[i]->name, NULL, NULL);
+        act = gtk_action_new(dTools_list[i]->shortname, dTools_list[i]->name, NULL, NULL);
         g_signal_connect(G_OBJECT(act), "activate", G_CALLBACK(Start_dTool), GINT_TO_POINTER(i));
         gtk_action_group_add_action(ag, GTK_ACTION(act));
     }
@@ -1736,7 +1785,23 @@ common_gtk_main( struct configured_features *my_config)
         fw_config.language = my_config->firmware_language;
     }
 
-    bad_glob_cflash_disk_image_file = my_config->cflash_disk_image_file;
+    //------------------addons----------
+    my_config->process_addonCommands();
+    addon_type = NDS_ADDON_NONE;
+    if (my_config->is_cflash_configured)
+        addon_type = NDS_ADDON_CFLASH;
+
+    switch (addon_type) {
+    case NDS_ADDON_CFLASH:
+    case NDS_ADDON_RUMBLEPAK:
+    case NDS_ADDON_NONE:
+    case NDS_ADDON_GBAGAME:
+        break;
+    default:
+        addon_type = NDS_ADDON_NONE;
+        break;
+    }
+    addonsChangePak (addon_type);
 
 #ifdef GDB_STUB
     if ( my_config->arm9_gdb_port != 0) {
@@ -1773,6 +1838,11 @@ common_gtk_main( struct configured_features *my_config)
     desmume_init( arm9_memio, &arm9_ctrl_iface,
                       arm7_memio, &arm7_ctrl_iface,
                       my_config->disable_sound);
+
+    /* Init the hud / osd stuff */
+    Desmume_InitOnce();
+    Hud.reset();
+    aggDraw.hud->attach(GPU_screen, 256, 384, 512);
 
     /*
      * Activate the GDB stubs
@@ -1853,6 +1923,18 @@ common_gtk_main( struct configured_features *my_config)
     pToolBar = gtk_ui_manager_get_widget (ui_manager, "/ToolBar");
     gtk_box_pack_start (GTK_BOX(pVBox), pToolBar, FALSE, FALSE, 0);
 
+#ifdef HAVE_RECENT_FILES
+    {
+        GtkWidget * recentMenu = gtk_ui_manager_get_widget (ui_manager, "/MainMenu/FileMenu/RecentMenu");
+        GtkWidget * recentFiles = gtk_recent_chooser_menu_new();
+        GtkRecentFilter * recentFilter = gtk_recent_filter_new();
+        gtk_recent_filter_add_mime_type(recentFilter, "application/x-nintendo-ds-rom");
+        gtk_recent_chooser_set_filter(GTK_RECENT_CHOOSER(recentFiles), recentFilter);
+        gtk_menu_item_set_submenu(GTK_MENU_ITEM(recentMenu), recentFiles);
+        g_signal_connect(G_OBJECT(recentFiles), "item-activated", G_CALLBACK(OpenRecent), NULL);
+    }
+#endif
+
     /* Creating the place for showing DS screens */
     pDrawingArea = gtk_drawing_area_new();
     gtk_container_add (GTK_CONTAINER (pVBox), pDrawingArea);
@@ -1897,11 +1979,9 @@ common_gtk_main( struct configured_features *my_config)
         }
     }
 
-    /*
-     * Set the 3D emulation to use
-     */
+    //Set the 3D emulation to use
     unsigned core = my_config->engine_3d;
-    /* setup the gdk 3D emulation; */
+    // setup the gdk 3D emulation;
 #if defined(HAVE_LIBOSMESA)
     if(my_config->engine_3d == 2){
         core = init_osmesa_3Demu() ? 2 : GPU3D_NULL;
@@ -1915,9 +1995,9 @@ common_gtk_main( struct configured_features *my_config)
 
     backup_setManualBackupType(my_config->savetype);
 
-    /* Command line arg */
+    // Command line arg 
     if( my_config->nds_file != "") {
-        if(Open( my_config->nds_file.c_str(), bad_glob_cflash_disk_image_file) >= 0) {
+        if(Open( my_config->nds_file.c_str()) >= 0) {
             my_config->process_movieCommands();
 
             if(my_config->load_slot){

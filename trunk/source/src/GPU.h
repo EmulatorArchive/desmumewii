@@ -4,6 +4,7 @@
 
 	Copyright (C) 2006-2007 Theo Berkau
 	Copyright (C) 2007 shash
+	Copyright (C) 2009-2009 DeSmuME team
 
 	This file is part of DeSmuME
 
@@ -25,21 +26,19 @@
 #ifndef GPU_H
 #define GPU_H
 
-#include "ARM9.h"
 #include <stdio.h>
 #include "mem.h"
 #include "common.h"
 #include "registers.h"
 #include "FIFO.h"
 #include "MMU.h"
-#include "GPU_osd.h"
 #include <iosfwd>
 
 //#undef FORCEINLINE
 //#define FORCEINLINE
 
-void gpu_savestate(std::ostream* os);
-bool gpu_loadstate(std::istream* is, int size);
+void gpu_savestate(EMUFILE* os);
+bool gpu_loadstate(EMUFILE* is, int size);
 
 /*******************************************************************************
     this structure is for display control,
@@ -124,6 +123,10 @@ typedef union
 #define BGxENABLED(cnt,num)    ((num<8)? ((cnt.val>>8) & num):0)
 
 
+enum BlendFunc
+{
+	None, Blend, Increase, Decrease
+};
 
 
 /*******************************************************************************
@@ -350,20 +353,18 @@ struct DISPCAPCNT
 	enum CAPX {
 		_128, _256
 	} capx;
-    u32		val;
-	BOOL	enabled;
-	u8		EVA;
-	u8		EVB;
-	u8		writeBlock;
-	u8		writeOffset;
-	u16		capy;
-	u8		srcA;
-	u8		srcB;
-	u8		readBlock;
-	u8		readOffset;
-	u8		capSrc;
-	u8		*dst;
-	u8		*src;
+    u32 val;
+	BOOL enabled;
+	u8 EVA;
+	u8 EVB;
+	u8 writeBlock;
+	u8 writeOffset;
+	u16 capy;
+	u8 srcA;
+	u8 srcB;
+	u8 readBlock;
+	u8 readOffset;
+	u8 capSrc;
 } ;
 
 /*******************************************************************************
@@ -505,8 +506,14 @@ typedef union
 
 
 
-
-
+ // (00: Normal, 01: Transparent, 10: Object window, 11: Bitmap)
+enum GPU_OBJ_MODE
+{
+	GPU_OBJ_MODE_Normal = 0,
+	GPU_OBJ_MODE_Transparent = 1,
+	GPU_OBJ_MODE_Window = 2,
+	GPU_OBJ_MODE_Bitmap = 3
+};
 
 /*
 	this structure is for Sprite description,
@@ -515,7 +522,7 @@ typedef union
 ref: http://www.bottledlight.com/ds/index.php/Video/Sprites
 */
 
-typedef struct
+struct _OAM_
 {
 #ifdef WORDS_BIGENDIAN
 // attr0
@@ -558,7 +565,7 @@ typedef struct
 // attr3
 	unsigned attr3:16;
 #endif
-} _OAM_;
+};
 
 typedef struct
 {
@@ -598,16 +605,25 @@ typedef struct
 #define NB_BG		4
 typedef struct
 {
-	u8 BGs[NB_BG], nbBGs;
 	u8 PixelsX[256];
-	// doh ! yoda says : 256 pixels we can have...
+	u8 BGs[NB_BG], nbBGs;
+	u8 pad[1];
 	u16 nbPixelsX;
+	//256+8:
+	u8 pad2[248];
+
+	//things were slower when i organized this struct this way. whatever.
+	//u8 PixelsX[256];
+	//int BGs[NB_BG], nbBGs;
+	//int nbPixelsX;
+	////<-- 256 + 24
+	//u8 pad2[256-24];
 } itemsForPriority_t;
-#define ARM9MEM_ABG		0x06000000
-#define ARM9MEM_BBG		0x06200000
-#define ARM9MEM_AOBJ	0x06400000
-#define ARM9MEM_BOBJ	0x06600000
-#define ARM9MEM_LCDC	0x06800000
+#define MMU_ABG		0x06000000
+#define MMU_BBG		0x06200000
+#define MMU_AOBJ	0x06400000
+#define MMU_BOBJ	0x06600000
+#define MMU_LCDC	0x06800000
 
 extern CACHE_ALIGN u8 gpuBlendTable555[17][17][32][32];
 
@@ -616,11 +632,20 @@ enum BGType {
 	BGType_AffineExt=4, BGType_AffineExt_256x16=5, BGType_AffineExt_256x1=6, BGType_AffineExt_Direct=7
 };
 
+extern const BGType GPU_mode2type[8][4];
+
 struct GPU
 {
+	GPU()
+		: debug(false)
+	{}
+
 	// some structs are becoming redundant
 	// some functions too (no need to recopy some vars as it is done by MMU)
 	REG_DISPx * dispx_st;
+
+	//this indicates whether this gpu is handling debug tools
+	bool debug;
 
 	_BGxCNT & bgcnt(int num) { return (dispx_st)->dispx_BGxCNT[num].bits; }
 	_DISPCNT & dispCnt() { return dispx_st->dispx_DISPCNT.bits; }
@@ -691,14 +716,14 @@ struct GPU
 	u8 WIN1V1;
 
 	u8 WININ0;
-	u8 WININ0_SPECIAL;
+	bool WININ0_SPECIAL;
 	u8 WININ1;
-	u8 WININ1_SPECIAL;
+	bool WININ1_SPECIAL;
 
 	u8 WINOUT;
-	u8 WINOUT_SPECIAL;
+	bool WINOUT_SPECIAL;
 	u8 WINOBJ;
-	u8 WINOBJ_SPECIAL;
+	bool WINOBJ_SPECIAL;
 
 	u8 WIN0_ENABLED;
 	u8 WIN1_ENABLED;
@@ -711,18 +736,20 @@ struct GPU
 	u16 *currentFadeInColors, *currentFadeOutColors;
 	bool blend2[8];
 
+	CACHE_ALIGN u16 tempScanlineBuffer[256];
+	u8 *tempScanline;
+
 	u8	MasterBrightMode;
 	u32 MasterBrightFactor;
 
-	u8 bgPixels[256];
+	CACHE_ALIGN u8 bgPixels[1024]; //yes indeed, this is oversized. map debug tools try to write to it
 
-	u8 currLine;
+	u32 currLine;
 	u8 currBgNum;
 	bool blend1;
 	u8* currDst;
 
-	u16* _3dColorLine;
-	u8* _3dAlphaLine;
+	u8* _3dColorLine;
 
 
 	static struct MosaicLookup {
@@ -749,13 +776,16 @@ struct GPU
 
 	u16 blend(u16 colA, u16 colB);
 
-	typedef void (*FinalOBJColFunct)(GPU *gpu, u32 passing, u8 *dst, u16 color, u8 alpha, u8 type, u16 x);
-	typedef void (*Final3DColFunct)(GPU *gpu, int dstX, int srcX);
+	template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x);
+
+	template<BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL void _master_setFinal3dColor(int dstX, int srcX);
 
 	int setFinalColorBck_funcNum;
 	int bgFunc;
 	int setFinalColor3d_funcNum;
-	FinalOBJColFunct setFinalColorSpr;
+	int setFinalColorSpr_funcNum;
 	//Final3DColFunct setFinalColor3D;
 	enum SpriteRenderMode {
 		SPRITE_1D, SPRITE_2D
@@ -763,31 +793,22 @@ struct GPU
 
 	template<GPU::SpriteRenderMode MODE>
 	void _spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab);
-	void spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab);
-
-	void setFinalColorBG(u16 color, u8 x);
-	void setFinalColor3d(int dstX, int srcX);
-
-	FORCEINLINE void setFinalBGColorSpecialNone(u16 &color, u8 x);
-	FORCEINLINE void setFinalBGColorSpecialBlend(u16 &color, u8 x);
-	FORCEINLINE void setFinalBGColorSpecialIncrease(u16 &color, u8 x);
-	FORCEINLINE void setFinalBGColorSpecialDecrease(u16 &color, u8 x);
-	FORCEINLINE bool setFinalBGColorSpecialNoneWnd(u16 &color, u8 x);
-	FORCEINLINE bool setFinalBGColorSpecialBlendWnd(u16 &color, u8 x);
-	FORCEINLINE bool setFinalBGColorSpecialIncreaseWnd(u16 &color, u8 x);
-	FORCEINLINE bool setFinalBGColorSpecialDecreaseWnd(u16 &color, u8 x);
 	
-	FORCEINLINE void setFinal3DColorSpecialNone(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialBlend(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialIncrease(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialDecrease(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialNoneWnd(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialBlendWnd(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialIncreaseWnd(int dstX, int srcX);
-	FORCEINLINE void setFinal3DColorSpecialDecreaseWnd(int dstX, int srcX);
+	inline void spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
+	{
+		if(spriteRenderMode == SPRITE_1D)
+			_spriteRender<SPRITE_1D>(dst,dst_alpha,typeTab, prioTab);
+		else
+			_spriteRender<SPRITE_2D>(dst,dst_alpha,typeTab, prioTab);
+	}
 
 
-	template<bool MOSAIC> void __setFinalColorBck(u16 color, const u8 x, const bool opaque);
+	void setFinalColor3d(int dstX, int srcX);
+	
+	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
+	template<bool MOSAIC, bool BACKDROP> FORCEINLINE void __setFinalColorBck(u16 color, const u32 x, const int opaque);
+	template<bool MOSAIC, bool BACKDROP, int FUNCNUM> FORCEINLINE void ___setFinalColorBck(u16 color, const u32 x, const int opaque);
+
 	void setAffineStart(int layer, int xy, u32 val);
 	void setAffineStartWord(int layer, int xy, u16 val, int word);
 	u32 getAffineStart(int layer, int xy);
@@ -802,7 +823,7 @@ struct GPU
 
 	// check whether (x,y) is within the rectangle (including wraparounds) 
 	template<int WIN_NUM>
-	bool withinRect(u8 x) const;
+	u8 withinRect(u16 x) const;
 
 	void setBLDALPHA(u16 val)
 	{
@@ -853,7 +874,6 @@ static void REG_DISPx_pack_test(GPU * gpu)
 #endif
 
 CACHE_ALIGN extern u8 GPU_screen[4*256*192];
-CACHE_ALIGN extern u8 GPU_tempScreen[4*256*192];
 
 
 GPU * GPU_Init(u8 l);
@@ -920,7 +940,7 @@ void GPU_addBack(GPU *, u8 num);
 int GPU_ChangeGraphicsCore(int coreid);
 
 void GPU_set_DISPCAPCNT(u32 val) ;
-void GPU_ligne(NDS_Screen * screen, u16 l) ;
+void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip = false) ;
 void GPU_setMasterBrightness (GPU *gpu, u16 val);
 
 inline void GPU_setWIN0_H(GPU* gpu, u16 val) { gpu->WIN0H0 = val >> 8; gpu->WIN0H1 = val&0xFF; gpu->need_update_winh[0] = true; }
@@ -941,9 +961,9 @@ inline void GPU_setWIN1_V1(GPU* gpu, u8 val) { gpu->WIN1V1 = val; }
 
 inline void GPU_setWININ(GPU* gpu, u16 val) {
 	gpu->WININ0=val&0x1F;
-	gpu->WININ0_SPECIAL=(val>>5)&1;
+	gpu->WININ0_SPECIAL=((val>>5)&1)!=0;
 	gpu->WININ1=(val>>8)&0x1F;
-	gpu->WININ1_SPECIAL=(val>>13)&1;
+	gpu->WININ1_SPECIAL=((val>>13)&1)!=0;
 }
 
 inline void GPU_setWININ0(GPU* gpu, u8 val) { gpu->WININ0 = val&0x1F; gpu->WININ0_SPECIAL = (val>>5)&1; }
@@ -951,9 +971,9 @@ inline void GPU_setWININ1(GPU* gpu, u8 val) { gpu->WININ1 = val&0x1F; gpu->WININ
 
 inline void GPU_setWINOUT16(GPU* gpu, u16 val) {
 	gpu->WINOUT=val&0x1F;
-	gpu->WINOUT_SPECIAL=(val>>5)&1;
+	gpu->WINOUT_SPECIAL=((val>>5)&1)!=0;
 	gpu->WINOBJ=(val>>8)&0x1F;
-	gpu->WINOBJ_SPECIAL=(val>>13)&1;
+	gpu->WINOBJ_SPECIAL=((val>>13)&1)!=0;
 }
 inline void GPU_setWINOUT(GPU* gpu, u8 val) { gpu->WINOUT = val&0x1F; gpu->WINOUT_SPECIAL = (val>>5)&1; }
 inline void GPU_setWINOBJ(GPU* gpu, u8 val) { gpu->WINOBJ = val&0x1F; gpu->WINOBJ_SPECIAL = (val>>5)&1; }
@@ -977,8 +997,6 @@ void gpu_SetRotateScreen(u16 angle);
 
 //#undef FORCEINLINE
 //#define FORCEINLINE __forceinline
-
-extern OSDCLASS	*osd;
 
 #endif
 

@@ -22,10 +22,6 @@
 #ifndef ARM_CPU
 #define ARM_CPU
 
-#define ARMCPU_ARM7 1
-#define ARMCPU_ARM9 0
-#define ARMPROC (PROCNUM?NDS_ARM7:NDS_ARM9)
-
 #include "types.h"
 #include "bits.h"
 #include "MMU.h"
@@ -39,20 +35,16 @@
 inline u32 ROR(u32 i, u32 j)   { return ((((u32)(i))>>(j)) | (((u32)(i))<<(32-(j)))); }
 
 template<typename T>
-inline T UNSIGNED_OVERFLOW(T a,T b,T c) { return ((BIT31(a)&BIT31(b)) | 
-												  ((BIT31(a)|BIT31(b))&BIT31(~c))); }
+inline T UNSIGNED_OVERFLOW(T a,T b,T c) { return BIT31(((a)&(b)) | (((a)|(b))&(~c))); }
 
 template<typename T>
-inline T UNSIGNED_UNDERFLOW(T a,T b,T c) { return ((BIT31(~a)&BIT31(b)) | 
-													((BIT31(~a)|BIT31(b))&BIT31(c))); }
+inline T UNSIGNED_UNDERFLOW(T a,T b,T c) { return BIT31(((~a)&(b)) | (((~a)|(b))&(c))); }
 
 template<typename T>
-inline T SIGNED_OVERFLOW(T a,T b,T c) { return ((BIT31(a)&BIT31(b)&BIT31(~c))|
-										  (BIT31(~a)&BIT31(~(b))&BIT31(c))); }
+inline T SIGNED_OVERFLOW(T a,T b,T c) { return BIT31(((a)&(b)&(~c)) | ((~a)&(~(b))&(c))); }
 
 template<typename T>
-inline T SIGNED_UNDERFLOW(T a,T b,T c) { return ((BIT31(a)&BIT31(~(b))&BIT31(~c))|
-										  (BIT31(~a)&BIT31(b)&BIT31(c))); }
+inline T SIGNED_UNDERFLOW(T a,T b,T c) { return BIT31(((a)&(~(b))&(~c)) | ((~a)&(b)&(c))); }
 
 //zero 15-feb-2009 - these werent getting used and they were getting in my way
 //#define EQ	0x0
@@ -73,7 +65,7 @@ inline T SIGNED_UNDERFLOW(T a,T b,T c) { return ((BIT31(a)&BIT31(~(b))&BIT31(~c)
 
 extern const unsigned char arm_cond_table[16*16];
 
-#define TEST_COND(cond, inst, CPSR)   ((arm_cond_table[((CPSR.val >> 24) & 0xf0)+(cond)] >> (inst)) & 1)
+#define TEST_COND(cond, inst, CPSR)   ((arm_cond_table[((CPSR.val >> 24) & 0xf0)|(cond)]) & (1 << (inst)))
 
 
 enum Mode
@@ -158,34 +150,31 @@ typedef void* armcp_t;
 
 typedef struct armcpu_t
 {
-        u32 proc_ID;
-        u32 instruction; //4
-        u32 instruct_adr; //8
-        u32 next_instruction; //12
+	u32 proc_ID;
+	u32 instruction; //4
+	u32 instruct_adr; //8
+	u32 next_instruction; //12
 
-        u32 R[16]; //16
+	u32 R[16]; //16
 	Status_Reg CPSR;  //80
 	Status_Reg SPSR;
 
-        u32 R13_usr, R14_usr;
-        u32 R13_svc, R14_svc;
-        u32 R13_abt, R14_abt;
-        u32 R13_und, R14_und;
-        u32 R13_irq, R14_irq;
-        u32 R8_fiq, R9_fiq, R10_fiq, R11_fiq, R12_fiq, R13_fiq, R14_fiq;
+	u32 R13_usr, R14_usr;
+	u32 R13_svc, R14_svc;
+	u32 R13_abt, R14_abt;
+	u32 R13_und, R14_und;
+	u32 R13_irq, R14_irq;
+	u32 R8_fiq, R9_fiq, R10_fiq, R11_fiq, R12_fiq, R13_fiq, R14_fiq;
 	Status_Reg SPSR_svc, SPSR_abt, SPSR_und, SPSR_irq, SPSR_fiq;
 
 	armcp_t *coproc[16];
 
-        u32 intVector;
-        u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5
+	u32 intVector;
+	u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5
 	BOOL waitIRQ;
-	BOOL wIRQ;
 	BOOL wirq;
 
-	u32 newIrqFlags;
-
-        u32 (* *swi_tab)();
+	u32 (* *swi_tab)();
 
 #ifdef GDB_STUB
   /** there is a pending irq for the cpu */
@@ -232,8 +221,8 @@ static INLINE void setIF(int PROCNUM, u32 flag)
 {
 	MMU.reg_IF[PROCNUM] |= flag;
 
-	if(ARMPROC.waitIRQ)
-		ARMPROC.newIrqFlags |= flag;
+	extern void NDS_Reschedule();
+	NDS_Reschedule();
 }
 
 static INLINE void NDS_makeARM9Int(u32 num)
@@ -245,7 +234,6 @@ static INLINE void NDS_makeARM9Int(u32 num)
         /* generate the interrupt if enabled */
 	if ((MMU.reg_IE[0] & (1 << num)) && MMU.reg_IME[0])
 	{
-		NDS_ARM9.wIRQ = TRUE;
 		NDS_ARM9.waitIRQ = FALSE;
 	}
 }
@@ -259,7 +247,6 @@ static INLINE void NDS_makeARM7Int(u32 num)
         /* generate the interrupt if enabled */
 	if ((MMU.reg_IE[1] & (1 << num)) && MMU.reg_IME[1])
 	{
-		NDS_ARM7.wIRQ = TRUE;
 		NDS_ARM7.waitIRQ = FALSE;
 	}
 }

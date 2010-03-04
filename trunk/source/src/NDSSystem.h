@@ -24,8 +24,6 @@
 #ifndef NDSSYSTEM_H
 #define NDSSYSTEM_H
 
-#define MAX_PATH 200
-
 #include <string.h>
 #include "armcpu.h"
 #include "MMU.h"
@@ -34,72 +32,47 @@
 #include "SPU.h"
 #include "mem.h"
 #include "wifi.h"
+#include "emufile.h"
 
 #include <string>
 
-struct turbo {
-	bool Right;
-	bool Left;
-	bool Down;
-	bool Up;
-	bool Select;
-	bool Start;
-	bool B;
-	bool A;
-	bool Y;
-	bool X;
-	bool L;
-	bool R;
+#ifdef WIN32
+#include "pathsettings.h"
+#endif
 
-	bool &button(int i) { return ((bool*)this)[i]; }
+template<typename Type>
+struct buttonstruct {
+	union {
+		struct {
+			// changing the order of these fields would break stuff
+			//fRLDUTSBAYXWEg
+			Type G; // debug
+			Type E; // right shoulder
+			Type W; // left shoulder
+			Type X;
+			Type Y;
+			Type A;
+			Type B;
+			Type S; // start
+			Type T; // select
+			Type U; // up
+			Type D; // down
+			Type L; // left
+			Type R; // right
+			Type F; // lid
+		};
+		Type array[14];
+	};
 };
 
-extern turbo Turbo;
-
-struct turbotime {
-	int Right;
-	int Left;
-	int Down;
-	int Up;
-	int Select;
-	int Start;
-	int B;
-	int A;
-	int Y;
-	int X;
-	int L;
-	int R;
-
-	int &time(int i) { return ((int*)this)[i]; }
-};
-
-extern turbotime TurboTime;
-
-struct autohold {
-	bool Right;
-	bool Left;
-	bool Down;
-	bool Up;
-	bool Select;
-	bool Start;
-	bool B;
-	bool A;
-	bool Y;
-	bool X;
-	bool L;
-	bool R;
-
-	bool &hold(int i) { return ((bool*)this)[i]; }
-};
-
-extern autohold AutoHold;
+extern buttonstruct<bool> Turbo;
+extern buttonstruct<int> TurboTime;
+extern buttonstruct<bool> AutoHold;
 
 int NDS_WritePNG(const char *fname);
 
-extern volatile BOOL execute;
+extern volatile bool execute;
 extern BOOL click;
-extern char pathToROM[MAX_PATH];
-extern char pathFilenameToROMwithoutExt[MAX_PATH];
 
 /*
  * The firmware language values
@@ -171,19 +144,19 @@ struct NDS_header
 extern void debug();
 void emu_halt();
 
+extern u64 nds_timer;
+void NDS_Reschedule();
+void NDS_RescheduleGXFIFO(u32 cost);
+void NDS_RescheduleDMA();
+void NDS_RescheduleTimers();
+
 typedef struct
 {
-	s32 ARM9Cycle;
-	s32 ARM7Cycle;
 	s32 wifiCycle;
 	s32 cycles;
-	s32 timerCycle[2][4];
-	BOOL timerOver[2][4];
-	s32 nextHBlank;
+	u64 timerCycle[2][4];
 	u32 VCount;
 	u32 old;
-	s32 diff;
-	BOOL lignerendu;
 
 	u16 touchX;
 	u16 touchY;
@@ -206,6 +179,7 @@ typedef struct
 	s32 idleCycles;
 	s32 runCycleCollector[16];
 	s32 idleFrameCounter;
+	s32 cpuloopIterationCount; //counts the number of times during a frame that a reschedule happened
 
 	//if the game was booted on a debug console, this is set
 	BOOL debugConsole;
@@ -265,6 +239,8 @@ int NDS_Init( struct armcpu_memory_iface *arm9_mem_if,
 int NDS_Init ( void);
 #endif
 
+void Desmume_InitOnce();
+
 void NDS_DeInit(void);
 void
 NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config);
@@ -274,29 +250,113 @@ NDS_header * NDS_getROMHeader(void);
 
 struct GameInfo
 {
+	GameInfo()
+		: romdata(NULL)
+	{}
+
+	void loadData(char* buf, int size)
+	{
+		resize(size);
+		memcpy(romdata,buf,size);
+	}
+
+	void resize(int size) {
+		if(romdata != NULL) delete[] romdata;
+		romdata = new char[size];
+		romsize = size;
+	}
 	u32 crc;
 	NDS_header header;
 	char ROMserial[20];
 	void populate();
+	char* romdata;
+	int romsize;
 };
 
+typedef struct TSCalInfo
+{
+	struct adc
+	{
+		u16 x1, x2;
+		u16 y1, y2;
+	} adc;
+
+	struct scr
+	{
+		u8 x1, x2;
+		u8 y1, y2;
+	} scr;
+
+} TSCalInfo;
+
 extern GameInfo gameInfo;
- 
+
+
+struct UserButtons : buttonstruct<bool>
+{
+};
+struct UserTouch
+{
+	u16 touchX;
+	u16 touchY;
+	bool isTouch;
+};
+struct UserMicrophone
+{
+	u32 micButtonPressed;
+};
+struct UserInput
+{
+	UserButtons buttons;
+	UserTouch touch;
+	UserMicrophone mic;
+};
+
+// set physical user input
+// these functions merely request the input to be changed.
+// the actual change happens later at a specific time during the frame.
+// this is to minimize the risk of desyncs.
 void NDS_setTouchPos(u16 x, u16 y);
 void NDS_releaseTouch(void);
-void NDS_setPad(bool R,bool L,bool D,bool U,bool T,bool S,bool B,bool A,bool Y,bool X,bool W,bool E,bool G, bool F);
-void NDS_setPadFromMovie(u16 pad);
+void NDS_setPad(bool right,bool left,bool down,bool up,bool select,bool start,bool B,bool A,bool Y,bool X,bool leftShoulder,bool rightShoulder,bool debug, bool lid);
+void NDS_setMic(bool pressed);
 
-#ifdef EXPERIMENTAL_GBASLOT
-int NDS_LoadROM(const char *filename);
-#else
-int NDS_LoadROM(const char *filename,
-                 const char *cflash_disk_image_file);
-#endif
+// get physical user input
+// not including the results of autofire/etc.
+// the effects of calls to "set physical user input" functions will be immediately reflected here though.
+const UserInput& NDS_getRawUserInput();
+const UserInput& NDS_getPrevRawUserInput();
+
+// get final (fully processed) user input
+// this should match whatever was or would be sent to the game
+const UserInput& NDS_getFinalUserInput();
+
+// set/get to-be-processed or in-the-middle-of-being-processed user input
+// to process input, simply call this function and edit the return value.
+// (applying autofire is one example of processing the input.)
+// (movie playback is another example.)
+// this must be done after the raw user input is set
+// and before that input is sent to the game's memory.
+UserInput& NDS_getProcessingUserInput();
+bool NDS_isProcessingUserInput();
+// call once per frame to prepare input for processing 
+void NDS_beginProcessingInput();
+// call once per frame to copy the processed input to the final input
+void NDS_endProcessingInput();
+
+// this is in case something needs reentrancy while processing input
+void NDS_suspendProcessingInput(bool suspend);
+
+
+
+int NDS_LoadROM(const char *filename, const char* logicalFilename=0);
 void NDS_FreeROM(void);
 void NDS_Reset();
 int NDS_ImportSave(const char *filename);
 bool NDS_ExportSave(const char *filename);
+
+void nds_savestate(EMUFILE* os);
+bool nds_loadstate(EMUFILE* is, int size);
 
 int NDS_WriteBMP(const char *filename);
 int NDS_LoadFirmware(const char *filename);
@@ -306,80 +366,91 @@ void NDS_Sleep();
 
 void NDS_SkipNextFrame();
 #define NDS_SkipFrame(s) if(s) NDS_SkipNext2DFrame();
+void NDS_OmitFrameSkip(int force=0);
+
+void execHardware_doAllDma(EDMAMode modeNum);
 
 template<bool FORCE> void NDS_exec(s32 nb = 560190<<1);
 
 extern int lagframecounter;
 
-       static INLINE void NDS_ARM9HBlankInt(void)
-       {
-            if(T1ReadWord(ARM9Mem.ARM9_REG, 4) & 0x10)
-            {
-                 //MMU.reg_IF[0] |= 2;// & (MMU.reg_IME[0] << 1);// (MMU.reg_IE[0] & (1<<1));
-				setIF(0, 2);
-                 NDS_ARM9.wIRQ = TRUE;
-            }
-       }
-       
-       static INLINE void NDS_ARM7HBlankInt(void)
-       {
-            if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10)
-            {
-                // MMU.reg_IF[1] |= 2;// & (MMU.reg_IME[1] << 1);// (MMU.reg_IE[1] & (1<<1));
-				setIF(1, 2);
-                 NDS_ARM7.wIRQ = TRUE;
-            }
-       }
-       
-       static INLINE void NDS_ARM9VBlankInt(void)
-       {
-            if(T1ReadWord(ARM9Mem.ARM9_REG, 4) & 0x8)
-            {
-                // MMU.reg_IF[0] |= 1;// & (MMU.reg_IME[0]);// (MMU.reg_IE[0] & 1);
-				setIF(0, 1);
-                 NDS_ARM9.wIRQ = TRUE;
-                      //emu_halt();
-                      /*logcount++;*/
-            }
-       }
-       
-       static INLINE void NDS_ARM7VBlankInt(void)
-       {
-            if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8)
-                // MMU.reg_IF[1] |= 1;// & (MMU.reg_IME[1]);// (MMU.reg_IE[1] & 1);
-				setIF(1, 1);
-                 NDS_ARM7.wIRQ = TRUE;
-                 //emu_halt();
-       }
-       
-       static INLINE void NDS_swapScreen(void)
-       {
-	       u16 tmp = MainScreen.offset;
-	       MainScreen.offset = SubScreen.offset;
-	       SubScreen.offset = tmp;
-       }
+static INLINE void NDS_ARM9HBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10)
+    {
+         //MMU.reg_IF[0] |= 2;// & (MMU.reg_IME[0] << 1);// (MMU.reg_IE[0] & (1<<1));
+		setIF(0, 2);
+    }
+}
 
-	int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
+static INLINE void NDS_ARM7HBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10)
+    {
+        // MMU.reg_IF[1] |= 2;// & (MMU.reg_IME[1] << 1);// (MMU.reg_IE[1] & (1<<1));
+		setIF(1, 2);
+    }
+}
+
+static INLINE void NDS_ARM9VBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8)
+    {
+        // MMU.reg_IF[0] |= 1;// & (MMU.reg_IME[0]);// (MMU.reg_IE[0] & 1);
+		setIF(0, 1);
+              //emu_halt();
+              /*logcount++;*/
+    }
+}
+
+static INLINE void NDS_ARM7VBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8)
+        // MMU.reg_IF[1] |= 1;// & (MMU.reg_IME[1]);// (MMU.reg_IE[1] & 1);
+		setIF(1, 1);
+         //emu_halt();
+}
+
+static INLINE void NDS_swapScreen(void)
+{
+   u16 tmp = MainScreen.offset;
+   MainScreen.offset = SubScreen.offset;
+   SubScreen.offset = tmp;
+}
+
+int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
+
+
 
 extern struct TCommonSettings {
 	TCommonSettings() 
-		: HighResolutionInterpolateColor(true)
+		: GFX3D_HighResolutionInterpolateColor(true)
+		, GFX3D_EdgeMark(true)
+		, GFX3D_Fog(true)
 		, UseExtBIOS(false)
 		, SWIFromBIOS(false)
 		, UseExtFirmware(false)
 		, BootFromFirmware(false)
 		, DebugConsole(false)
-		, wifiBridgeAdapterNum(0)
+		//, gfx3d_flushMode(0)
+		, num_cores(1)
+		, micMode(InternalNoise)
 		, spuInterpolationMode(SPUInterpolation_Linear)
-		, spuAdpcmCache(false)
-		, gfx3d_flushMode(0)
 		, manualBackupType(0)
 	{
 		strcpy(ARM9BIOS, "biosnds9.bin");
 		strcpy(ARM7BIOS, "biosnds7.bin");
 		strcpy(Firmware, "firmware.bin");
+
+		wifi.mode = 0;
+		wifi.infraBridgeAdapter = 0;
+
+		for(int i=0;i<16;i++)
+			spu_muteChannels[i] = false;
 	}
-	bool HighResolutionInterpolateColor;
+	bool GFX3D_HighResolutionInterpolateColor;
+	bool GFX3D_EdgeMark;
+	bool GFX3D_Fog;
 
 	bool UseExtBIOS;
 	char ARM9BIOS[256];
@@ -391,17 +462,33 @@ extern struct TCommonSettings {
 	bool BootFromFirmware;
 
 	bool DebugConsole;
+
+	int num_cores;
+	bool single_core() { return num_cores==1; }
 	
-	int wifiBridgeAdapterNum;
+	struct _Wifi {
+		int mode;
+		int infraBridgeAdapter;
+	} wifi;
+
+	enum MicMode
+	{
+		InternalNoise = 0,
+		Sample = 1,
+		Random = 2,
+		Physical = 3,
+	} micMode;
+
 
 	SPUInterpolationMode spuInterpolationMode;
-	bool spuAdpcmCache;
 
 	//this is a temporary hack until we straighten out the flushing logic and/or gxfifo
-	int gfx3d_flushMode;
+	//int gfx3d_flushMode;
 
 	//this is the user's choice of manual backup type, for cases when the autodetection can't be trusted
 	int manualBackupType;
+
+	bool spu_muteChannels[16];
 
 	struct _ShowGpu {
 		_ShowGpu() : main(true), sub(true) {}
@@ -410,6 +497,18 @@ extern struct TCommonSettings {
 			bool screens[2];
 		};
 	} showGpu;
+
+	struct _Hud {
+		_Hud() 
+			: ShowInputDisplay(false)
+			, ShowGraphicalInputDisplay(false)
+			, FpsDisplay(false)
+			, FrameCounterDisplay(false)
+			, ShowLagFrameCounter(false)
+			, ShowMicrophone(false)
+		{}
+		bool ShowInputDisplay, ShowGraphicalInputDisplay, FpsDisplay, FrameCounterDisplay, ShowLagFrameCounter, ShowMicrophone;
+	} hud;
 
 } CommonSettings;
 

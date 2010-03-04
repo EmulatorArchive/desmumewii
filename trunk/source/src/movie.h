@@ -4,14 +4,11 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <ostream>
-#include <istream>
 #include <stdlib.h>
+#include "emufile.h"
 
 #include "utils/guid.h"
 #include "utils/md5.h"
-
-#define wstring basic_string<short> //Because libogc lacks proper wstring support
 
 typedef struct
 {
@@ -23,20 +20,23 @@ typedef struct
 	MD5DATA md5_of_rom_used;
 	std::string name_of_rom_used;
 
-	std::vector<std::string> comments; 
+	std::vector<std::wstring> comments;
 	std::vector<std::string> subtitles;
 } MOVIE_INFO;
 
 enum EMOVIEMODE
 {
-	MOVIEMODE_INACTIVE = 1,
-	MOVIEMODE_RECORD = 2,
-	MOVIEMODE_PLAY = 4,
+	MOVIEMODE_INACTIVE = 0,
+	MOVIEMODE_RECORD = 1,
+	MOVIEMODE_PLAY = 2,
+	MOVIEMODE_FINISHED = 3,
 };
 
 enum EMOVIECMD
 {
+	MOVIECMD_MIC = 1,
 	MOVIECMD_RESET = 2,
+	MOVIECMD_LID = 4,
 };
 
 //RLDUTSBAYXWEG
@@ -62,8 +62,8 @@ public:
 	//the disk format will support up to 64bit if necessary
 	uint8 commands;
 	bool command_reset() { return (commands&MOVIECMD_RESET)!=0; }
-	bool command_microphone() { return (commands&1)!=0; }
-	bool command_lid() { return (commands&4)!=0; }
+	bool command_microphone() { return (commands&MOVIECMD_MIC)!=0; }
+	bool command_lid() { return (commands&MOVIECMD_LID)!=0; }
 
 	void toggleBit(int bit)
 	{
@@ -93,12 +93,12 @@ public:
 
 	void clear();
 	
-	void parse(MovieData* md, std::istream* is);
-	bool parseBinary(MovieData* md, std::istream* is);
-	void dump(MovieData* md, std::ostream* os, int index);
-	void dumpBinary(MovieData* md, std::ostream* os, int index);
-	void parsePad(std::istream* is, u16& pad);
-	void dumpPad(std::ostream* os, u16 pad);
+	void parse(MovieData* md, EMUFILE* fp);
+	bool parseBinary(MovieData* md, EMUFILE* fp);
+	void dump(MovieData* md, EMUFILE* fp, int index);
+	void dumpBinary(MovieData* md, EMUFILE* fp, int index);
+	void parsePad(EMUFILE* fp, u16& pad);
+	void dumpPad(EMUFILE* fp, u16 pad);
 	
 	static const char mnemonics[13];
 
@@ -120,10 +120,10 @@ public:
 	u32 romChecksum;
 	std::string romSerial;
 	std::string romFilename;
-	std::vector<char> savestate;
-	std::vector<char> sram;
+	std::vector<u8> savestate;
+	std::vector<u8> sram;
 	std::vector<MovieRecord> records;
-	std::vector<std::string> comments;
+	std::vector<std::wstring> comments;
 	
 	int rerecordCount;
 	Desmume_Guid guid;
@@ -163,15 +163,14 @@ public:
 
 	void truncateAt(int frame);
 	void installValue(std::string& key, std::string& val);
-	int dump(std::ostream* os, bool binary);
+	int dump(EMUFILE* fp, bool binary);
 	void clearRecordRange(int start, int len);
 	void insertEmpty(int at, int frames);
 	
-	static bool loadSavestateFrom(std::vector<char>* buf);
-	static void dumpSavestateTo(std::vector<char>* buf, int compressionLevel);
+	static bool loadSavestateFrom(std::vector<u8>* buf);
+	static void dumpSavestateTo(std::vector<u8>* buf, int compressionLevel);
 
-	static bool loadSramFrom(std::vector<char>* buf);
-	static void dumpSramTo(std::vector<char>* buf, std::string sramfname);
+	static bool loadSramFrom(std::vector<u8>* buf);
 	//void TryDumpIncremental();
 
 private:
@@ -191,20 +190,19 @@ extern EMOVIEMODE movieMode;		//adelikat: main needs this for frame counter disp
 extern MovieData currMovieData;		//adelikat: main needs this for frame counter display
 
 extern bool movie_reset_command;
-extern bool movie_lid;
 
-bool FCEUI_MovieGetInfo(std::istream* fp, MOVIE_INFO& info, bool skipFrameCount);
-void _CDECL_ FCEUI_SaveMovie(const char *fname, std::string author, int flag, std::string sramfname);
-void _CDECL_ FCEUI_LoadMovie(const char *fname, bool _read_only, bool tasedit, int _pauseframe);
+bool FCEUI_MovieGetInfo(EMUFILE* fp, MOVIE_INFO& info, bool skipFrameCount);
+void _CDECL_ FCEUI_SaveMovie(const char *fname, std::wstring author, int flag, std::string sramfname);
+const char* _CDECL_ FCEUI_LoadMovie(const char *fname, bool _read_only, bool tasedit, int _pauseframe); // returns NULL on success, errmsg on failure
 void FCEUI_StopMovie();
 void FCEUMOV_AddInputState();
-void NDS_setTouchFromMovie(void);
-void mov_savestate(std::ostream* os);
-bool mov_loadstate(std::istream* is, int size);
-void LoadFM2_binarychunk(MovieData& movieData, std::istream* fp, int size);
-bool LoadFM2(MovieData& movieData, std::istream* fp, int size, bool stopAfterHeader);
+void FCEUMOV_HandlePlayback();
+void FCEUMOV_HandleRecording();
+void mov_savestate(EMUFILE* fp);
+bool mov_loadstate(EMUFILE* fp, int size);
+void LoadFM2_binarychunk(MovieData& movieData, EMUFILE* fp, int size);
+bool LoadFM2(MovieData& movieData, EMUFILE* fp, int size, bool stopAfterHeader);
 extern bool movie_readonly;
 extern bool ShowInputDisplay;
-extern int MicButtonPressed;
 void FCEUI_MakeBackupMovie(bool dispMessage);
 #endif
