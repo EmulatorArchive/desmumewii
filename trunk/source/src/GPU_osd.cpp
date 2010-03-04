@@ -32,7 +32,7 @@
 #include <glib.h>
 #include "debug.h"
 
-#include "aggdraw.h"
+#include "agg/aggdraw.h"
 #include "movie.h"
 #include "NDSSystem.h"
 #include "mic.h"
