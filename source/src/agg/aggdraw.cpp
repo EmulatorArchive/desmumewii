@@ -25,7 +25,7 @@
 #include "GPU.h"
 #include "NDSSystem.h"
 
-#include "aggdraw.h"
+#include "agg/aggdraw.h"
 
 #include "agg_renderer_base.h"
 #include "agg_renderer_primitives.h"
