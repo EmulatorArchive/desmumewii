@@ -21,7 +21,7 @@
 
 //windows note: make sure this file gets compiled with _cdecl
 
-#include <glib.h>
+#include "glib/glib.h"
 
 #include <stdio.h>
 #include "commandline.h"
