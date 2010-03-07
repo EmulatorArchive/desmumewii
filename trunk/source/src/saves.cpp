@@ -20,9 +20,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+//--DCN: Force it to include the zlib compression library
+#define HAVE_LIBZ
+
+
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
+
 #include <stack>
 #include <set>
 #include <stdio.h>
@@ -856,17 +861,21 @@ static int SubWrite(EMUFILE* os, const SFORMAT *sf)
 			// no need to ever loop one at a time if not flipping byte order
 			os->fwrite((char *)sf->v,size*count);
 		#else
+			//--DCN 
+			//There IS no 'sz'! Never was. I'm commenting it out
+			/*
 			if(sz == 1) {
 				//special case: write a huge byte array
 				os->fwrite((char *)sf->v,1,count);
 			} else {
+			//*/
 				for(int i=0;i<count;i++) {
 					FlipByteOrder((u8*)sf->v + i*size, size);
 					os->fwrite((char*)sf->v + i*size,size);
 					//Now restore the original byte order.
 					FlipByteOrder((u8*)sf->v + i*size, size);
 				}
-			}
+			//}
 		#endif
 		}
 		sf++;
@@ -932,6 +941,9 @@ static void writechunks(EMUFILE* os);
 
 bool savestate_save(EMUFILE* outstream, int compressionLevel)
 {
+	//--DCN: This is from "zlib" in the windows folder, which is
+	// odd because up top it checks if we DO have "HAVE_LIBZ"
+	// Z_NO_COMPRESSION is equal to 0
 	#ifndef HAVE_LIBZ
 	compressionLevel = Z_NO_COMPRESSION;
 	#endif

@@ -107,7 +107,7 @@ static u32 textureFormat=0, texturePalette=0;
 
 #ifndef DESMUME_COCOA
 OGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
-//zero: i dont understand this at all. my glext.h has the wrong thing declared here... so I have to do it myself
+//zero: I dont understand this at all. my glext.h has the wrong thing declared here... so I have to do it myself
 typedef void (APIENTRYP X_PFNGLGETSHADERSOURCEPROC) (GLuint shader, GLsizei bufSize, const GLchar **source, GLsizei *length);
 OGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
 OGLEXT(PFNGLCOMPILESHADERPROC,glCompileShader)
@@ -127,6 +127,12 @@ OGLEXT(PFNGLBLENDFUNCSEPARATEEXTPROC,glBlendFuncSeparateEXT)
 OGLEXT(PFNGLGETUNIFORMLOCATIONPROC,glGetUniformLocation)
 OGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
 OGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
+
+//--DCN: Added this so it will compile. Where should it usually be?
+// ... And why should it only be for intel computers or MSC? It won't
+// compile without it! WHY?
+OGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
+
 #endif
 
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
