@@ -18,6 +18,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+//--DCN: Yar! I've gone an' cut up all me files, a'lookin' fer
+// me gold debloon called "wifi". Ta' No avail. Yar...
+// It be me opinion that that thar Vanilla Desumume 'as gone closer
+// an' closer ta' Windows-specific programming fer th' Wifi.
+
 #include <assert.h>
 #include "wifi.h"
 #include "armcpu.h"
@@ -26,6 +31,15 @@
 #include "bits.h"
 
 
+//--DCN: Arr matey, this be taken from "ws2def.h" of me
+// Visual studio installation. Yar.
+typedef struct sockaddr {
+
+    unsigned short sa_family;           // Address family.
+    char sa_data[14];                   // Up to 14 bytes of direct address.
+} SOCKADDR, *PSOCKADDR, far *LPSOCKADDR;
+
+//--DCN: End of me copyin'. Time fer some pillagin'!
 
 #ifdef WIN32
 	#include <winsock2.h> 	 
@@ -36,10 +50,12 @@
 #else
 	#include <unistd.h> 	 
 	#include <stdlib.h> 	 
-	#include <string.h> 	 
+	#include <string.h> 	
+//--DCN: Avast! These next two files be not found. 
 	#include <arpa/inet.h> 	 
 	#include <sys/socket.h> 	 
-	#define socket_t    int 	 
+	#define socket_t    int 
+//--DCN: Arr, this be fer Windows only. Yar...	 
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
 #endif

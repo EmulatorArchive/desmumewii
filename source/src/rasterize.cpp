@@ -943,7 +943,12 @@ static bool rasterizerUnitTasksInited = false;
 
 static void* execRasterizerUnit(void* arg)
 {
-	intptr_t which = (intptr_t)arg;
+	//--DCN
+	// After looking at the "vanilla" Desmume... 
+	// [Defined in windows/ram_search.cpp]
+	// I think this is actually an integer:
+	int which = (int)arg;
+	//intptr_t which = (intptr_t)arg;
 	rasterizerUnit[which].mainLoop<true>();
 	return 0;
 }
