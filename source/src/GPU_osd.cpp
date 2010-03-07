@@ -29,7 +29,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <time.h>
-#include <glib.h>
+#include "glib/glib.h"
 #include "debug.h"
 
 #include "agg/aggdraw.h"
@@ -508,6 +508,10 @@ static void DrawEditableElementIndicators()
 
 void DrawHUD()
 {
+
+/////
+//*
+/////
 	GTimeVal time;
 	g_get_current_time(&time);
 	hudTimer = ((s64)time.tv_sec * 1000) + ((s64)time.tv_usec/1000);
@@ -558,6 +562,9 @@ void DrawHUD()
 	#endif
 
 	DrawStateSlots();
+/////
+//*/
+/////
 }
 
 
