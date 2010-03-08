@@ -309,7 +309,16 @@ static BOOL cflash_build_fat( void) {
 	fileLevel = -1;
 	maxLevel  = -1;
 
-	sRomPath = pathToROM;
+	//--DCN (Copied "sFlashPath.c_str();" from Vanilla Desmume)
+	//sRomPath = sFlashPath.c_str();
+	
+	// Original (where is pathRoROM defined? I couldn't find it!)
+	//sRomPath = pathToROM;
+	
+	//--DCN: Quick fix:
+	sRomPath = "SD:/";
+	
+	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));
 	if (files == NULL)
 		return FALSE;
@@ -332,6 +341,10 @@ static BOOL cflash_build_fat( void) {
 
 	//COMMENT OUT THIS LINE TO STOP THE IRRITATING FILESYSTEM SCANNING BEHAVIOR
 	list_files(sRomPath);
+	
+	//--DCN (Desmume Original)
+	//list_files(sFlashPath.c_str());
+	
 
 	k            = 0;
 	clusterNum   = rootCluster = (SECRESV + SECPERFAT)/SECPERCLUS;
