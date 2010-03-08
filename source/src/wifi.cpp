@@ -37,7 +37,7 @@ typedef struct sockaddr {
 
     unsigned short sa_family;           // Address family.
     char sa_data[14];                   // Up to 14 bytes of direct address.
-} SOCKADDR, *PSOCKADDR, far *LPSOCKADDR;
+} SOCKADDR, *PSOCKADDR, *LPSOCKADDR;
 
 //--DCN: End of me copyin'. Time fer some pillagin'!
 
@@ -1741,6 +1741,7 @@ typedef struct _Adhoc_FrameHeader
 
 bool Adhoc_Init()
 {
+#if 0
 	int res;
 
 	wifiMac.Adhoc.usecCounter = 0;
@@ -1783,23 +1784,28 @@ bool Adhoc_Init()
 	*(u16*)&sendAddr.sa_data[0] = htons(BASEPORT);
 
 	WIFI_LOG(1, "Ad-hoc: initialization successful.\n");
-
+#endif
 	return true;
 }
 
 void Adhoc_DeInit()
 {
+#if 0
 	if (wifi_socket >= 0)
 		closesocket(wifi_socket);
+#endif
 }
 
 void Adhoc_Reset()
 {
+#if 0
 	wifiMac.Adhoc.usecCounter = 0;
+#endif
 }
 
 void Adhoc_SendPacket(u8* packet, u32 len)
 {
+#if 0
 	WIFI_LOG(2, "Ad-hoc: sending a packet of %i bytes, frame control: %04X\n", len, *(u16*)&packet[0]);
 
 	u32 frameLen = sizeof(Adhoc_FrameHeader) + len;
@@ -1821,10 +1827,12 @@ void Adhoc_SendPacket(u8* packet, u32 len)
 	WIFI_LOG(4, "Ad-hoc: sent %i/%i bytes of packet.\n", nbytes, frameLen);
 
 	delete frame;
+#endif
 }
 
 void Adhoc_usTrigger()
 {
+#if 0
 	wifiMac.Adhoc.usecCounter++;
 
 	// Check every millisecond if we received a packet
@@ -1914,6 +1922,7 @@ void Adhoc_usTrigger()
 			}
 		}
 	}
+#endif
 }
 
 /*******************************************************************************
