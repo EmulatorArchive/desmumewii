@@ -50,11 +50,11 @@
 #define READ_FN read
 #endif
 
-#include "types.h"
+#include "../types.h"
 #include "../fat.h"
 #include "../fs.h"
-#include "MMU.h"
-#include "NDSSystem.h"
+#include "../MMU.h"
+#include "../NDSSystem.h"
 #include "../path.h"
 
 typedef struct {

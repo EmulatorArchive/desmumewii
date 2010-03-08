@@ -21,7 +21,10 @@
 #ifndef TYPES_HPP
 #define TYPES_HPP
 
-//todo - everyone will want to support this eventually, i suppose
+//--DCN: We already have types defined in "gctypes.h" in libogc
+// So I'm going to comment out any redeclarations
+
+//todo - everyone will want to support this eventually, I suppose
 #ifdef _MSC_VER
 #include "config.h"
 #endif
@@ -157,11 +160,13 @@ typedef u32 uint32;
 
 /*---------- GPU3D fixed-points types -----------*/
 
-typedef s32 f32;
-#define inttof32(n)          ((n) << 12)
-#define f32toint(n)          ((n) >> 12)
-#define floattof32(n)        ((int32)((n) * (1 << 12)))
-#define f32tofloat(n)        (((float)(n)) / (float)(1<<12))
+//--DCN
+typedef s32 fixed32;
+//typedef s32 f32;
+#define inttofixed32(n)      ((n) << 12)
+#define fixed32toint(n)      ((n) >> 12)
+#define floattofixed32(n)    ((int32)((n) * (1 << 12)))
+#define fixed32tofloat(n)    (((float)(n)) / (float)(1<<12))
 
 typedef s16 t16;
 #define f32tot16(n)          ((t16)(n >> 8))
@@ -187,7 +192,9 @@ typedef s16 v10;
 /*----------------------*/
 
 #ifndef OBJ_C
-typedef int BOOL;
+//--DCN
+typedef unsigned int BOOL;
+//typedef int BOOL;
 #else
 //apple also defines BOOL
 typedef int desmume_BOOL;
