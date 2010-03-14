@@ -1799,9 +1799,9 @@ void DmaController::write32(const u32 val)
 		triggered = FALSE;
 
 	//printf("dma %d,%d set to startmode %d with wordcount set to: %08X\n",procnum,chan,_startmode,wordcount);
-if(_startmode==0 && wordcount==1) {
-	int zzz=9;
-}
+	if(_startmode==0 && wordcount==1) {
+		int zzz=9;
+	}
 	if(enable)
 	{
 		int zzz=9;
@@ -1875,8 +1875,19 @@ start:
 				if(gxFIFO.size<=127)
 					triggered = TRUE;
 				break;
+				
+			// TO BE IMPLEMENTED:
+			case EDMAMode_VBlank:
+			case EDMAMode_HBlank:
+			case EDMAMode_HStart:
+			case EDMAMode_MemDisplay:
+			case EDMAMode_Card:
+			case EDMAMode_GBASlot:
+			case EDMAMode7_Wifi:
+			case EDMAMode7_GBASlot:
+			default:
+				break;
 		}
-
 		if(triggered)
 		{
 			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
@@ -1920,7 +1931,7 @@ void DmaController::doCopy()
 		case EDMASourceUpdate_Increment : srcinc = sz; break;
 		case EDMASourceUpdate_Decrement : srcinc = (u32)-(s32)sz; break;
 		case EDMASourceUpdate_Fixed		: srcinc = 0; break;
-		case EDMASourceUpdate_Invalid   : bogarted = true; break;
+		case EDMASourceUpdate_Invalid   : //Fall through
 		default: bogarted = true; break;
 	}
 

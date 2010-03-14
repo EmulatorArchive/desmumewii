@@ -38,11 +38,6 @@
 
 NDS_header * header;
 
-//--DCN: Quick and dirty variable declarations, yippy!
-unsigned int frameskip = 10;
-bool vertical = true;		//Are we playing vertically?
-
-
 volatile bool execute = FALSE;
 
 static float nds_screen_size_ratio = 1.0f;
@@ -78,177 +73,45 @@ GPU3DInterface *core3DList[] = {
 &gpu3DNull
 };
 
-
-///////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+////////////////////// FUNCTION PROTOTYPES ///////////////////////
+//////////////////////////////////////////////////////////////////
 
 void init();
-
-///////////////////////////////////////
-
-
-void apply_surface( int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip )
-{
-    //Holds offsets
-    SDL_Rect offset;
-    SDL_Rect offsetz;
-    SDL_Surface *ZoomA,*ZoomB;
-
-    //Get offsets
-    offset.x = x;
-    offset.y = y;
-    offsetz.x = xx;
-    offsetz.y = yy;
-
-	
-	//Blit
-	//ZoomA = zoomSurface(sourceA, 0.93, 0.93, 0);
-    SDL_BlitSurface( sourceA, clip, destination, &offset );
-	//ZoomB = zoomSurface(sourceB, 0.93, 0.93, 0);
-	SDL_BlitSurface( sourceB, clip, destination, &offsetz );
-    SDL_Flip(destination);	
-	
-}
-
-
-static void
-HDraw( void) {
-     SDL_Surface *rawImage,*subImage;
-     u16 *src, *dst,*dstA,*dstB;
-	 //--DCN
-     //int i,j, y,x,spos, dpos, desp;
-     src = (u16*)GPU_screen;
-	 dstA = (u16*)GPU_mergeA;
-	 dstB = (u16*)GPU_mergeB;
-     dst = (u16*)GPU_vram;
-	 
-	 for(int i=0; i < 256*192; i++)
-	 { 
-	 dstA[i] = src[i];           // MainScreen Hack
-	 dstB[i] = src[(256*192)+i]; // SubScreen Hack
-	 }
-
-  rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeA, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-  if(rawImage == NULL) return;
-  subImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeB, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-  if(subImage == NULL) return;	
- 
-  apply_surface( 0, 40,256, 40, rawImage,subImage, surface, 0);
-
-  return;
-}
-
-static void
-VDraw( void) {
-  SDL_Surface *rawImage;
-	
-  rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 256, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-  if(rawImage == NULL) return;
-	
-  SDL_BlitSurface(rawImage, 0, surface, 0);
-
-  SDL_UpdateRect(surface, 0, 0, 0, 0);
+void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip);
+static void HDraw(void);
+static void VDraw(void);
+void ShowFPS();
+void DSExec();
+void Pause();
+//////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
   
-  SDL_FreeSurface(rawImage);
+#ifdef __cplusplus
+extern "C"
+#endif
+int main(int argc, char *argv[])  {
+//int main(int argc, char **argv){
 
-  return;
-}
-
-void ShowFPS()
- {
-  u32 fps_timing = 0;
-  u32 fps_frame_counter = 0;
-  u32 fps_previous_time = 0;
-  u32 fps_temp_time;
-  float fps;
-	 
-	fps_frame_counter += 1;
-    fps_temp_time = SDL_GetTicks();
-    fps_timing += fps_temp_time - fps_previous_time;
-    fps_previous_time = fps_temp_time;
-
-    if ( fps_frame_counter == NUM_FRAMES_TO_TIME) {
-      fps = (float)fps_timing;
-      fps /= NUM_FRAMES_TO_TIME * 1000.f;
-      fps = 1.0f / fps;
-      fps_frame_counter = 0;
-      fps_timing = 0;
-      //pspDebugScreenSetTextColor(0xffffffff);
-	  //pspDebugScreenSetXY(0,0);
-	  //pspDebugScreenPrintf("FPS %f %s Fskip: %d", fps,VERSION,frameskip);
-    }
-}
-
-void DSonpspExec()
-{  
-//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
-    
-	WPAD_ScanPads();
-	
-    // Update mouse position and click
-    if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) {
-		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
-	}
-	
-    if(!WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
-      { 
-        NDS_releaseTouch();
-        mouse.click = FALSE;
-      }
-	
-	update_keypad(keypad);     /* Update keypad */
-	
-	int nb = 0;
-    
-	NDS_exec<TRUE>(nb);
-
-   if(vertical)
-		VDraw();
-   else
-		HDraw();
-	
-	//--DCN
-	/*
-	showfps = 0;
-
-    if(showfps)
-		ShowFPS();
-	//*/
-}
-
-void Pause(){
-
-   for(;;){
-   
-      WPAD_ScanPads();
-	  
-	  if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
-	     break;
-		 
-	}
-
-}
-  
-  
-int main(int argc, char **argv){
-
-  
+	//Initialize with our SDL values  
 	init();
 
+	// Start our logging
 	log_console_init(rmode, 0, 20, 20, 400, 400);
 	log_console_enable_video(true);
 	//log_console_enable_log(true);
 
-	
+	// Clear the screen
 	printf("\x1b[2;0H");
-	printf("Welcome to DeSmuME Wii!!!\n");
-	  
+	// Welcome the player
+	printf("Welcome to DeSmuME Wii!\n");
+
 	VIDEO_WaitVSync();
   
 	//Check for the ROM
 	printf("Looking for sd:/boot.nds...\n");
 	
-	
-  
 	fatInitDefault();
 	FILE *fp = NULL;
 	fp = fopen("sd:/boot.nds", "rb");
@@ -263,7 +126,18 @@ int main(int argc, char **argv){
   
 	VIDEO_WaitVSync();
 	
-
+	
+	{
+		printf("\n\t\tPlease work!\n");
+		//Show for just a brief time
+		int i = 1000;
+		do{
+			i--;
+			if(i < 0) 
+				exit(0);
+		
+		}while (i >= 0);
+	}
 
 	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
@@ -272,13 +146,9 @@ int main(int argc, char **argv){
 	const char* rom_filename;
   
 
- 
 	//DSEmuGui(argp,rom_filename);
 
-	//--DCN: Can't find this variable anywhere:
-	const char* cflash_disk_image_file = NULL;
-	//Original:
-	//cflash_disk_image_file = NULL;
+	cflash_disk_image_file = NULL;
 
 	printf("Initializing virtual Nintendo DS...\n");
 
@@ -310,10 +180,10 @@ int main(int argc, char **argv){
   
 		// Look for queued events and update keypad status
 		if(frameskip != 0){
-			for(int f= 0; f < frameskip; f++)
-				DSonpspExec();
+			for(s32 f= 0; f < frameskip; f++)
+				DSExec();
 		}else{
-			DSonpspExec();
+			DSExec();
 		}
 		if ( enable_sound) {
 			SPU_Emulate_core();
@@ -328,10 +198,12 @@ int main(int argc, char **argv){
 }
 
 
+//////////////////////////////////////////////////////////////////
+/////////////////////////// FUNCTIONS ////////////////////////////
+//////////////////////////////////////////////////////////////////
 
 // Initialize all the SDL stuff in one big function
 void init(){
- 
  
 	/* Fetch the video info */
 	videoInfo = SDL_GetVideoInfo( );
@@ -379,7 +251,135 @@ void init(){
 
 		
 }
- 
+
+void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip){
+    //Holds offsets
+    SDL_Rect offset;
+    SDL_Rect offsetz;
+    SDL_Surface *ZoomA,*ZoomB;
+
+    //Get offsets
+    offset.x = x;
+    offset.y = y;
+    offsetz.x = xx;
+    offsetz.y = yy;
+
+	//Blit
+	//ZoomA = zoomSurface(sourceA, 0.93, 0.93, 0);
+    SDL_BlitSurface( sourceA, clip, destination, &offset );
+	//ZoomB = zoomSurface(sourceB, 0.93, 0.93, 0);
+	SDL_BlitSurface( sourceB, clip, destination, &offsetz );
+    SDL_Flip(destination);	
+	
+}
+
+static void HDraw(void) {
+	SDL_Surface *rawImage,*subImage;
+
+	u16 *src = (u16*)GPU_screen;
+	u16 *dstA = (u16*)GPU_mergeA;
+	u16 *dstB = (u16*)GPU_mergeB;
+	u16 *dst = (u16*)GPU_vram;
+
+	for(int i=0; i < 256*192; i++){ 
+		dstA[i] = src[i];           // MainScreen Hack
+		dstB[i] = src[(256*192)+i]; // SubScreen Hack
+	}
+
+	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeA, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
+	if(rawImage == NULL) return;
+	
+	subImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeB, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
+	if(subImage == NULL) return;	
+
+	apply_surface( 0, 40,256, 40, rawImage,subImage, surface, 0);
+
+	return;
+}
+
+static void VDraw(void) {
+	SDL_Surface *rawImage;
+
+	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 256, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
+	if(rawImage == NULL) return;
+
+	SDL_BlitSurface(rawImage, 0, surface, 0);
+
+	SDL_UpdateRect(surface, 0, 0, 0, 0);
+
+	SDL_FreeSurface(rawImage);
+
+	return;
+}
+
+void ShowFPS(){
+	u32 fps_timing = 0;
+	u32 fps_frame_counter = 0;
+	u32 fps_previous_time = 0;
+	u32 fps_temp_time;
+	float fps;
+
+	fps_frame_counter += 1;
+	fps_temp_time = SDL_GetTicks();
+	fps_timing += fps_temp_time - fps_previous_time;
+	fps_previous_time = fps_temp_time;
+
+	if ( fps_frame_counter == NUM_FRAMES_TO_TIME) {
+		fps = (float)fps_timing;
+		fps /= NUM_FRAMES_TO_TIME * 1000.f;
+		fps = 1.0f / fps;
+		fps_frame_counter = 0;
+		fps_timing = 0;
+		//pspDebugScreenSetTextColor(0xffffffff);
+		//pspDebugScreenSetXY(0,0);
+		//pspDebugScreenPrintf("FPS %f %s Fskip: %d", fps,VERSION,frameskip);
+	}
+}
+
+void DSExec(){  
+	//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
+    
+	WPAD_ScanPads();
+	
+    // Update mouse position and click
+    if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) {
+		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
+	}
+	
+    if(!WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A){ 
+        NDS_releaseTouch();
+        mouse.click = FALSE;
+    }
+	
+	update_keypad(keypad);     /* Update keypad */
+	
+	int nb = 0;
+    
+	NDS_exec<TRUE>(nb);
+
+	if(vertical)
+		VDraw();
+	else
+		HDraw();
+	
+	//--DCN
+	/*
+	showfps = 0;
+
+    if(showfps)
+		ShowFPS();
+	//*/
+}
+
+void Pause(){
+
+	for(;;){
+		WPAD_ScanPads();
+		if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
+			break;
+	}
+
+}
 
 /*
 int module_start(SceSize args, void *argp)

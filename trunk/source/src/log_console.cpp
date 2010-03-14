@@ -41,28 +41,28 @@ static bool log_active = true;
 static bool video_active = true;
  
 static int __out_write(struct _reent *r, int fd, const char *ptr, size_t len) {
-u16 l;
+	u16 l;
+	 
+	if (!ptr || len <= 0)
+		return -1;
+	 
+	if (video_active) {
+		dot_video->write_r(r, fd, ptr, len);
+	} else {
+		if (log_active) {
+			l = (log_next + 1) % log_size;
+			if (log[l])
+			free(log[l]);
+			log[l] = strndup(ptr, len);
+			 
+			log_next = l;
+		}
+	}
  
-if (!ptr || len <= 0)
-return -1;
- 
-if (video_active) {
-dot_video->write_r(r, fd, ptr, len);
-} else {
-if (log_active) {
-l = (log_next + 1) % log_size;
-if (log[l])
-free(log[l]);
-log[l] = strndup(ptr, len);
- 
-log_next = l;
-}
-}
- 
-if (gecko)
-usb_sendbuffer(1, ptr, len);
- 
-return len;
+	if (gecko)
+		usb_sendbuffer(1, ptr, len);
+	 
+	return len;
 }
  
 const devoptab_t dot_out = {
@@ -90,98 +90,105 @@ NULL // device statvfs_r
  
 void log_console_init(GXRModeObj *vmode, u16 logsize, u16 x, u16 y, u16 w, u16 h)
 {
-u16 i;
- 
-CON_InitEx(vmode, x, y, w, h);
-rcb = VIDEO_SetPostRetraceCallback(NULL);
-VIDEO_SetPostRetraceCallback(rcb);
- 
-gecko = usb_isgeckoalive(1);
- 
-if (log_size && log) {
-for (i = 0; i < log_size; ++i)
-if (log[i])
-free(log[i]);
- 
-free(log);
-}
- 
-log_size = logsize;
-log_next = 0;
- 
-if (log_size) {
-log = (char **) malloc(log_size * sizeof(char *));
- 
-for (i = 0; i < log_size; ++i)
-log[i] = NULL;
-}
- 
-log_active = log_size > 0;
- 
-dot_video = devoptab_list[STD_OUT];
-video_active = true;
- 
-devoptab_list[STD_OUT] = &dot_out;
-devoptab_list[STD_ERR] = &dot_out;
+	 
+	CON_InitEx(vmode, x, y, w, h);
+	rcb = VIDEO_SetPostRetraceCallback(NULL);
+	VIDEO_SetPostRetraceCallback(rcb);
+	 
+	gecko = usb_isgeckoalive(1);
+	 
+	if (log_size && log) {
+		int i = log_size - 1;
+		do{
+			if (log[i]){
+				free(log[i]);
+			}
+		}while(i >= 0);
+		 
+		free(log);
+	}
+	 
+	log_size = logsize;
+	log_next = 0;
+	 
+	if (log_size) {
+		log = (char **) malloc(log_size * sizeof(char *));
+		
+		int i = log_size - 1;
+		do{
+			log[i] = NULL;	
+		}while(i >= 0);
+	}
+	 
+	log_active = log_size > 0;
+	 
+	dot_video = devoptab_list[STD_OUT];
+	video_active = true;
+	 
+	devoptab_list[STD_OUT] = &dot_out;
+	devoptab_list[STD_ERR] = &dot_out;
 }
  
 void log_console_deinit(void) {
-u16 i;
- 
-if (log_size && log) {
-for (i = 0; i < log_size; ++i)
-if (log[i])
-free(log[i]);
- 
-free(log);
-log = NULL;
-}
- 
-log_size = 0;
-log_next = 0;
- 
-devoptab_list[STD_OUT] = dot_video;
-devoptab_list[STD_ERR] = dot_video;
- 
-// VIDEO_SetPostRetraceCallback(rcb);
- 
-dot_video = NULL;
+	 
+	if (log_size && log) {
+
+		int i = log_size - 1;
+		do{
+			if (log[i]){
+				free(log[i]);
+			}
+		}while(i >= 0);
+		 
+		free(log);
+		log = NULL;
+	}
+	 
+	log_size = 0;
+	log_next = 0;
+	 
+	devoptab_list[STD_OUT] = dot_video;
+	devoptab_list[STD_ERR] = dot_video;
+	 
+	// VIDEO_SetPostRetraceCallback(rcb);
+	 
+	dot_video = NULL;
 }
  
 void log_console_enable_log(bool enable) {
-if (!log_size)
-return;
- 
-log_active = enable;
+	if (!log_size)
+		return;
+	 
+	log_active = enable;
 }
  
 void log_console_enable_video(bool enable) {
-struct _reent *r = _REENT;
-u16 i, l;
- 
-if (video_active == enable)
-return;
- 
-video_active = enable;
- 
-if (enable)
-VIDEO_SetPostRetraceCallback(rcb);
-else
-VIDEO_SetPostRetraceCallback(NULL);
- 
-if (!enable || !log_size)
-return;
- 
-for (i = 0; i < log_size; ++i) {
-l = (log_next + 1 + i) % log_size;
-if (log[l]) {
-dot_video->write_r(r, 0, log[l], strlen(log[l]));
-free(log[l]);
-log[l] = NULL;
-}
-}
- 
-fflush(stdout);
+	struct _reent *r = _REENT;
+	u16 i, l;
+	 
+	if (video_active == enable)
+		return;
+	 
+	video_active = enable;
+	 
+	if (enable)
+		VIDEO_SetPostRetraceCallback(rcb);
+	else
+		VIDEO_SetPostRetraceCallback(NULL);
+	 
+	if (!enable || !log_size)
+		return;
+	 
+	for (i = 0; i < log_size; ++i) {
+		l = (log_next + 1 + i) % log_size;
+		if (log[l]) {
+			dot_video->write_r(r, 0, log[l], strlen(log[l]));
+			free(log[l]);
+			log[l] = NULL;
+		}
+	}
+	 
+	fflush(stdout);
 }
  
  
