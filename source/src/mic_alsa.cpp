@@ -18,6 +18,15 @@
  * Boston, MA 02111-1307, USA.
  */
 
+//--DCN: Unless we implement the WiiSpeak hardware, we're not going to 
+// have a microphone, so there's no real need to include this:
+
+// Source: http://www.alsa-project.org/main/index.php/Download
+//#define __EXPERIMENTAL_MIC__
+
+#ifdef __EXPERIMENTAL_MIC__
+
+
 #include <alsa/asoundlib.h>
 #include "types.h"
 #include "mic.h"
@@ -160,3 +169,5 @@ bool mic_loadstate(EMUFILE* is, int size)
     is->fseek(size, SEEK_CUR);
     return TRUE;
 }
+
+#endif
