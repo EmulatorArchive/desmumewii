@@ -1,3 +1,10 @@
+
+//--DCN: We don't have Lua yet
+//#define __EXPERIMENTAL_LUA__
+
+
+#ifdef __EXPERIMENTAL_LUA__
+
 #include "lua-engine.h"
 #include "movie.h"
 #include <assert.h>
@@ -5825,4 +5832,6 @@ void RefreshScriptSpeedStatus()
 		++iter;
 	}
 }
+
+#endif
 
