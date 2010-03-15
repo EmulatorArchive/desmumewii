@@ -26,22 +26,22 @@ INCLUDES	:=
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	= -g -O2 -Wall $(MACHDEP) $(INCLUDE)
+CFLAGS	    =   -g -O2 -Wall $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS)
-
-LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
+LDFLAGS	    =	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-gl2gx -lSDL_net -lSDL_ttf -lSDL_gfx -lSDL_mixer -lSDL_image -lSDL -lsmpeg -lpng -lfreetype -lz -lfat -lwiiuse -lbte -logc -lm -lwiikeyboard 
-
+LIBS        :=	-gl2gx -lSDL_net -lSDL_ttf -lSDL_gfx -lSDL_mixer \
+				-lSDL_image -lSDL -lsmpeg -lpng -lfreetype -lz \
+				-lfat -lwiiuse -lbte -logc -lm -lwiikeyboard 
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:=
+LIBDIRS	:= $(PORTLIBS)
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
