@@ -38,7 +38,7 @@
 
 NDS_header * header;
 
-volatile bool execute = FALSE;
+volatile bool execute = false;
 
 static float nds_screen_size_ratio = 1.0f;
 
@@ -91,27 +91,31 @@ void Pause();
 #ifdef __cplusplus
 extern "C"
 #endif
-int main(int argc, char *argv[])  {
-//int main(int argc, char **argv){
 
-	//Initialize with our SDL values  
+
+int main(int argc, char **argv){
+  
+	int f;
+	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
+	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
+	struct armcpu_ctrl_iface *arm9_ctrl_iface;
+	struct armcpu_ctrl_iface *arm7_ctrl_iface;
+	const char* rom_filename;
+  
 	init();
 
-	// Start our logging
 	log_console_init(rmode, 0, 20, 20, 400, 400);
 	log_console_enable_video(true);
 	//log_console_enable_log(true);
 
-	// Clear the screen
 	printf("\x1b[2;0H");
-	// Welcome the player
-	printf("Welcome to DeSmuME Wii!\n");
-
+	printf("Welcome to DeSmuME Wii!!!\n");
+	  
 	VIDEO_WaitVSync();
-  
+
 	//Check for the ROM
 	printf("Looking for sd:/boot.nds...\n");
-	
+
 	fatInitDefault();
 	FILE *fp = NULL;
 	fp = fopen("sd:/boot.nds", "rb");
@@ -126,38 +130,18 @@ int main(int argc, char *argv[])  {
   
 	VIDEO_WaitVSync();
 	
-	
-	{
-		printf("\n\t\tPlease work!\n");
-		//Show for just a brief time
-		int i = 1000;
-		do{
-			i--;
-			if(i < 0) 
-				exit(0);
-		
-		}while (i >= 0);
-	}
-
-	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
-	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
-	struct armcpu_ctrl_iface *arm9_ctrl_iface;
-	struct armcpu_ctrl_iface *arm7_ctrl_iface;
-	const char* rom_filename;
-  
-
-	//DSEmuGui(argp,rom_filename);
-
 	cflash_disk_image_file = NULL;
 
 	printf("Initializing virtual Nintendo DS...\n");
 
-
+	// Initialize the DS!
 	NDS_Init();
+	
 	printf("initialization successful!\n");
 
+	for(;;){}
   
-	bool enable_sound = true;
+	enable_sound = true;
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
@@ -172,10 +156,40 @@ int main(int argc, char *argv[])  {
 		exit(0);
 	}
 
-	execute = TRUE;
-    
+	execute = true;
+  
+	printf("Initializing SDL...\n");
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1){
+		fprintf(stderr, "Error trying to initialize SDL: %s\n",
+              SDL_GetError());
+		return 1;
+    }
+  
+	/* Fetch the video info */
+	videoInfo = SDL_GetVideoInfo( );
+	if ( !videoInfo ) {
+		fprintf( stderr, "Video query failed: %s\n", SDL_GetError( ) );
+		exit( -1);
+	}
 
- 
+	/* This checks if hardware blits can be done */
+	if ( videoInfo->blit_hw )
+		sdl_videoFlags |= SDL_HWACCEL;
+		sdl_videoFlags |= SDL_SWSURFACE;
+    
+	// Re-set the video mode
+	if(vertical)
+		surface = SDL_SetVideoMode(256, 384, 32, sdl_videoFlags);
+	else
+		surface = SDL_SetVideoMode(480,272, 32, SDL_ANYFORMAT|SDL_DOUBLEBUF|SDL_HWSURFACE|SDL_HWPALETTE);
+
+    if ( !surface ) {
+		fprintf( stderr, "Video mode set failed: %s\n", SDL_GetError( ) );
+		exit( -1);
+    }
+  
+    SDL_ShowCursor(SDL_DISABLE);
+	
     while(!sdl_quit) {
   
 		// Look for queued events and update keypad status
@@ -192,32 +206,21 @@ int main(int argc, char *argv[])  {
 
 	}
 
+
 	SDL_Quit();
 	NDS_DeInit();
 	return 0;
 }
 
 
+
 //////////////////////////////////////////////////////////////////
-/////////////////////////// FUNCTIONS ////////////////////////////
+//////////////////////////// FUNCTIONS ///////////////////////////
 //////////////////////////////////////////////////////////////////
 
-// Initialize all the SDL stuff in one big function
+
 void init(){
  
-	/* Fetch the video info */
-	videoInfo = SDL_GetVideoInfo( );
-	if ( !videoInfo ) {
-		fprintf( stderr, "Video query failed: %s\n", SDL_GetError( ) );
-		exit( -1);
-	}
-
-	/* This checks if hardware blits can be done */
-	if ( videoInfo->blit_hw )
-		sdl_videoFlags |= SDL_HWACCEL;
-		sdl_videoFlags |= SDL_SWSURFACE;
-		
-		
     // initialize SDL video. If there was an error SDL shows it on the screen
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0 ) {
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError() );
@@ -230,27 +233,20 @@ void init(){
  
     // make sure SDL cleans up before exit
     atexit(SDL_Quit);
+    SDL_ShowCursor(SDL_DISABLE);
  
     // create a new window
-
-	if(vertical)
-		surface = SDL_SetVideoMode(256, 384, 32, sdl_videoFlags);
-	else
-		surface = SDL_SetVideoMode(480,272, 32, SDL_ANYFORMAT|SDL_DOUBLEBUF|SDL_HWSURFACE|SDL_HWPALETTE);
-
-    //surface = SDL_SetVideoMode(640, 480, 16, SDL_DOUBLEBUF);
+    surface = SDL_SetVideoMode(640, 480, 16, SDL_DOUBLEBUF);
     if ( !surface ) {
         fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
 		SDL_Delay( 500 );
         exit(EXIT_FAILURE);
     }
 	
-    SDL_ShowCursor(SDL_DISABLE);
-	
 	rmode = VIDEO_GetPreferredMode(NULL);
-
-		
+	
 }
+ 
 
 void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip){
     //Holds offsets
@@ -362,13 +358,11 @@ void DSExec(){
 	else
 		HDraw();
 	
-	//--DCN
-	/*
 	showfps = 0;
 
     if(showfps)
 		ShowFPS();
-	//*/
+
 }
 
 void Pause(){
