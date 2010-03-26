@@ -93,8 +93,8 @@ extern "C"
 #endif
 
 
-int main(int argc, char **argv){
-  
+int main(int argc, char **argv)
+{
 	int f;
 	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
@@ -139,9 +139,11 @@ int main(int argc, char **argv){
 	
 	printf("initialization successful!\n");
 
-	for(;;){}
+//	for(;;){}
   
-	enable_sound = true;
+	//enable_sound = true;
+	// -- lets not even go there with sound yet !! -- scanff
+	enable_sound = false;
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
@@ -155,14 +157,14 @@ int main(int argc, char **argv){
 		printf("Error loading sd:/boot.nds\n");
 		exit(0);
 	}
-
+exit(0);
 	execute = true;
   
 	printf("Initializing SDL...\n");
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1){
 		fprintf(stderr, "Error trying to initialize SDL: %s\n",
               SDL_GetError());
-		return 1;
+		return 0;
     }
   
 	/* Fetch the video info */

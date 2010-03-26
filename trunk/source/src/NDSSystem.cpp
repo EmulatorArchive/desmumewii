@@ -494,6 +494,7 @@ void Desmume_InitOnce()
 	Agg_init();
 }
 
+
 #ifdef GDB_STUB
 int NDS_Init( struct armcpu_memory_iface *arm9_mem_if,
 struct armcpu_ctrl_iface **arm9_ctrl_iface,
@@ -506,7 +507,7 @@ int NDS_Init( void) {
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
 	// It can get this far. It's MMU that is (still!) the problem.
-	//*	
+	/*	
 	{
 		int i = 4000;
 		printf("NDS_Init done\n");
@@ -521,9 +522,10 @@ int NDS_Init( void) {
 			--i;
 		}
 	}
-	//*/
+	/*/
 	
 	MMU_Init();
+	
 	nds.VCount = 0;
 
 	nds.sleeping = FALSE;
@@ -849,7 +851,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 
 	noext = strdup(filename);
 	reader = ROMReaderInit(&noext);
-	
+
 	if(logicalFilename) path.init(logicalFilename);
 	else path.init(filename);
 	if(!strcasecmp(path.extension().c_str(), "zip"))		type = ROM_NDS;
@@ -859,6 +861,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 		type = ROM_DSGBA;
 	else
 		type = ROM_NDS;
+
 
 	file = reader->Init(filename);
 	if (!file)
@@ -2507,6 +2510,7 @@ void NDS_Reset()
 
 	if (!header) return ;
 
+
 	nds_timer = 0;
 	nds_arm9_timer = 0;
 	nds_arm7_timer = 0;
@@ -2521,7 +2525,7 @@ void NDS_Reset()
 		lastLag = 0;
 		TotalLagFrames = 0;
 	}
-
+	
 	MMU_Reset();
 
 	//ARM7 BIOS IRQ HANDLER
@@ -2548,7 +2552,7 @@ void NDS_Reset()
 		_MMU_write32<ARMCPU_ARM7>(0x30, 0xE8BD500F);
 		_MMU_write32<ARMCPU_ARM7>(0x34, 0xE25EF004);
 	}
-
+exit(0); // !!! Scanff is here .. crash after this !!
 	//ARM9 BIOS IRQ HANDLER
 	if(CommonSettings.UseExtBIOS == true)
 		inf = fopen(CommonSettings.ARM9BIOS,"rb");

@@ -192,7 +192,18 @@ struct POLY {
 #define POLYLIST_SIZE 100000
 //#define POLYLIST_SIZE 2048
 struct POLYLIST {
-	POLY list[POLYLIST_SIZE];
+	
+	POLYLIST() 
+	{
+		list = new POLY[POLYLIST_SIZE];
+	}
+	~POLYLIST()
+	{
+		delete [] list;
+		list = 0;
+	}
+
+	POLY* list;
 	int count;
 };
 
@@ -244,10 +255,20 @@ struct VERT {
 	}
 };
 
-#define VERTLIST_SIZE 400000
+#define VERTLIST_SIZE 10000// -- this is WII !!400000
 //#define VERTLIST_SIZE 10000
 struct VERTLIST {
-	VERT list[VERTLIST_SIZE];
+	VERTLIST()
+	{
+		list = new VERT[VERTLIST_SIZE];
+	};
+	~VERTLIST()
+	{
+		delete [] list;
+		list = 0;
+	};
+
+	VERT* list;
 	int count;
 };
 

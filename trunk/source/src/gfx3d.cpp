@@ -496,8 +496,10 @@ void gfx3d_init()
 
 	if(polylists == NULL) { polylists = new POLYLIST[2]; polylist = &polylists[0]; }
 	if(vertlists == NULL) { vertlists = new VERTLIST[2]; vertlist = &vertlists[0]; }
+
 	makeTables();
 	gfx3d_reset();
+
 }
 
 void gfx3d_reset()

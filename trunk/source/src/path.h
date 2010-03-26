@@ -84,9 +84,9 @@ public:
 		while (p >= pathToModule && *p != '\\') p--;
 		if (++p >= pathToModule) *p = 0;
 #else
-		char *cwd = g_get_current_dir();
-		strncpy(pathToModule, cwd, MAX_PATH);
-		g_free(cwd);
+		//char *cwd = g_get_current_dir();
+		strncpy(pathToModule, "sd:/", MAX_PATH);
+		//g_free(cwd);
 #endif
 	}
 
