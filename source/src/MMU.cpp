@@ -832,14 +832,136 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 //end vram
 //////////////////////////////////////////////////////////////
 
+// set the MMU_Mem lookups
+void SetUp_Lookups()
+{
 
+	int p = 0;
+	int i = 0;
 
-void MMU_Init(void) {
+	// ----- arm9
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_ITCM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM; 
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.MAIN_MEM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.SWIRAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_REG;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_VMEM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_LCD;
+	p=i;
+	
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_OAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = 0;
+	p=i;
+	
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = 0;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.CART_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++)MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.ARM9_BIOS;
+	p=i;
+	
+	// ---- arm7
+	p=0;
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.ARM7_BIOS; 
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM; 
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.MAIN_MEM;
+	p=i;
+
+	for(i = p; i < p+8; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.SWIRAM;
+	p=i;
+
+	for(i = p; i < p+8; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.ARM7_ERAM;
+	p=i;
+
+	for(i = p; i < p+8; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.ARM7_REG;
+	p=i;
+
+	for(i = p; i < p+8; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.ARM7_WIRAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.ARM9_LCD;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = NULL;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = NULL;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.CART_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM7][i] = MMU.UNUSED_RAM;
+	p=i;
+};
+
+void MMU_Init() 
+{
+	
 	int i;
-
-	LOG("MMU init\n");
+	//LOG("MMU init\n");
 
 	memset(&MMU, 0, sizeof(MMU_struct));
+
+	// allocate the mem here !
+	if (MMU.MMU_Alloc() < 0) 
+	{
+		exit(1); // ran out of mem!!!!
+	}
+	
+	SetUp_Lookups();
+
+	printf("Wooooot.... MMU is here !!! \n");
 
 	MMU.CART_ROM = MMU.UNUSED_RAM;
 
@@ -851,7 +973,7 @@ void MMU_Init(void) {
 
 	MMU.DTCMRegion = 0x027C0000;
 	MMU.ITCMRegion = 0x00000000;
-
+	
 	IPC_FIFOinit(ARMCPU_ARM9);
 	IPC_FIFOinit(ARMCPU_ARM7);
 	GFX_PIPEclear();
@@ -883,6 +1005,9 @@ void MMU_DeInit(void) {
 	//if (MMU.bupmem.fp)
 	//	fclose(MMU.bupmem.fp);
 	//mc_free(&MMU.bupmem);
+
+	MMU.MMU_Free(); // delete the massive amount of mem we needed
+
 	addonsClose();
 	Mic_DeInit();
 }

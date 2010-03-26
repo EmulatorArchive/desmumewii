@@ -254,7 +254,7 @@ typedef struct
 	
 } nds_dscard;
 
-struct MMU_struct 
+/*struct MMU_struct 
 {
 	//ARM9 mem
 	u8 ARM9_ITCM[0x8000];
@@ -354,6 +354,214 @@ struct MMU_struct
 	memory_chip_t fw;
 
 	nds_dscard dscard[2];
+};*/
+
+struct MMU_struct 
+{
+	//ARM9 mem
+	u8* ARM9_ITCM;
+    u8* ARM9_DTCM;
+    u8* MAIN_MEM; //this has been expanded to 8MB to support debug consoles
+    u8* ARM9_REG;
+    u8* ARM9_BIOS;
+    u8* ARM9_VMEM;
+	
+	#include "PACKED.h"
+	struct {
+		u8 ARM9_LCD[0xA4000];
+		//an extra 128KB for blank memory, directly after arm9_lcd, so that
+		//we can easily map things to the end of arm9_lcd to represent 
+		//an unmapped state
+		u8 blank_memory[0x20000];  
+	};
+	#include "PACKED_END.h"
+
+    u8 ARM9_OAM[0x800];
+
+	u8* ExtPal[2][4];
+	u8* ObjExtPal[2][2];
+	
+	struct TextureInfo {
+		u8* texPalSlot[6];
+		u8* textureSlotAddr[4];
+	} texInfo;
+
+	//ARM7 mem
+	u8 ARM7_BIOS[0x4000];
+	u8 ARM7_ERAM[0x10000];
+	u8 ARM7_REG[0x10000];
+	u8 ARM7_WIRAM[0x10000];
+
+	// VRAM mapping
+	u8 VRAM_MAP[4][32];
+	u32 LCD_VRAM_ADDR[10];
+	u8 LCDCenable[10];
+
+	//Shared ram
+	u8 SWIRAM[0x8000];
+
+	//Card rom & ram
+	u8 * CART_ROM;
+	u32 CART_ROM_MASK;
+	u8 CART_RAM[0x10000];
+
+	//Unused ram
+	u8 UNUSED_RAM[4];
+
+	//this is here so that we can trap glitchy emulator code
+	//which is accessing offsets 5,6,7 of unused ram due to unaligned accesses
+	//(also since the emulator doesn't prevent unaligned accesses)
+	u8 MORE_UNUSED_RAM[4];
+
+	static u8 * MMU_MEM[2][256];
+	static u32 MMU_MASK[2][256];
+
+	u8 ARM9_RW_MODE;
+
+	u32 DTCMRegion;
+	u32 ITCMRegion;
+
+	u16 timer[2][4];
+	s32 timerMODE[2][4];
+	u32 timerON[2][4];
+	u32 timerRUN[2][4];
+	u16 timerReload[2][4];
+
+	u32 reg_IME[2];
+	u32 reg_IE[2];
+	u32 reg_IF[2];
+
+	BOOL divRunning;
+	s64 divResult;
+	s64 divMod;
+	u32 divCnt;
+	u64 divCycles;
+
+	BOOL sqrtRunning;
+	u32 sqrtResult;
+	u32 sqrtCnt;
+	u64 sqrtCycles;
+
+	u16 SPI_CNT;
+	u16 SPI_CMD;
+	u16 AUX_SPI_CNT;
+	u16 AUX_SPI_CMD;
+
+	u64 gfx3dCycles;
+
+	u8 powerMan_CntReg;
+	BOOL powerMan_CntRegWritten;
+	u8 powerMan_Reg[4];
+
+	memory_chip_t fw;
+
+	nds_dscard dscard[2];
+
+	// All MMU ARM 9 memory is allocated here !!!
+	int MMU_Alloc()
+	{
+		//ARM9 mem
+		ARM9_ITCM = ARM9_DTCM = MAIN_MEM = ARM9_REG = ARM9_BIOS = ARM9_BIOS = ARM9_VMEM = 0;
+
+		ARM9_ITCM = new u8[0x8000];
+		
+		if (!ARM9_ITCM)
+		{
+			MMU_Free();
+			return -1;
+		}
+    
+		ARM9_DTCM = new u8[0x4000];
+
+		if (!ARM9_DTCM)
+		{
+			MMU_Free();
+			return -2;
+		}
+
+		/* this has been expanded to 8MB to support debug consoles 
+		
+			-- nope sorry this is Wii you only get 4MB - Scanff
+			
+		*/
+		MAIN_MEM = new u8[0x400000]; 
+
+		if (!MAIN_MEM)
+		{
+			MMU_Free();
+			return -3;
+		}
+		// what is this 16MB of memory???
+		ARM9_REG = new u8[0x1000000];
+
+		if (!ARM9_REG)
+		{
+			MMU_Free();
+			return -4;
+		}
+
+		ARM9_BIOS = new u8[0x8000];
+
+		if (!ARM9_BIOS)
+		{
+			MMU_Free();
+			return -5;
+		}
+
+		ARM9_VMEM = new u8[0x800];
+
+		if (!ARM9_VMEM)
+		{
+			MMU_Free();
+			return -6;
+		}
+
+	
+		return 0;
+	};
+
+	void MMU_Free()
+	{
+		//ARM9 mem
+		
+		if (ARM9_ITCM)
+		{
+			delete [] ARM9_ITCM;
+			ARM9_ITCM = 0;
+		}
+    
+		if (ARM9_DTCM)
+		{
+			delete [] ARM9_DTCM;
+			ARM9_DTCM = 0;
+		}
+
+		
+		if (MAIN_MEM)
+		{
+			delete [] MAIN_MEM;
+			MAIN_MEM = 0;
+		}
+
+		if (ARM9_REG)
+		{
+			delete [] ARM9_REG;
+			ARM9_REG = 0;
+		}
+
+		if (ARM9_BIOS)
+		{
+			delete [] ARM9_BIOS;
+			ARM9_BIOS = 0;
+		}
+
+		if (ARM9_VMEM)
+		{
+			delete [] ARM9_VMEM;
+			ARM9_VMEM = 0;
+		}
+	};
+
 };
 
 //this contains things which can't be memzeroed because they are smarter classes

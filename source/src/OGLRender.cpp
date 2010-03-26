@@ -101,7 +101,7 @@ static u32 textureFormat=0, texturePalette=0;
 #ifdef _WIN32
 #define INITOGLEXT(x,y) y = (x)wglGetProcAddress(#y);
 #elif !defined(DESMUME_COCOA)
-#include <GL/glx.h>
+#include <GL/gl.h>
 #define INITOGLEXT(x,y) y = (x)glXGetProcAddress((const GLubyte *) #y);
 #endif
 
@@ -420,7 +420,7 @@ static char OGLInit(void)
 		return 0;
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+#if 0
 #ifndef DESMUME_COCOA
 	INITOGLEXT(PFNGLCREATESHADERPROC,glCreateShader)
 	INITOGLEXT(X_PFNGLGETSHADERSOURCEPROC,glShaderSource)
@@ -446,6 +446,7 @@ static char OGLInit(void)
 	INITOGLEXT(PFNGLUNIFORM1IPROC,glUniform1i)
 	INITOGLEXT(PFNGLUNIFORM1IVPROC,glUniform1iv)
 #endif
+#endif // no shaders -- scanff 
 #if !defined(GL_VERSION_1_3) || defined(_MSC_VER) || defined(__INTEL_COMPILER)
 	INITOGLEXT(PFNGLACTIVETEXTUREPROC,glActiveTexture)
 #endif

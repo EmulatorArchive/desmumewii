@@ -93,6 +93,7 @@ static INLINE void T1WriteByte(u8* const mem, const u32 addr, const u8 val)
 
 static INLINE void T1WriteWord(u8* const mem, const u32 addr, const u16 val)
 {
+	
 #ifdef WORDS_BIGENDIAN
    mem[addr + 1] = val >> 8;
    mem[addr] = val & 0xFF;
