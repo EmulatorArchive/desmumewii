@@ -47,6 +47,7 @@ static float nds_screen_size_ratio = 1.0f;
 #define FPS_LIMITER_FRAME_PERIOD 8
 
 SDL_Surface * surface;
+
 GXRModeObj *rmode = NULL;
 
 
@@ -194,6 +195,7 @@ int main(int argc, char **argv)
 	
     SDL_ShowCursor(SDL_DISABLE);
 	
+
     while(!sdl_quit) {
   
 		// Look for queued events and update keypad status
@@ -252,6 +254,31 @@ void init(){
 }
  
 
+SDL_Surface* create_surface(int bpp, int w, int h)
+{
+        unsigned long rmask, gmask, bmask, amask;
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+        rmask = 0x00ff0000;
+        gmask = 0x0000ff00;
+        bmask = 0x000000ff;
+        amask = 0x00000000;
+#else
+        rmask = 0x00ff0000;
+        gmask = 0x0000ff00;
+        bmask = 0x000000ff;
+        amask = 0x00000000;
+#endif
+
+
+  return SDL_CreateRGBSurface(      SDL_SWSURFACE,
+                                    w,
+                                    h,
+                                    bpp,
+                                    rmask, gmask, bmask,amask);
+
+}
+
 void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip){
     //Holds offsets
     SDL_Rect offset;
@@ -294,13 +321,37 @@ static void HDraw(void) {
 
 	apply_surface( 0, 40,256, 40, rawImage,subImage, surface, 0);
 
+
+/*
+	SDL_Surface* rawImage = 0;
+	rawImage =	create_surface(16, 256,192*2);
+
+	if(rawImage == NULL) return;
+
+	u16 *src_m = (u16*)GPU_screen;
+	u16 *src_s = (u16*)GPU_screen + (256*192);
+	u16 *dst = (u16*)rawImage->pixels;
+	u16 * bmp = (u16 *)GPU_screen;
+
+	for(int i=0; i < 256*192; i++)
+	{
+		dst[i] = src_m[i];           // Main
+		dst[(256*192)+i] = src_s[i];     // sub      
+	}
+
+
+	SDL_BlitSurface( rawImage, 0, surface, 0);
+    SDL_Flip(surface);	
+
+	SDL_FreeSurface(rawImage);
+*/
 	return;
 }
 
 static void VDraw(void) {
 	SDL_Surface *rawImage;
 
-	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 256, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
+	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 192, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
 	if(rawImage == NULL) return;
 
 	SDL_BlitSurface(rawImage, 0, surface, 0);
@@ -336,6 +387,7 @@ void ShowFPS(){
 	}
 }
 
+bool show_console = true;
 void DSExec(){  
 	//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
     
@@ -350,6 +402,18 @@ void DSExec(){
         NDS_releaseTouch();
         mouse.click = FALSE;
     }
+
+	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1)
+	{
+		show_console = !show_console;
+		log_console_enable_video(show_console);
+	}
+	
+	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2)
+	{
+		vertical = !vertical;
+	}
+
 
 	if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) exit(0); // meh .. do this for now
 	

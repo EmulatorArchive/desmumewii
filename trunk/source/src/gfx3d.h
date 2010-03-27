@@ -255,7 +255,7 @@ struct VERT {
 	}
 };
 
-#define VERTLIST_SIZE 10000// -- this is WII !!400000
+#define VERTLIST_SIZE 100000//400000
 //#define VERTLIST_SIZE 10000
 struct VERTLIST {
 	VERTLIST()
