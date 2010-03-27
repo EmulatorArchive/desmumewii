@@ -2552,7 +2552,7 @@ void NDS_Reset()
 		_MMU_write32<ARMCPU_ARM7>(0x30, 0xE8BD500F);
 		_MMU_write32<ARMCPU_ARM7>(0x34, 0xE25EF004);
 	}
-exit(0); // !!! Scanff is here .. crash after this !!
+
 	//ARM9 BIOS IRQ HANDLER
 	if(CommonSettings.UseExtBIOS == true)
 		inf = fopen(CommonSettings.ARM9BIOS,"rb");
@@ -2738,6 +2738,7 @@ exit(0); // !!! Scanff is here .. crash after this !!
 	memcpy(FW_Mac, (MMU.fw.data + 0x36), 6);
 
 	initSchedule();
+	
 }
 
 static std::string MakeInputDisplayString(u16 pad, const std::string* Buttons, int count) {

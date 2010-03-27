@@ -139,7 +139,6 @@ int main(int argc, char **argv)
 	
 	printf("initialization successful!\n");
 
-//	for(;;){}
   
 	//enable_sound = true;
 	// -- lets not even go there with sound yet !! -- scanff
@@ -157,9 +156,11 @@ int main(int argc, char **argv)
 		printf("Error loading sd:/boot.nds\n");
 		exit(0);
 	}
-exit(0);
+
 	execute = true;
-  
+
+#if 0 // We've already set SDL with Init()
+
 	printf("Initializing SDL...\n");
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1){
 		fprintf(stderr, "Error trying to initialize SDL: %s\n",
@@ -189,7 +190,8 @@ exit(0);
 		fprintf( stderr, "Video mode set failed: %s\n", SDL_GetError( ) );
 		exit( -1);
     }
-  
+#endif
+	
     SDL_ShowCursor(SDL_DISABLE);
 	
     while(!sdl_quit) {
@@ -348,6 +350,8 @@ void DSExec(){
         NDS_releaseTouch();
         mouse.click = FALSE;
     }
+
+	if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) exit(0); // meh .. do this for now
 	
 	update_keypad(keypad);     /* Update keypad */
 	
