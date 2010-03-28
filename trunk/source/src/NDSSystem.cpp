@@ -506,24 +506,6 @@ int NDS_Init( void) {
 	nds.idleFrameCounter = 0;
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
-	// It can get this far. It's MMU that is (still!) the problem.
-	/*	
-	{
-		int i = 4000;
-		printf("NDS_Init done\n");
-		while(1) {
-			
-			if(i<=0) {
-				// Continue
-				//break;
-				// Quit:
-				exit(1); 
-			}
-			--i;
-		}
-	}
-	/*/
-	
 	MMU_Init();
 	
 	nds.VCount = 0;
