@@ -26,6 +26,7 @@
 
 u16 keyboard_cfg[NB_KEYS];
 u16 joypad_cfg[NB_KEYS];
+u16 wiimote_cfg[NB_KEYS];
 u16 nbr_joy;
 mouse_status mouse;
 
@@ -78,11 +79,30 @@ const u16 plain_keyboard_cfg[NB_KEYS] =
     'o'          // BOOST
 };
 
+const u16 default_wiimote_cfg[NB_KEYS] =
+{
+    WPAD_CLASSIC_BUTTON_A,             // A
+    WPAD_CLASSIC_BUTTON_B,             // B
+    WPAD_CLASSIC_BUTTON_MINUS,         // select
+    WPAD_CLASSIC_BUTTON_PLUS,          // start
+    WPAD_CLASSIC_BUTTON_RIGHT,         // Right
+    WPAD_CLASSIC_BUTTON_LEFT,          // Left
+    WPAD_CLASSIC_BUTTON_UP,            // Up
+    WPAD_CLASSIC_BUTTON_DOWN,          // Down
+    WPAD_CLASSIC_BUTTON_FULL_R,        // R
+    WPAD_CLASSIC_BUTTON_FULL_L,        // L
+    WPAD_CLASSIC_BUTTON_X,             // X
+    WPAD_CLASSIC_BUTTON_Y,             // Y
+    WPAD_CLASSIC_BUTTON_ZL,            // DEBUG
+    WPAD_CLASSIC_BUTTON_ZR             // BOOST
+};
+
 /* Load default joystick and keyboard configurations */
 void load_default_config(const u16 kbCfg[])
 {
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
   memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
+  memcpy(wiimote_cfg, default_wiimote_cfg, sizeof(wiimote_cfg));
 }
 
 /* Initialize joysticks */
@@ -399,6 +419,54 @@ process_ctrls_event( SDL_Event& event, u16 *keypad,
                       float nds_screen_size_ratio)
 {
   u16 key;
+  
+  	  int i;
+	  for(i=0;i<12;i++) {
+	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]))
+	  		ADD_KEY( *keypad, KEYMASK_(i));
+		else
+			RM_KEY( *keypad, KEYMASK_(i));
+	  }
+	  
+	  if (!WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
+	      mouse.down = FALSE;
+	  
+	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A){
+		  mouse.down = TRUE;
+          if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT){
+			--mouse.x;
+		  } 
+			
+		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT){
+			++mouse.x;
+		  } 
+		  
+		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) {
+			++mouse.y;
+		  } 
+		
+		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP){
+			--mouse.y;
+		  }
+		  }
+		  
+		  /*
+		        signed long scaled_x =
+					screen_to_touch_range_x( event.button.x,
+											 nds_screen_size_ratio);
+				  signed long scaled_y =
+					screen_to_touch_range_y( event.button.y,
+											 nds_screen_size_ratio);
+	
+				  if( scaled_y >= 192)
+					set_mouse_coord( scaled_x, scaled_y - 192);
+				}
+*/
+        //  SDL_WarpMouse(mouse.x, mouse.y);
+		  set_mouse_coord( mouse.x, mouse.y );
+	  //}
+  
+  /*
   if ( !do_process_joystick_events( keypad, &event)) {
     switch (event.type)
     {
@@ -483,6 +551,6 @@ process_ctrls_event( SDL_Event& event, u16 *keypad,
       default:
         break;
     }
-  }
+  }*/
 }
 

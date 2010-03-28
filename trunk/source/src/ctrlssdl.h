@@ -28,6 +28,7 @@
 #include <unistd.h>
 //#include <pthread.h>
 #include <SDL/SDL.h>
+#include <wiiuse/wpad.h>
 #include "MMU.h"
 
 #include "types.h"
