@@ -140,10 +140,7 @@ int main(int argc, char **argv)
 	
 	printf("initialization successful!\n");
 
-  
-	//enable_sound = true;
-	// -- lets not even go there with sound yet !! -- scanff
-	enable_sound = false;
+	enable_sound = true;
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
@@ -160,38 +157,6 @@ int main(int argc, char **argv)
 
 	execute = true;
 
-#if 0 // We've already set SDL with Init()
-
-	printf("Initializing SDL...\n");
-	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == -1){
-		fprintf(stderr, "Error trying to initialize SDL: %s\n",
-              SDL_GetError());
-		return 0;
-    }
-  
-	/* Fetch the video info */
-	videoInfo = SDL_GetVideoInfo( );
-	if ( !videoInfo ) {
-		fprintf( stderr, "Video query failed: %s\n", SDL_GetError( ) );
-		exit( -1);
-	}
-
-	/* This checks if hardware blits can be done */
-	if ( videoInfo->blit_hw )
-		sdl_videoFlags |= SDL_HWACCEL;
-		sdl_videoFlags |= SDL_SWSURFACE;
-    
-	// Re-set the video mode
-	if(vertical)
-		surface = SDL_SetVideoMode(256, 384, 32, sdl_videoFlags);
-	else
-		surface = SDL_SetVideoMode(480,272, 32, SDL_ANYFORMAT|SDL_DOUBLEBUF|SDL_HWSURFACE|SDL_HWPALETTE);
-
-    if ( !surface ) {
-		fprintf( stderr, "Video mode set failed: %s\n", SDL_GetError( ) );
-		exit( -1);
-    }
-#endif
 	
     SDL_ShowCursor(SDL_DISABLE);
 	
@@ -254,31 +219,6 @@ void init(){
 }
  
 
-SDL_Surface* create_surface(int bpp, int w, int h)
-{
-        unsigned long rmask, gmask, bmask, amask;
-
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-        rmask = 0x00ff0000;
-        gmask = 0x0000ff00;
-        bmask = 0x000000ff;
-        amask = 0x00000000;
-#else
-        rmask = 0x00ff0000;
-        gmask = 0x0000ff00;
-        bmask = 0x000000ff;
-        amask = 0x00000000;
-#endif
-
-
-  return SDL_CreateRGBSurface(      SDL_SWSURFACE,
-                                    w,
-                                    h,
-                                    bpp,
-                                    rmask, gmask, bmask,amask);
-
-}
-
 void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip){
     //Holds offsets
     SDL_Rect offset;
@@ -313,45 +253,29 @@ static void HDraw(void) {
 		dstB[i] = src[(256*192)+i]; // SubScreen Hack
 	}
 
+
 	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeA, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
 	if(rawImage == NULL) return;
 	
 	subImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeB, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-	if(subImage == NULL) return;	
+	if(subImage == NULL) 
+	{
+		SDL_FreeSurface(rawImage);
+		return;	
+	}
 
 	apply_surface( 0, 40,256, 40, rawImage,subImage, surface, 0);
 
-
-/*
-	SDL_Surface* rawImage = 0;
-	rawImage =	create_surface(16, 256,192*2);
-
-	if(rawImage == NULL) return;
-
-	u16 *src_m = (u16*)GPU_screen;
-	u16 *src_s = (u16*)GPU_screen + (256*192);
-	u16 *dst = (u16*)rawImage->pixels;
-	u16 * bmp = (u16 *)GPU_screen;
-
-	for(int i=0; i < 256*192; i++)
-	{
-		dst[i] = src_m[i];           // Main
-		dst[(256*192)+i] = src_s[i];     // sub      
-	}
-
-
-	SDL_BlitSurface( rawImage, 0, surface, 0);
-    SDL_Flip(surface);	
-
 	SDL_FreeSurface(rawImage);
-*/
+	SDL_FreeSurface(subImage);
+
 	return;
 }
 
 static void VDraw(void) {
 	SDL_Surface *rawImage;
 
-	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 192, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
+	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 256, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
 	if(rawImage == NULL) return;
 
 	SDL_BlitSurface(rawImage, 0, surface, 0);
