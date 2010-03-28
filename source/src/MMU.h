@@ -491,8 +491,8 @@ struct MMU_struct
 			MMU_Free();
 			return -3;
 		}
-		// what is this 16MB of memory???
-		ARM9_REG = new u8[0x1000000];
+		// what is this 16MB of memory??? ... WTF this should have been 16K ???
+		ARM9_REG = new u8[0x10000];
 
 		if (!ARM9_REG)
 		{
