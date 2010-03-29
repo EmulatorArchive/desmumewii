@@ -414,9 +414,10 @@ process_joystick_events( u16 *keypad) {
 
 u16 shift_pressed;
 
-void
+/*void
 process_ctrls_event( SDL_Event& event, u16 *keypad,
-                      float nds_screen_size_ratio)
+                      float nds_screen_size_ratio)*/
+void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 {
   u16 key;
   
