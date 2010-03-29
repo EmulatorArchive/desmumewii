@@ -354,7 +354,7 @@ void GPU_setVideoProp(GPU * gpu, u32 p)
     gpu->dispMode = cnt->DisplayMode & ((gpu->core)?1:3);
 
 	gpu->vramBlock = cnt->VRAM_Block;
-//	gpu->dispMode = 2; // NOT sure if this is an option or what ... Setting it makes the screen WORK :)))) scanff
+	gpu->dispMode = 2; // NOT sure if this is an option or what ... Setting it makes the screen WORK :)))) scanff
 	
 	switch (gpu->dispMode)
 	{
