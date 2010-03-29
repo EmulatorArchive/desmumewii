@@ -79,7 +79,7 @@ const u16 plain_keyboard_cfg[NB_KEYS] =
     'o'          // BOOST
 };
 
-const u16 default_wiimote_cfg[NB_KEYS] =
+const u32 default_wiimote_cfg[NB_KEYS] =
 {
     WPAD_CLASSIC_BUTTON_A,             // A
     WPAD_CLASSIC_BUTTON_B,             // B
@@ -423,13 +423,14 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
   
   	  int i;
 	  for(i=0;i<12;i++) {
-	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]))
+	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&default_wiimote_cfg[i]))
 	  		ADD_KEY( *keypad, KEYMASK_(i));
 		else
 			RM_KEY( *keypad, KEYMASK_(i));
 	  }
 	  
-	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
+
+	  if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
 	      mouse.down = TRUE;
 	  
 	  if (!WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
@@ -451,6 +452,10 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP){
 			--mouse.y;
 		  }
+
+	  set_mouse_coord( mouse.x, mouse.y );
+
+
 		  
 		  /*
 		        signed long scaled_x =
@@ -465,7 +470,7 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 				}
 */
         //  SDL_WarpMouse(mouse.x, mouse.y);
-		  set_mouse_coord( mouse.x, mouse.y );
+//		  set_mouse_coord( mouse.x, mouse.y );
 	  //}
   
   /*

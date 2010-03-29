@@ -17,7 +17,7 @@ include $(DEVKITPPC)/wii_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source/src source/src/glib source/src/metaspu \
+SOURCES		:=	source/src source/src/metaspu \
 				source/src/addons source/src/utils
 DATA		:=	data  
 INCLUDES	:=
@@ -26,15 +26,15 @@ INCLUDES	:=
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	    =   -D__BIG_ENDIAN__ -g -O2 -fsigned-char -Wall $(MACHDEP) $(INCLUDE)
+CFLAGS	    =   -D__BIG_ENDIAN__ -g -O3 -fsigned-char -Wall $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS)
 LDFLAGS	    =	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS        :=	-lSDL_net -lSDL_ttf -lSDL_gfx -lSDL_mixer \
-				-lSDL_image -lSDL -lsmpeg -lpng -lfreetype -lz \
+LIBS        :=	-lSDL_net -lSDL_mixer \
+				-lSDL -lsmpeg -lz \
 				-lfat -lwiiuse -lbte -logc -lm -lwiikeyboard 
 
 #---------------------------------------------------------------------------------
