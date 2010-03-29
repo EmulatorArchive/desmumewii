@@ -74,6 +74,32 @@ int lastLag;
 int TotalLagFrames;
 
 TSCalInfo TSCal;
+//----------------- VIRTUAL MEM ----------------------/
+
+/*
+
+	This acts as virtual memory, it can be improved by checking we've not already got the
+	data we need in temp_vm_buffer before going to the SD card.
+*/
+
+#define TEMP_ROM_SIZE	(1024*64) // 64K -- probably could be much smaller !!!!!
+u8 temp_vm_buffer[TEMP_ROM_SIZE]; // temp storage of game data
+FILE* vmf = 0;
+/* Cart Rom from File */
+u8* MMU_CART_ROM(u32 position);
+u8* MMU_CART_ROM(u32 position)
+{
+	if (!vmf) vmf = fopen(path.path.c_str(),"rb");
+	if (!vmf) exit(0); // ahhhhhh
+
+	fseek(vmf,0,SEEK_SET); // to start
+	fseek(vmf,position,SEEK_SET);
+
+	fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf);
+
+
+	return temp_vm_buffer;
+};
 
 /* ------------------------------------------------------------------------- */
 /* FIRMWARE DECRYPTION */
@@ -810,7 +836,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	cheatsInit(buf);
 
 	gameInfo.populate();
-	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
+//	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
+	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
 	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
 	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
 
@@ -884,7 +911,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	if(MMU.CART_ROM != MMU.UNUSED_RAM)
 		NDS_FreeROM();
 
-	data = new u8[mask + 1];
+	//data = new u8[mask + 1];
+	data = new u8[SMALL_READ];
 	if (!data)
 	{
 		reader->DeInit(file);
@@ -892,7 +920,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 		return -1;
 	}
 
-	ret = reader->Read(file, data, size);
+	ret = reader->Read(file, data, SMALL_READ);
 	reader->DeInit(file);
 
 	//decrypt if necessary..
@@ -944,6 +972,13 @@ void NDS_FreeROM(void)
 		gameInfo.romdata = NULL;
 	if (MMU.CART_ROM != MMU.UNUSED_RAM)
 		delete [] MMU.CART_ROM;
+
+	if (vmf)
+	{
+		fclose(vmf);
+		vmf = 0;
+	}
+
 	MMU_unsetRom();
 }
 
@@ -2613,7 +2648,8 @@ void NDS_Reset()
 			u32 size = (0x8000 - src) >> 2;
 			for (u32 i = 0; i < size; i++)
 			{
-				_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU.CART_ROM, src));
+				//_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU.CART_ROM, src));
+				_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU_CART_ROM(src),0));
 				src += 4; dst += 4;
 			}
 		}
@@ -2630,7 +2666,8 @@ void NDS_Reset()
 
 		for(u32 i = 0; i < (header->ARM9binSize>>2); ++i)
 		{
-			_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU.CART_ROM, src));
+			//_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU.CART_ROM, src));
+			_MMU_write32<ARMCPU_ARM9>(dst, T1ReadLong(MMU_CART_ROM(src),0));
 			dst += 4;
 			src += 4;
 		}
@@ -2640,7 +2677,8 @@ void NDS_Reset()
 
 		for(u32 i = 0; i < (header->ARM7binSize>>2); ++i)
 		{
-			_MMU_write32<ARMCPU_ARM7>(dst, T1ReadLong(MMU.CART_ROM, src));
+			//_MMU_write32<ARMCPU_ARM7>(dst, T1ReadLong(MMU.CART_ROM, src));
+			_MMU_write32<ARMCPU_ARM7>(dst, T1ReadLong(MMU_CART_ROM(src),0));
 			dst += 4;
 			src += 4;
 		}

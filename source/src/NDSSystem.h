@@ -247,7 +247,8 @@ NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config);
 
 BOOL NDS_SetROM(u8 * rom, u32 mask);
 NDS_header * NDS_getROMHeader(void);
-
+extern u8* MMU_CART_ROM(u32 position);
+#define SMALL_READ	(1024*20) // read and save a small amount of the rom for decrypt and header
 struct GameInfo
 {
 	GameInfo()
@@ -257,12 +258,12 @@ struct GameInfo
 	void loadData(char* buf, int size)
 	{
 		resize(size);
-		memcpy(romdata,buf,size);
+		memcpy(romdata,buf,SMALL_READ);
 	}
 
 	void resize(int size) {
 		if(romdata != NULL) delete[] romdata;
-		romdata = new char[size];
+		romdata = new char[SMALL_READ];
 		romsize = size;
 	}
 	u32 crc;
