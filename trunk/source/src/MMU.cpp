@@ -1462,7 +1462,9 @@ u32 MMU_readFromGC()
 
 					card.address = (0x8000 + (card.address&0x1FF));
 				}
-				val = T1ReadLong(MMU.CART_ROM, card.address & MMU.CART_ROM_MASK);
+				//val = T1ReadLong(MMU.CART_ROM, card.address & MMU.CART_ROM_MASK);
+				// VMemory
+				val = T1ReadLong(MMU_CART_ROM(card.address & MMU.CART_ROM_MASK), 0);
 			}
 			break;
 
