@@ -45,8 +45,6 @@ volatile bool execute = false;
 
 static float nds_screen_size_ratio = 1.0f;
 
-u32 screenColor=0;
-
 #define NUM_FRAMES_TO_TIME 60
 
 #define FPS_LIMITER_FRAME_PERIOD 8
@@ -93,7 +91,6 @@ GPU3DInterface *core3DList[] = {
 
 void init();
 static void Draw(void);
-u16 pixelTransform(u16); // This does not work yet - Profetylen
 void ShowFPS();
 void DSExec();
 void Pause();
@@ -339,10 +336,9 @@ static void Draw(void) {
 				u16 *sBottom = bottom+256*ty;
 				for (int l = 0; l < 4; l++) {
 					int tx = x + l;
-					// FIXME: Get the colors right; horribly broken at the moment					
+					// FIXME: Get the colors right; horribly broken at the moment
 					TopScreen[i] = sTop[tx];
-					BottomScreen[i] = sBottom[tx];//pixelTransform_24to5(sBottom[tx]);
-					//BottomScreen[i] = screenColor; // Uncomment this to change colors with wiimote d-pad
+					BottomScreen[i] = sBottom[tx];
 					i++;
 				}
 			}
@@ -355,19 +351,6 @@ static void Draw(void) {
 	LWP_MutexUnlock(vidmutex);
 	
 	return;
-}
-
-u16 pixelTransform(u16 pixel)
-{	/*
-	u16 red=(pixel&0x7c00)>>10;
-	u16 green=(pixel&0x03e0)>>5;
-	u16 blue=pixel&0x1f;
-	*/
-	u16 red=(pixel&0xf800)>>10;
-	u16 green=(pixel&0x07C0)>>5;
-	u16 blue=pixel&0x3e;
-	
-	return 0x7000+((red/2)<<8)+((green/2)<<4)+(blue/2);
 }
 
 static void *draw_thread(void*)
@@ -476,50 +459,6 @@ void DSExec(){
     }
 
 	update_keypad(keypad);     /* Update keypad */
-	
-	// Change color with wiimote d-pad
-	if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT)
-	{
-		screenColor+=0x1000;
-	}
-	
-	if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP)
-	{
-		screenColor+=0x100;
-	}
-	
-	if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT)
-	{
-		screenColor+=0x10;
-	}
-	
-	if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN)
-	{
-		screenColor+=1;
-	}
-	
-	// Bitprinting
-	if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
-	{
-	/*16*/		printf("%i",(screenColor&0x8000)/0x8000);
-	/*15*/		printf("%i",(screenColor&0x4000)/0x4000);
-	/*14*/		printf("%i",(screenColor&0x2000)/0x2000);
-	/*13*/		printf("%i ",(screenColor&0x1000)/0x1000);
-	/*12*/		printf("%i",(screenColor&0x800)/0x800);
-	/*11*/		printf("%i",(screenColor&0x400)/0x400);
-	/*09*/		printf("%i",(screenColor&0x200)/0x200);
-	/*08*/		printf("%i ",(screenColor&0x100)/0x100);
-	/*07*/		printf("%i",(screenColor&0x80)/0x80);
-	/*07*/		printf("%i",(screenColor&0x40)/0x40);
-	/*06*/		printf("%i",(screenColor&0x20)/0x20);
-	/*05*/		printf("%i ",(screenColor&0x10)/0x10);
-	/*04*/		printf("%i",(screenColor&0x8)/0x8);
-	/*03*/		printf("%i",(screenColor&0x4)/0x4);
-	/*02*/		printf("%i",(screenColor&0x2)/0x2);
-	/*01*/		printf("%i ",(screenColor&0x1));
-
-	printf("\n");
-	}
 
 	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1)
 	{
