@@ -12,7 +12,7 @@
   int cpu_ratio;
   int lang;
   int showfps;
-  int vertical;
+  int vertical = 1;
   int frameskip;
   const char *nds_file;
   const char *cflash_disk_image_file;

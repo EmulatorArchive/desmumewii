@@ -428,26 +428,27 @@ process_ctrls_event( SDL_Event& event, u16 *keypad,
 			RM_KEY( *keypad, KEYMASK_(i));
 	  }
 	  
+	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
+	      mouse.down = TRUE;
+	  
 	  if (!WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
 	      mouse.down = FALSE;
 	  
-	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A){
-		  mouse.down = TRUE;
-          if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT){
+
+      if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT){
 			--mouse.x;
 		  } 
 			
-		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT){
+	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT){
 			++mouse.x;
 		  } 
 		  
-		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) {
+	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) {
 			++mouse.y;
 		  } 
 		
-		  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP){
+	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP){
 			--mouse.y;
-		  }
 		  }
 		  
 		  /*
