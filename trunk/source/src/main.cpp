@@ -35,6 +35,9 @@
 #include "Version.h"
 #include "log_console.h"
 
+// libogc's MEM_K0_TO_K1 macro causes compile-time errors
+#undef MEM_K0_TO_K1
+#define MEM_K0_TO_K1(x) (u8 *)(x) + (SYS_BASE_UNCACHED - SYS_BASE_CACHED)
 
 NDS_header * header;
 
@@ -55,11 +58,21 @@ GXRModeObj *rmode = NULL;
 const SDL_VideoInfo *videoInfo;  
 
 /* Flags to pass to SDL_SetVideoMode */
+static int sdl_videoFlags = 0;
 static int sdl_quit = 0;
 static u16 keypad;
-  
-u8 *GPU_mergeA[256*192*4];
-u8 *GPU_mergeB[256*192*4];
+
+static u8 *xfb[2];
+static int currfb;
+static GXTexObj TopTex;
+#define DEFAULT_FIFO_SIZE (256*1024)
+static u8 gp_fifo[DEFAULT_FIFO_SIZE] __attribute__((aligned(32)));
+static u16 TopScreen[256*192] __attribute__((aligned(32)));
+static GXTexObj BottomTex;
+static u16 BottomScreen[256*192] __attribute__((aligned(32)));
+static lwp_t vidthread = LWP_THREAD_NULL;
+static mutex_t vidmutex = LWP_MUTEX_NULL;
+static u8 abort_thread = 0;
 
 SoundInterface_struct *SNDCoreList[] = {
   &SNDDummy,
@@ -77,12 +90,11 @@ GPU3DInterface *core3DList[] = {
 //////////////////////////////////////////////////////////////////
 
 void init();
-void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip);
-static void HDraw(void);
-static void VDraw(void);
+static void Draw(void);
 void ShowFPS();
 void DSExec();
 void Pause();
+static void *draw_thread(void*);
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -157,51 +169,46 @@ int main(int argc, char **argv)
 
 	execute = true;
 
-	
     SDL_ShowCursor(SDL_DISABLE);
-	
-	SDL_Rect r;
 
-    while(!sdl_quit) 
+	log_console_enable_video(false);
+
+	if(vidthread == LWP_THREAD_NULL)
+		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 68);
+
+    while(!sdl_quit)
 	{
-  
-		// clear backbuffer
-		r.y = r.x = 0;
-		r.w = 640;
-		r.h = 480;
-
-	    SDL_FillRect(surface, &r, 0x0);
-
 		// Look for queued events and update keypad status
-		if(frameskip != 0)
-		{
+		if(frameskip != 0){
 			for(s32 f= 0; f < frameskip; f++)
 				DSExec();
 		}else{
 			DSExec();
 		}
-		
-		if ( enable_sound) 
+		if ( enable_sound)
 		{
 			SPU_Emulate_core();
 			SPU_Emulate_user();
 		}
 
-		// temp BLOCK to show where we are on touchscreen    
-		r.x = mouse.x;
-		r.y = mouse.y;
-		printf("mouse x,y %d %d\n",mouse.x,mouse.y);
-		r.h = 5;
-		r.w = 5;
-		SDL_FillRect(surface, &r, 0xFFFFFF);
-
-		SDL_Flip(surface);	
-
 	}
 
+	abort_thread = 1;
+	LWP_MutexDestroy(vidmutex);
+	vidmutex = LWP_MUTEX_NULL;
+	LWP_JoinThread(vidthread, NULL);
+	vidthread = LWP_THREAD_NULL;
 
 	SDL_Quit();
 	NDS_DeInit();
+
+	GX_AbortFrame();
+	GX_Flush();
+
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	VIDEO_SetBlack(true);
+
 	return 0;
 }
 
@@ -213,9 +220,15 @@ int main(int argc, char **argv)
 
 
 void init(){
- 
+	u32 xfbHeight;
+	f32 yscale;
+	Mtx44 perspective;
+	Mtx GXmodelView2D;
+	GXColor background = {0, 0, 0, 0xff};
+	currfb = 0;
+
     // initialize SDL video. If there was an error SDL shows it on the screen
-    if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0 ) {
+    if ( SDL_Init(SDL_INIT_AUDIO) < 0 ) {
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError() );
 		SDL_Delay( 500 );
         exit(EXIT_FAILURE);
@@ -226,85 +239,180 @@ void init(){
  
     // make sure SDL cleans up before exit
     atexit(SDL_Quit);
-    SDL_ShowCursor(SDL_DISABLE);
- 
-    // create a new window
-    surface = SDL_SetVideoMode(640, 480, 16, SDL_DOUBLEBUF);
-    if ( !surface ) {
-        fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
-		SDL_Delay( 500 );
-        exit(EXIT_FAILURE);
-    }
-	
+
+	VIDEO_Init();
+	VIDEO_SetBlack(true);
 	rmode = VIDEO_GetPreferredMode(NULL);
-	
-}
+
+	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+
+	VIDEO_SetNextFramebuffer(xfb[currfb]);
+
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
+	else while (VIDEO_GetNextField()) VIDEO_WaitVSync();
+
+	memset(gp_fifo, 0, DEFAULT_FIFO_SIZE);
+	GX_Init(gp_fifo, DEFAULT_FIFO_SIZE);
+
+	GX_SetCopyClear(background, 0x00ffffff);
  
+	// other gx setup
+	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
+	yscale = GX_GetYScaleFactor(rmode->efbHeight,rmode->xfbHeight);
+	xfbHeight = GX_SetDispCopyYScale(yscale);
+	GX_SetScissor(0,0,rmode->fbWidth,rmode->efbHeight);
+	GX_SetDispCopySrc(0,0,rmode->fbWidth,rmode->efbHeight);
+	GX_SetDispCopyDst(rmode->fbWidth,xfbHeight);
+	GX_SetCopyFilter(rmode->aa,rmode->sample_pattern,GX_TRUE,rmode->vfilter);
+	GX_SetFieldMode(rmode->field_rendering,((rmode->viHeight==2*rmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
 
-void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surface* sourceB, SDL_Surface* destination, SDL_Rect* clip){
-    //Holds offsets
-    SDL_Rect offset;
-    SDL_Rect offsetz;
-    SDL_Surface *ZoomA,*ZoomB;
+	if (rmode->aa)
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+	else
+		GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
 
-    //Get offsets
-    offset.x = x;
-    offset.y = y;
-    offsetz.x = xx;
-    offsetz.y = yy;
+	GX_SetCullMode(GX_CULL_NONE);
+	GX_CopyDisp(xfb[currfb],GX_TRUE);
+	GX_SetDispCopyGamma(GX_GM_1_0);
 
-	//Blit
-	//ZoomA = zoomSurface(sourceA, 0.93, 0.93, 0);
-    SDL_BlitSurface( sourceA, clip, destination, &offset );
-	//ZoomB = zoomSurface(sourceB, 0.93, 0.93, 0);
-	SDL_BlitSurface( sourceB, clip, destination, &offsetz );
-	
+	GX_SetNumChans(1);
+	GX_SetNumTexGens(1);
+	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+
+	GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+	GX_SetAlphaUpdate(GX_TRUE);
+	GX_SetColorUpdate(GX_TRUE);
+
+	guOrtho(perspective,0,479,0,639,0,300);
+	GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);
+
+	guMtxIdentity(GXmodelView2D);
+	guMtxTransApply (GXmodelView2D, GXmodelView2D, 0.0F, 0.0F, -5.0F);
+	GX_LoadPosMtxImm(GXmodelView2D,GX_PNMTX0);
+
+	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
+	GX_InvVtxCache();
+	GX_ClearVtxDesc();
+	GX_InvalidateTexAll();
+
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+
+	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+
+	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+
+	memset(TopScreen, 0, 256*192*sizeof(*TopScreen));
+	memset(BottomScreen, 0, 256*192*sizeof(*BottomScreen));
+
+	if (vidmutex == LWP_MUTEX_NULL)
+		LWP_MutexInit(&vidmutex, false);
+
+	VIDEO_SetBlack(false);
 }
 
-static void HDraw(void) {
-	SDL_Surface *rawImage,*subImage;
+static void Draw(void) {
+	// convert to 4x4 textels for GX
+	u16 *top = (u16*)&GPU_screen;
+	u16 *bottom = (u16*)&GPU_screen+256*192;
+	int i = 0;
 
-	u16 *src = (u16*)GPU_screen;
-	u16 *dstA = (u16*)GPU_mergeA;
-	u16 *dstB = (u16*)GPU_mergeB;
+	LWP_MutexLock(vidmutex);
 
-	for(int i=0; i < 256*192; i++){ 
-		dstA[i] = src[i];           // MainScreen Hack
-		dstB[i] = src[(256*192)+i]; // SubScreen Hack
+	for (int y = 0; y < 192; y+=4) {
+		for (int x = 0; x < 256; x+=4) {
+			for (int k = 0; k < 4; k++) {
+				int ty = y + k;
+				u16 *sTop = top+256*ty;
+				u16 *sBottom = bottom+256*ty;
+				for (int l = 0; l < 4; l++) {
+					int tx = x + l;
+					// FIXME: Get the colors right; horribly broken at the moment
+					TopScreen[i] = sTop[tx];
+					BottomScreen[i] = sBottom[tx];
+					i++;
+				}
+			}
+		}
 	}
 
+	DCFlushRange(TopScreen, 256*192*2);
+	DCFlushRange(BottomScreen, 256*192*2);
 
-	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeA, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-	if(rawImage == NULL) return;
+	LWP_MutexUnlock(vidmutex);
 	
-	subImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_mergeB, 256,192 , 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-	if(subImage == NULL) 
+	return;
+}
+
+static void *draw_thread(void*)
+{
+	while(1)
 	{
-		SDL_FreeSurface(rawImage);
-		return;	
+		if (abort_thread)
+			break;
+
+		int topX = 40;
+		int topY = 40;
+		int bottomX, bottomY;
+		if (vertical) {
+			bottomX = topX + 256;
+			bottomY = topY;
+		} else {
+			bottomX = topX;
+			bottomY = topY + 192;
+		}
+
+		LWP_MutexLock(vidmutex);
+
+		// TOP SCREEN
+		GX_LoadTexObj(&TopTex, GX_TEXMAP0);
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position2f32(topX, topY);
+			GX_TexCoord2f32(0, 0);
+			GX_Position2f32(topX, topY+192);
+			GX_TexCoord2f32(0, 1);
+			GX_Position2f32(topX+256, topY+192);
+			GX_TexCoord2f32(1, 1);
+			GX_Position2f32(topX+256, topY);
+			GX_TexCoord2f32(1, 0);
+		GX_End();
+
+		// BOTTOM SCREEN
+		GX_LoadTexObj(&BottomTex, GX_TEXMAP0);
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position2f32(bottomX, bottomY);
+			GX_TexCoord2f32(0, 0);
+			GX_Position2f32(bottomX, bottomY+192);
+			GX_TexCoord2f32(0, 1);
+			GX_Position2f32(bottomX+256, bottomY+192);
+			GX_TexCoord2f32(1, 1);
+			GX_Position2f32(bottomX+256, bottomY);
+			GX_TexCoord2f32(1, 0);
+		GX_End();
+
+		GX_DrawDone();
+
+		currfb ^= 1;
+
+		GX_CopyDisp(xfb[currfb],GX_TRUE);
+		VIDEO_SetNextFramebuffer(xfb[currfb]);
+		VIDEO_Flush();
+
+		LWP_MutexUnlock(vidmutex);
+
+		VIDEO_WaitVSync();
 	}
 
-	apply_surface( 0, 40,256, 40, rawImage,subImage, surface, 0);
-
-	SDL_FreeSurface(rawImage);
-	SDL_FreeSurface(subImage);
-
-	return;
-}
-
-static void VDraw(void) {
-	SDL_Surface *rawImage;
-
-	rawImage = SDL_CreateRGBSurfaceFrom((void*)&GPU_screen, 256, 384, 16, 512, 0x001F, 0x03E0, 0x7C00, 0);
-	if(rawImage == NULL) return;
-
-	SDL_BlitSurface(rawImage, 0, surface, 0);
-
-	SDL_UpdateRect(surface, 0, 0, 0, 0);
-
-	SDL_FreeSurface(rawImage);
-
-	return;
+	return NULL;
 }
 
 void ShowFPS(){
@@ -372,10 +480,7 @@ void DSExec(){
     
 	NDS_exec<TRUE>(nb);
 
-	if(vertical)
-		VDraw();
-	else
-		HDraw();
+	Draw();
 	
 	showfps = 0;
 
