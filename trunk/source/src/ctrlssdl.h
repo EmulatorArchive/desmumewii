@@ -90,7 +90,7 @@ u16 get_keypad( void);
 u16 lookup_key (u16 keyval);
 u16 lookup_joy_key (u16 keyval);
 void
-process_ctrls_event( SDL_Event& event, u16 *keypad,
+process_ctrls_event( u16 *keypad,
                       float nds_screen_size_ratio);
 
 void

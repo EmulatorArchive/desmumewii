@@ -317,6 +317,8 @@ void DSExec(){
     
 	WPAD_ScanPads();
 	
+	process_ctrls_event(&keypad, nds_screen_size_ratio);
+	
     // Update mouse position and click
     if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) {
 		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
@@ -341,7 +343,7 @@ void DSExec(){
 
 	if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) exit(0); // meh .. do this for now
 	
-	update_keypad(keypad);     /* Update keypad */
+	//update_keypad(keypad);     /* Update keypad */
 	
 	int nb = 0;
     
