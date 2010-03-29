@@ -55,11 +55,9 @@ GXRModeObj *rmode = NULL;
 const SDL_VideoInfo *videoInfo;  
 
 /* Flags to pass to SDL_SetVideoMode */
-static int sdl_videoFlags = 0;
 static int sdl_quit = 0;
 static u16 keypad;
   
-u8 *GPU_vram[512*192*4];
 u8 *GPU_mergeA[256*192*4];
 u8 *GPU_mergeB[256*192*4];
 
@@ -96,7 +94,7 @@ extern "C"
 
 int main(int argc, char **argv)
 {
-	int f;
+
 	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
 	struct armcpu_ctrl_iface *arm9_ctrl_iface;
@@ -127,6 +125,8 @@ int main(int argc, char **argv)
 		sleep(1);
 		exit(0);
 	}
+	fclose(fp);
+
 	printf("sd:/boot.nds found!\n");
   
 	VIDEO_WaitVSync();
@@ -147,7 +147,7 @@ int main(int argc, char **argv)
 		SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
 	}
   
-	rom_filename = "sd:/rom.nds";
+	rom_filename = "sd:/boot.nds";
  
 	printf("Placing ROM into virtual NDS...\n");
 	if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
@@ -160,20 +160,42 @@ int main(int argc, char **argv)
 	
     SDL_ShowCursor(SDL_DISABLE);
 	
+	SDL_Rect r;
 
-    while(!sdl_quit) {
+    while(!sdl_quit) 
+	{
   
+		// clear backbuffer
+		r.y = r.x = 0;
+		r.w = 640;
+		r.h = 480;
+
+	    SDL_FillRect(surface, &r, 0x0);
+
 		// Look for queued events and update keypad status
-		if(frameskip != 0){
+		if(frameskip != 0)
+		{
 			for(s32 f= 0; f < frameskip; f++)
 				DSExec();
 		}else{
 			DSExec();
 		}
-		if ( enable_sound) {
+		
+		if ( enable_sound) 
+		{
 			SPU_Emulate_core();
 			SPU_Emulate_user();
 		}
+
+		// temp BLOCK to show where we are on touchscreen    
+		r.x = mouse.x;
+		r.y = mouse.y;
+		printf("mouse x,y %d %d\n",mouse.x,mouse.y);
+		r.h = 5;
+		r.w = 5;
+		SDL_FillRect(surface, &r, 0xFFFFFF);
+
+		SDL_Flip(surface);	
 
 	}
 
@@ -236,7 +258,6 @@ void apply_surface(int x, int y,int xx, int yy, SDL_Surface* sourceA, SDL_Surfac
     SDL_BlitSurface( sourceA, clip, destination, &offset );
 	//ZoomB = zoomSurface(sourceB, 0.93, 0.93, 0);
 	SDL_BlitSurface( sourceB, clip, destination, &offsetz );
-    SDL_Flip(destination);	
 	
 }
 
@@ -246,7 +267,6 @@ static void HDraw(void) {
 	u16 *src = (u16*)GPU_screen;
 	u16 *dstA = (u16*)GPU_mergeA;
 	u16 *dstB = (u16*)GPU_mergeB;
-	u16 *dst = (u16*)GPU_vram;
 
 	for(int i=0; i < 256*192; i++){ 
 		dstA[i] = src[i];           // MainScreen Hack
@@ -311,6 +331,7 @@ void ShowFPS(){
 	}
 }
 
+
 bool show_console = true;
 void DSExec(){  
 	//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
@@ -320,14 +341,16 @@ void DSExec(){
 	process_ctrls_event(&keypad, nds_screen_size_ratio);
 	
     // Update mouse position and click
-    if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) {
+    if(mouse.down) {
 		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
 	}
 	
-    if(!WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A){ 
+    if(!mouse.down){ 
         NDS_releaseTouch();
         mouse.click = FALSE;
     }
+
+	update_keypad(keypad);     /* Update keypad */
 
 	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1)
 	{
@@ -343,7 +366,7 @@ void DSExec(){
 
 	if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) exit(0); // meh .. do this for now
 	
-	//update_keypad(keypad);     /* Update keypad */
+	
 	
 	int nb = 0;
     
@@ -370,19 +393,3 @@ void Pause(){
 	}
 
 }
-
-/*
-int module_start(SceSize args, void *argp)
-{
-	SceUID uid;
-
-	uid = sceKernelCreateThread("DsOnPSP", _main, 32, 0x10000, 0, 0);
-	if(uid < 0)
-	{
-		return 1;
-	}
-	sceKernelStartThread(uid, args, argp);
-
-	return 0;
-}
-*/
