@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	rom_filename = "sd:/boot.nds";
  
 	printf("Placing ROM into virtual NDS...\n");
-	if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
+	if (NDS_LoadROM("sd:/3.nds", cflash_disk_image_file) < 0) {
 		printf("Error loading sd:/boot.nds\n");
 		exit(0);
 	}
@@ -229,13 +229,34 @@ void init(){
     atexit(SDL_Quit);
 
 	VIDEO_Init();
-	VIDEO_SetBlack(true);
 	rmode = VIDEO_GetPreferredMode(NULL);
+
+	switch (rmode->viTVMode >> 2)
+	{
+		case VI_PAL: // 576 lines (PAL 50hz)
+			rmode = &TVPal574IntDfScale;
+			rmode->xfbHeight = 480;
+			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
+			rmode->viHeight = 480;
+			break;
+
+		case VI_NTSC: // 480 lines (NTSC 60hz)
+			break;
+
+		default: // 480 lines (PAL 60Hz)
+			break;
+	}
+
+	VIDEO_Configure(rmode);
 
 	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
 	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
 
-	VIDEO_SetNextFramebuffer(xfb[currfb]);
+	VIDEO_ClearFrameBuffer(rmode, xfb[0], COLOR_BLACK);
+	VIDEO_ClearFrameBuffer(rmode, xfb[1], COLOR_BLACK);
+	VIDEO_SetNextFramebuffer (xfb[0]);
+
+	VIDEO_SetBlack(FALSE);
 
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
