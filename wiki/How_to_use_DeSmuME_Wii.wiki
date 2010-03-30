@@ -2,23 +2,14 @@
 
 = Set-up on your SD Card =
 
-Goto the downloads page and download the latest .dol
+Goto the downloads page and download the latest featured release.
 
-Rename it to boot.dol
+Extract it into your apps folder. Make sure the path is along the lines of root:/apps/namethisfolderanything/boot.dol
 
-Place it in your SD Card in sd:/apps/desmumewii/boot.dol
+Place your DS ROMs in sd:/DSROM/ to make your life easier
 
-Download a Nintendo DS ROM
-
-Name your ROM boot.nds
-
-Place your ROM in the root of your SD Card.
-
-Go to the homebrew channel and launch DeSmuME Wii.
-
-Most likely, you will get a black frozen inescapable screen. If this occurs, unplug your Wii.
-
+You can select any ROM to play that is stored anywhere on your SD Card. The default directory is sd:/DSROM/
 
 = Working ROMs =
 
-Right now, it appears that no ROMs work but not very many have been tested. As we work on the emulator, we will frequently update the build available for download. Please let us know immediately if you get a ROM to work.
+Right now, most ROMs work. If anyone knows of a good compatibility chart, let us know please :)
