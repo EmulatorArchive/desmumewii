@@ -241,9 +241,6 @@ enum ECardMode
 
 typedef struct
 {
-	
-	u8 command[8];
-
 	u32 address;
 	u32 transfer_count;
 
@@ -251,6 +248,8 @@ typedef struct
 
 	// NJSD stuff
 	int blocklen;
+
+	u8 command[8];
 	
 } nds_dscard;
 
@@ -361,7 +360,7 @@ struct MMU_struct
 	//ARM9 mem
 	u8* ARM9_ITCM;
     u8* ARM9_DTCM;
-    u8* MAIN_MEM; //this has been expanded to 8MB to support debug consoles
+    u8* MAIN_MEM;
     u8* ARM9_REG;
     u8* ARM9_BIOS;
     u8* ARM9_VMEM;
@@ -372,6 +371,7 @@ struct MMU_struct
 		//an extra 128KB for blank memory, directly after arm9_lcd, so that
 		//we can easily map things to the end of arm9_lcd to represent 
 		//an unmapped state
+		//--DCN: This a good idea? Memory don't grow on trees ya' know!	
 		u8 blank_memory[0x20000];  
 	};
 	#include "PACKED_END.h"

@@ -16,7 +16,7 @@ typedef struct {
 } FILE_INFO;
 
 
-BOOL cflash_init( const char *disk_image_filename);
+bool cflash_init( const char *disk_image_filename);
 
 unsigned int cflash_read(unsigned int address);
 

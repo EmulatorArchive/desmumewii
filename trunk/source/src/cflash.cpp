@@ -132,14 +132,12 @@ static u32 fileStartLBA,fileEndLBA;
 static u16 freadBuffer[256];
 static FILE * hFile;
 static char fpath[255+1];
-static BOOL cflashDeviceEnabled = FALSE;
+static bool cflashDeviceEnabled = false;
 
 static int lfn_checksum( void) {
-	int i;
-        u8 chk;
-
-	chk = 0;
-	for (i=0; i < (NAME_LEN + EXT_LEN); i++) {
+	int i = 0;
+	u8 chk = 0;
+	for (; i < (NAME_LEN + EXT_LEN); i++) {
 		chk = ((chk & 1) ? 0x80 : 0) + (chk >> 1) + (i < NAME_LEN ? files[numFiles].name[i] : files[numFiles].ext[i - NAME_LEN]);
 	}
 	return chk;
@@ -299,7 +297,7 @@ static void list_files(const char *filepath) {
 
 
 /* Set up the MBR, FAT and DIR_ENTs */
-static BOOL cflash_build_fat( void) {
+static bool cflash_build_fat( void) {
 	int i,j,k,l,
 		clust,numClusters,
 		clusterNum2,rootCluster;
@@ -321,11 +319,11 @@ static BOOL cflash_build_fat( void) {
 	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));
 	if (files == NULL)
-		return FALSE;
+		return false;
 	fileLink = (FILE_INFO *) malloc(MAXFILES*sizeof(FILE_INFO));
 	if (fileLink == NULL) {
 		free(files);
-                return FALSE;
+                return false;
 	}
 
 	for (i=0; i<MAXFILES; i++) {
@@ -355,25 +353,25 @@ static BOOL cflash_build_fat( void) {
 	// Allocate memory to hold information about the files 
 	dirEntries = (DIR_ENT *) malloc(numFiles*sizeof(DIR_ENT));
 	if (dirEntries==NULL) {
-		return FALSE;
+		return false;
 	}
 	dirEntryLink = (FILE_INFO *) malloc(numFiles*sizeof(FILE_INFO));
 	if (dirEntryLink==NULL) {
 		free(dirEntries);
-		return FALSE;
+		return false;
 	}
 	dirEntriesInCluster = (int *) malloc(NUMCLUSTERS*sizeof(int));
 	if (dirEntriesInCluster==NULL) {
 		free(dirEntries);
 		free(dirEntryLink);
-		return FALSE;
+		return false;
 	}
 	dirEntryPtr = (DIR_ENT **) malloc(NUMCLUSTERS*sizeof(DIR_ENT*));
 	if (dirEntryPtr==NULL) {
 		free(dirEntries);
 		free(dirEntryLink);
 		free(dirEntriesInCluster);
-		return FALSE;
+		return false;
 	}
 
 	memset(dirEntriesInCluster, 0, NUMCLUSTERS*sizeof(int));
@@ -495,13 +493,12 @@ static BOOL cflash_build_fat( void) {
 			FAT16[i] = i+1;
 	}
 
-        return TRUE;
+        return true;
 }
 
 
-BOOL
-cflash_init( const char *disk_image_filename) {
-  BOOL init_good = FALSE;
+bool cflash_init( const char *disk_image_filename) {
+  bool init_good = false;
 
   if ( disk_image_filename != NULL) {
     CFLASHLOG("Using CFlash disk image file %s\n", disk_image_filename);
@@ -517,7 +514,7 @@ cflash_init( const char *disk_image_filename) {
 
 			CFLASHLOG( "Disk image size = %ld (%ld sectors)\n",
                  file_size, file_size / 512);
-			init_good = TRUE;
+			init_good = true;
 		}
 	}
     else {
@@ -527,7 +524,7 @@ cflash_init( const char *disk_image_filename) {
     }
   }
   else {
-    cflashDeviceEnabled = FALSE;
+    cflashDeviceEnabled = false;
     currLBA = 0;
     	
     if (activeDirEnt != -1)
@@ -535,11 +532,11 @@ cflash_init( const char *disk_image_filename) {
     activeDirEnt = -1;
     fileStartLBA = fileEndLBA = 0xFFFFFFFF;
     if (!cflash_build_fat())
-      return FALSE;
+      return false;
     cf_reg_sts = 0x58;	// READY
 
-    cflashDeviceEnabled = TRUE;
-    init_good = TRUE;
+    cflashDeviceEnabled = true;
+    init_good = true;
   }
 
   // READY
@@ -553,15 +550,13 @@ cflash_init( const char *disk_image_filename) {
 }
 
 
-/* Convert a space-padded 8.3 filename into an asciiz string */
+/* Convert a space-padded 8.3 filename into an ascii string */
 static void fatstring_to_asciiz(int dirent,char *out,DIR_ENT *d) {
 	int i,j;
-	DIR_ENT *pd;
+	DIR_ENT *pd = d;
 
 	if (d == NULL)
 		pd = &dirEntries[dirent];
-	else
-		pd = d;
 
 	for (i=0; i<NAME_LEN; i++) {
 		if (pd->name[i] == ' ') break;
@@ -862,12 +857,12 @@ cflash_close( void) {
     }
   }
   else {
-    int i;
+    
 
     if (cflashDeviceEnabled) {
-      cflashDeviceEnabled = FALSE;
-
-      for (i=0; i<MAXFILES; i++) {
+      cflashDeviceEnabled = false;
+      int i = 0;
+      for (; i<MAXFILES; i++) {
         if (extraDirEntries[i] != NULL)
           free(extraDirEntries[i]);
       }
