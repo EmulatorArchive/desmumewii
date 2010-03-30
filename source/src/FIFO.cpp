@@ -225,7 +225,7 @@ void GFX_FIFOsend(u8 cmd, u32 param)
 }
 
 // this function used ONLY in gxFIFO
-BOOL GFX_PIPErecv(u8 *cmd, u32 *param)
+bool GFX_PIPErecv(u8 *cmd, u32 *param)
 {
 	//gxstat &= 0xF7FFFFFF;		// clear busy flag
 

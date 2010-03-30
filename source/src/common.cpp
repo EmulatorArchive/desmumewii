@@ -90,33 +90,35 @@ void WritePrivateProfileInt(char* appname, char* keyname, int val, char* file)
 u8 reverseBitsInByte(u8 x)
 {
 	u8 h = 0;
-	u8 i = 0;
-
-	for (i = 0; i < 8; i++)
-	{
+	int i = 7;
+	do{
 		h = (h << 1) + (x & 1); 
 		x >>= 1; 
-	}
+		--i;
+	}while(i >= 0);
 
 	return h;
 }
 
 void removeCR(char *buf)
 {
-	int l=strlen(buf);
-	for (int i=0; i < l; i++)
-	{
-		if (buf[i]==0x0A) buf[i]=0;
-		if (buf[i]==0x0D) buf[i]=0;
-	}
+	int i = strlen(buf) - 1;
+	do{
+		if (buf[i] == 0x0A || buf[i] == 0x0D) buf[i] = 0;
+		--i;
+	}while(i >= 0);
 }
 
 u32 strlen_ws(char *buf)		// length without last spaces
 {
-	if (!strlen(buf)) return 0;
-	for (int i=strlen(buf); i>0; i--)
-	{
-		if (buf[i]!=32) return (i-1);		// space
-	}
+	int i = strlen(buf);
+
+	if(i <= 0) return 0;
+
+	do{
+		if (buf[i] != 32) return (i-1);		// space 
+		--i;
+	}while(i > 0);
+
 	return 0;
 }

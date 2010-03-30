@@ -76,7 +76,7 @@ extern GFX_FIFO gxFIFO;
 extern void GFX_PIPEclear();
 extern void GFX_FIFOclear();
 extern void GFX_FIFOsend(u8 cmd, u32 param);
-extern BOOL GFX_PIPErecv(u8 *cmd, u32 *param);
+extern bool GFX_PIPErecv(u8 *cmd, u32 *param);
 extern void GFX_FIFOcnt(u32 val);
 
 //=================================================== Display memory FIFO

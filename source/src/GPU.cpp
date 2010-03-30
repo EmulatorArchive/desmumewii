@@ -2456,7 +2456,7 @@ allout:
 
 void GPU::update_winh(int WIN_NUM)
 {
-	//dont even waste any time in here if the window isnt enabled
+	//Don't even waste any time in here if the window isn't enabled
 	if(WIN_NUM==0 && !WIN0_ENABLED) return;
 	if(WIN_NUM==1 && !WIN1_ENABLED) return;
 
@@ -2576,7 +2576,7 @@ void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip)
 
 	//generate the 2d engine output
 	if(gpu->dispMode == 1) {
-		//optimization: render straight to the output buffer when thats what we are going to end up displaying anyway
+		//Optimization: render straight to the output buffer when that's what we are going to end up displaying anyway
 		gpu->tempScanline = screen->gpu->currDst = (u8 *)(GPU_screen) + (screen->offset + l) * 512;
 	} else {
 		//otherwise, we need to go to a temp buffer
@@ -2623,7 +2623,7 @@ void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip)
 	{
 		//BUG!!! if someone is capturing and displaying both from the fifo, then it will have been 
 		//consumed above by the display before we get here
-		//(is that even legal? i think so)
+		//(is that even legal? I think so)
 		GPU_RenderLine_DispCapture<false>(l);
 		if (l == 191) { disp_fifo.head = disp_fifo.tail = 0; }
 	}
