@@ -22,7 +22,9 @@
 #include <fat.h>
 #include <wiiuse/wpad.h>
 #include <SDL/SDL.h>
+#include <sys/dir.h>
 #include <stdio.h>
+#include <uninstd.h>
 #include "MMU.h"
 #include "NDSSystem.h"
 #include "cflash.h"
@@ -95,6 +97,7 @@ void ShowFPS();
 void DSExec();
 void Pause();
 static void *draw_thread(void*);
+char* textFileBrowser(char* directory);
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -102,7 +105,6 @@ static void *draw_thread(void*);
 #ifdef __cplusplus
 extern "C"
 #endif
-
 
 int main(int argc, char **argv)
 {
@@ -128,6 +130,10 @@ int main(int argc, char **argv)
   
 	VIDEO_WaitVSync();
 	
+	printf("Pick a ROM:\n");
+	
+	rom_filename = textFileBrowser("sd:/DSROM");
+	
 	cflash_disk_image_file = NULL;
 
 	printf("Initializing virtual Nintendo DS...\n");
@@ -144,11 +150,11 @@ int main(int argc, char **argv)
 		SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
 	}
   
-	rom_filename = "sd:/boot.nds";
+	//rom_filename = "sd:/boot.nds";
  
 	printf("Placing ROM into virtual NDS...\n");
-	if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
-		printf("Error loading sd:/boot.nds\n");
+	if (NDS_LoadROM(rom_filename, cflash_disk_image_file) < 0) {
+		printf("Error loading ROM\n");
 		exit(0);
 	}
 
@@ -220,6 +226,7 @@ void init(){
     }
     
     // button initialization
+	PAD_Init();
     WPAD_Init();
  
     // make sure SDL cleans up before exit
@@ -502,6 +509,86 @@ void DSExec(){
 		ShowFPS();
 
 }
+
+#define MAXLINES 6
+
+static char buffer[96];
+typedef struct {
+        char name[MAXPATHLEN];
+        int  size;
+        int  attr;
+} my_dir_ent;
+
+char* textFileBrowser(char* directory){
+        // Set everything up to read
+        DIR_ITER* dp = diropen(directory);
+        if(!dp){ return NULL; }
+        struct stat fstat;
+        char filename[MAXPATHLEN];
+        int num_entries = 2, i = 0;
+        my_dir_ent* dir = (my_dir_ent*)malloc( num_entries * sizeof(dir_ent) );
+        // Read each entry of the directory
+        while( dirnext(dp, filename, &fstat) == 0 ){
+                // Make sure we have room for this one
+                if(i == num_entries){
+                        ++num_entries;
+                        dir = (my_dir_ent*)realloc( dir, num_entries * sizeof(dir_ent) ); 
+                }
+                strcpy(dir[i].name, filename);
+                dir[i].size   = fstat.st_size;
+                dir[i].attr   = fstat.st_mode;
+                ++i;
+        }
+        
+        dirclose(dp);
+        
+        int currentSelection = (num_entries > 2) ? 2 : 1;
+        while(1){
+                printf("\x1b[2J");
+                sprintf(buffer, "browsing %s:\n\n", directory);
+                printf(buffer);
+                int i = MIN(MAX(0,currentSelection-7),MAX(0,num_entries-14));
+                int max = MIN(num_entries, MAX(currentSelection+7,14));
+                for(; i<max; ++i){
+                        if(i == currentSelection)
+                                sprintf(buffer, "*");
+                        else    sprintf(buffer, " ");
+                        sprintf(buffer, "%s\t%-32s\t%s\n", buffer,
+                                dir[i].name, (dir[i].attr&S_IFDIR) ? "DIR" : "");
+                        printf(buffer);
+                }
+                
+				WPAD_ScanPads();
+                /*** Wait for A/up/down press ***/
+                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN)) { WPAD_ScanPads(); }
+                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP)   currentSelection = (--currentSelection < 0) ? num_entries-1 : currentSelection;
+                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) currentSelection = (currentSelection + 1) % num_entries;
+                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A){
+                        if(dir[currentSelection].attr & S_IFDIR){
+                                char newDir[MAXPATHLEN];
+                                sprintf(newDir, "%s/%s", directory, dir[currentSelection].name);
+                                free(dir);
+                                printf("\x1b[2J");
+                                sprintf(buffer,"MOVING TO %s.\nPress B to continue.\n",newDir);
+                                printf(buffer);
+                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B)) { WPAD_ScanPads(); }
+                                return textFileBrowser(newDir);
+                        } else {
+                                char* newDir = (char*)malloc(MAXPATHLEN);
+                                sprintf(newDir, "%s/%s", directory, dir[currentSelection].name);
+                                free(dir);
+                                printf("\x1b[2J");
+                                sprintf(buffer,"SELECTING %s.\nPress B to continue.\n",newDir);
+                                printf(buffer);
+                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B)) { WPAD_ScanPads(); }
+                                return newDir;
+                        }
+                }
+                /*** Wait for up/down button release ***/
+                while (!(!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN))){ WPAD_ScanPads(); }
+		}	
+}
+
 
 void Pause(){
 
