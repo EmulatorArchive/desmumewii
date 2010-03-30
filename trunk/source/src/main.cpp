@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	rom_filename = "sd:/boot.nds";
  
 	printf("Placing ROM into virtual NDS...\n");
-	if (NDS_LoadROM("sd:/3.nds", cflash_disk_image_file) < 0) {
+	if (NDS_LoadROM("sd:/boot.nds", cflash_disk_image_file) < 0) {
 		printf("Error loading sd:/boot.nds\n");
 		exit(0);
 	}
