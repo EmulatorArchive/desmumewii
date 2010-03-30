@@ -58,7 +58,7 @@ GXRModeObj *rmode = NULL;
 const SDL_VideoInfo *videoInfo;  
 
 /* Flags to pass to SDL_SetVideoMode */
-static int sdl_videoFlags = 0;
+//static int sdl_videoFlags = 0;
 static int sdl_quit = 0;
 static u16 keypad;
 
@@ -107,10 +107,10 @@ extern "C"
 int main(int argc, char **argv)
 {
 
-	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
-	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
-	struct armcpu_ctrl_iface *arm9_ctrl_iface;
-	struct armcpu_ctrl_iface *arm7_ctrl_iface;
+//	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
+//	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
+//	struct armcpu_ctrl_iface *arm9_ctrl_iface;
+//	struct armcpu_ctrl_iface *arm7_ctrl_iface;
 	const char* rom_filename;
   
 	init();
@@ -124,9 +124,6 @@ int main(int argc, char **argv)
 	  
 	VIDEO_WaitVSync();
 
-	//Check for the ROM
-	printf("Looking for sd:/boot.nds...\n");
-
 	fatInitDefault();
   
 	VIDEO_WaitVSync();
@@ -138,7 +135,7 @@ int main(int argc, char **argv)
 	// Initialize the DS!
 	NDS_Init();
 	
-	printf("initialization successful!\n");
+	printf("Initialization successful!\n");
 
 	enable_sound = true;
 
@@ -157,7 +154,7 @@ int main(int argc, char **argv)
 
 	execute = true;
 
-    SDL_ShowCursor(SDL_DISABLE);
+    //SDL_ShowCursor(SDL_DISABLE);
 
 	log_console_enable_video(false);
 
@@ -380,7 +377,7 @@ static void *draw_thread(void*)
 		int topX = 40;
 		int topY = 40;
 		int bottomX, bottomY;
-		if (vertical) {
+		if (!vertical) {
 			bottomX = topX + 256;
 			bottomY = topY;
 		} else {

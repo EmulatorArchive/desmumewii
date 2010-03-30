@@ -24,10 +24,10 @@
 #include "saves.h"
 #include "SPU.h"
 
-u16 keyboard_cfg[NB_KEYS];
-u16 joypad_cfg[NB_KEYS];
+//u16 keyboard_cfg[NB_KEYS];
+//u16 joypad_cfg[NB_KEYS];
 u16 wiimote_cfg[NB_KEYS];
-u16 nbr_joy;
+//u16 nbr_joy;
 mouse_status mouse;
 
 extern volatile BOOL execute;
@@ -43,7 +43,7 @@ const char *key_names[NB_KEYS] =
   "Debug", "Boost"
 };
 
-/* Default joypad configuration */
+/* Default joypad configuration 
 const u16 default_joypad_cfg[NB_KEYS] =
   { 1,  // A
     0,  // B
@@ -59,9 +59,9 @@ const u16 default_joypad_cfg[NB_KEYS] =
     3,  // Y
     -1, // DEBUG
     -1  // BOOST
-  };
+  };*/
 
-const u16 plain_keyboard_cfg[NB_KEYS] =
+/*const u16 plain_keyboard_cfg[NB_KEYS] =
 {
     'x',         // A
     'z',         // B
@@ -77,7 +77,7 @@ const u16 plain_keyboard_cfg[NB_KEYS] =
     'a',         // Y
     'p',         // DEBUG
     'o'          // BOOST
-};
+};*/
 
 const u32 default_wiimote_cfg[NB_KEYS] =
 {
@@ -101,11 +101,11 @@ const u32 default_wiimote_cfg[NB_KEYS] =
 void load_default_config(const u16 kbCfg[])
 {
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
-  memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
+//  memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
   memcpy(wiimote_cfg, default_wiimote_cfg, sizeof(wiimote_cfg));
 }
 
-/* Initialize joysticks */
+/* Initialize joysticks 
 BOOL init_joy( void) {
   int i;
   BOOL joy_init_good = TRUE;
@@ -145,7 +145,7 @@ BOOL init_joy( void) {
   return joy_init_good;
 }
 
-/* Set all buttons at once */
+/* Set all buttons at once 
 void set_joy_keys(const u16 joyCfg[])
 {
   memcpy(joypad_cfg, joyCfg, sizeof(joypad_cfg));
@@ -157,7 +157,7 @@ void set_kb_keys(const u16 kbCfg[])
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
 }
 
-/* Unload joysticks */
+/* Unload joysticks 
 void uninit_joy( void)
 {
   int i;
@@ -174,7 +174,7 @@ void uninit_joy( void)
   SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
 }
 
-/* Return keypad vector with given key set to 1 */
+/* Return keypad vector with given key set to 1 
 u16 lookup_joy_key (u16 keyval) {
   int i;
   u16 Key = 0;
@@ -239,7 +239,7 @@ u16 get_set_joy_key(int index) {
   return key;
 }
 
-/* Reset corresponding key and its twin axis key */
+/* Reset corresponding key and its twin axis key 
 static u16 get_joy_axis_twin(u16 key)
 {
   switch(key)
@@ -253,15 +253,15 @@ static u16 get_joy_axis_twin(u16 key)
     }
 }
 
-/* Get and set a new joystick axis */
+/* Get and set a new joystick axis 
 void get_set_joy_axis(int index, int index_o) {
   BOOL done = FALSE;
   SDL_Event event;
   u16 key = joypad_cfg[index];
 
-  /* Clear events */
+  /* Clear events 
   clear_events();
-  /* Enable joystick events if needed */
+  /* Enable joystick events if needed 
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE )
     SDL_JoystickEventState(SDL_ENABLE);
 
@@ -270,7 +270,7 @@ void get_set_joy_axis(int index, int index_o) {
       switch(event.type)
         {
         case SDL_JOYAXISMOTION:
-          /* Discriminate small movements */
+          /* Discriminate small movements 
           if( (event.jaxis.value >> 5) != 0 )
             {
               key = JOY_AXIS_(event.jaxis.axis);
@@ -281,7 +281,7 @@ void get_set_joy_axis(int index, int index_o) {
     }
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_ENABLE )
     SDL_JoystickEventState(SDL_IGNORE);
-  /* Update configuration */
+  /* Update configuration 
   joypad_cfg[index]   = key;
   joypad_cfg[index_o] = joypad_cfg[index];
 }
@@ -341,7 +341,7 @@ u16 get_keypad( void)
 
 /*
  * The internal joystick events processing function
- */
+ 
 static int
 do_process_joystick_events( u16 *keypad, SDL_Event *event) {
   int processed = 1;
@@ -350,37 +350,37 @@ do_process_joystick_events( u16 *keypad, SDL_Event *event) {
   switch ( event->type)
     {
       /* Joystick axis motion 
-         Note: button constants have a 1bit offset. */
+         Note: button constants have a 1bit offset. 
     case SDL_JOYAXISMOTION:
       key = lookup_joy_key( JOY_AXIS_(event->jaxis.axis) );
-      if( key == 0 ) break;           /* Not an axis of interest? */
+      if( key == 0 ) break;           /* Not an axis of interest? 
 
-      /* Axis is back to initial position */
+      /* Axis is back to initial position 
       if( event->jaxis.value == 0 )
         RM_KEY( *keypad, key | get_joy_axis_twin(key) );
-      /* Key should have been down but its currently set to up? */
+      /* Key should have been down but its currently set to up? 
       else if( (event->jaxis.value > 0) && 
                (key == KEYMASK_( KEY_UP-1 )) )
         key = KEYMASK_( KEY_DOWN-1 );
-      /* Key should have been left but its currently set to right? */
+      /* Key should have been left but its currently set to right? *
       else if( (event->jaxis.value < 0) && 
                (key == KEYMASK_( KEY_RIGHT-1 )) )
         key = KEYMASK_( KEY_LEFT-1 );
               
       /* Remove some sensitivity before checking if different than zero... 
-         Fixes some badly behaving joypads [like one of mine]. */
+         Fixes some badly behaving joypads [like one of mine]. *
       if( (event->jaxis.value >> 5) != 0 )
         ADD_KEY( *keypad, key );
       break;
 
       /* Joystick button pressed */
-      /* FIXME: Add support for BOOST */
+      /* FIXME: Add support for BOOST *
     case SDL_JOYBUTTONDOWN:
       key = lookup_joy_key( event->jbutton.button );
       ADD_KEY( *keypad, key );
       break;
 
-      /* Joystick button released */
+      /* Joystick button released *
     case SDL_JOYBUTTONUP:
       key = lookup_joy_key(event->jbutton.button);
       RM_KEY( *keypad, key );
@@ -392,20 +392,20 @@ do_process_joystick_events( u16 *keypad, SDL_Event *event) {
     }
 
   return processed;
-}
+}*/
 
 /*
  * Process only the joystick events
- */
+ 
 void
 process_joystick_events( u16 *keypad) {
   SDL_Event event;
 
-  /* IMPORTANT: Reenable joystick events iif needed. */
+  /* IMPORTANT: Reenable joystick events iif needed. 
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? */
+  /* There's an event waiting to be processed? 
   while (SDL_PollEvent(&event))
     {
       do_process_joystick_events( keypad, &event);
