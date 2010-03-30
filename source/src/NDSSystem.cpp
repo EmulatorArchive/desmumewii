@@ -76,27 +76,48 @@ int TotalLagFrames;
 TSCalInfo TSCal;
 //----------------- VIRTUAL MEM ----------------------/
 
-/*
+#define TEMP_ROM_SIZE	(0xA4000) // 128K
+static u8* temp_vm_buffer = 0; // temp storage of game data
+static FILE* vmf = 0;
+static u32 last_address = 0;
 
-	This acts as virtual memory, it can be improved by checking we've not already got the
-	data we need in temp_vm_buffer before going to the SD card.
-*/
+void Init_VMem()
+{
+	if (vmf) fclose(vmf);
 
-#define TEMP_ROM_SIZE	(1024*64) // 64K -- probably could be much smaller !!!!!
-u8 temp_vm_buffer[TEMP_ROM_SIZE]; // temp storage of game data
-FILE* vmf = 0;
+	vmf = fopen(path.path.c_str(),"rb");
+	if (!vmf) return;
+
+	if (!temp_vm_buffer) temp_vm_buffer = new u8[TEMP_ROM_SIZE];
+
+	// 1st read !
+	fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf);
+	
+};
+
+void Free_VMem()
+{
+	fclose(vmf);
+	vmf = 0;
+};
+
 /* Cart Rom from File */
-u8* MMU_CART_ROM(u32 position);
+u8* MMU_CART_ROM(u32 position); // extern'd
 u8* MMU_CART_ROM(u32 position)
 {
-	if (!vmf) vmf = fopen(path.path.c_str(),"rb");
 	if (!vmf) exit(0); // ahhhhhh
+
+	if ((position >= last_address) && (position < (last_address+TEMP_ROM_SIZE)-4)/*safety*/)
+	{
+		return &temp_vm_buffer[position-last_address];
+	}
 
 	fseek(vmf,0,SEEK_SET); // to start
 	fseek(vmf,position,SEEK_SET);
 
 	fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf);
 
+	last_address = position;
 
 	return temp_vm_buffer;
 };
@@ -938,6 +959,9 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	cheatsSearchClose();
 	MMU_unsetRom();
 	NDS_SetROM(data, mask);
+	
+	Init_VMem(); // Virtual ROM Memory
+
 	NDS_Reset();
 
 	free(noext);
@@ -973,11 +997,7 @@ void NDS_FreeROM(void)
 	if (MMU.CART_ROM != MMU.UNUSED_RAM)
 		delete [] MMU.CART_ROM;
 
-	if (vmf)
-	{
-		fclose(vmf);
-		vmf = 0;
-	}
+	Free_VMem(); // Virtual ROM Memory
 
 	MMU_unsetRom();
 }
