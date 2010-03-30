@@ -128,18 +128,6 @@ int main(int argc, char **argv)
 	printf("Looking for sd:/boot.nds...\n");
 
 	fatInitDefault();
-	FILE *fp = NULL;
-	fp = fopen("sd:/boot.nds", "rb");
-  
-  
-	if(!fp){
-		printf("sd:/boot.nds not found. Returning to loader...");
-		sleep(1);
-		exit(0);
-	}
-	fclose(fp);
-
-	printf("sd:/boot.nds found!\n");
   
 	VIDEO_WaitVSync();
 	
@@ -308,8 +296,8 @@ void init(){
 
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
 
-	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
-	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
 
 	memset(TopScreen, 0, 256*192*sizeof(*TopScreen));
 	memset(BottomScreen, 0, 256*192*sizeof(*BottomScreen));
@@ -320,6 +308,15 @@ void init(){
 	VIDEO_SetBlack(false);
 }
 
+CACHE_ALIGN const u8 material_5bit_to_6bit[] = {
+	0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0E,
+	0x10, 0x12, 0x14, 0x16, 0x19, 0x1A, 0x1C, 0x1E,
+	0x21, 0x23, 0x25, 0x27, 0x29, 0x2B, 0x2D, 0x2F,
+	0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D, 0x3F
+};
+
+#define RGB15TO16_REVERSE(col) ( ((col & 0x001F) << 11) | (material_5bit_to_6bit[(col & 0x03E0) >> 5] << 5) | ((col & 0x7C00) >> 10) ) 
+
 static void Draw(void) {
 	// convert to 4x4 textels for GX
 	u16 *top = (u16*)&GPU_screen;
@@ -327,7 +324,7 @@ static void Draw(void) {
 	int i = 0;
 
 	LWP_MutexLock(vidmutex);
-
+	u16 r,g,b;
 	for (int y = 0; y < 192; y+=4) {
 		for (int x = 0; x < 256; x+=4) {
 			for (int k = 0; k < 4; k++) {
@@ -336,9 +333,8 @@ static void Draw(void) {
 				u16 *sBottom = bottom+256*ty;
 				for (int l = 0; l < 4; l++) {
 					int tx = x + l;
-					// FIXME: Get the colors right; horribly broken at the moment
-					TopScreen[i] = sTop[tx];
-					BottomScreen[i] = sBottom[tx];
+					TopScreen[i] = RGB15TO16_REVERSE(sTop[tx]);
+					BottomScreen[i] = RGB15TO16_REVERSE(sBottom[tx]);
 					i++;
 				}
 			}
