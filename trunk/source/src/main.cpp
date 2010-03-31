@@ -36,6 +36,7 @@
 #include "FrontEnd.h"
 #include "Version.h"
 #include "log_console.h"
+#include "rasterize.h"
 
 // libogc's MEM_K0_TO_K1 macro causes compile-time errors
 #undef MEM_K0_TO_K1
@@ -84,7 +85,10 @@ SoundInterface_struct *SNDCoreList[] = {
 };
 
 GPU3DInterface *core3DList[] = {
-&gpu3DNull
+	&gpu3DNull,
+//	&gpu3Dgl,
+	&gpu3DRasterize,
+	NULL
 };
 
 //////////////////////////////////////////////////////////////////
@@ -110,7 +114,7 @@ void *main_thread(void *arg);
 int main(int argc, char **argv)
 {
 	lwp_t draw_thread;
-	LWP_CreateThread(&draw_thread, &main_thread, 0, NULL, 500000, 67);
+	LWP_CreateThread(&draw_thread, &main_thread, 0, NULL, 50000, 67);
 	while(1);
 
 	return 0;
@@ -149,7 +153,7 @@ void *main_thread(void *arg)
 
 	// Initialize the DS!
 	NDS_Init();
-	
+	NDS_3D_ChangeCore(1);
 	printf("Initialization successful!\n");
 
 	enable_sound = true;
@@ -173,6 +177,7 @@ void *main_thread(void *arg)
 
 	log_console_enable_video(false);
 
+
 	if(vidthread == LWP_THREAD_NULL)
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 68);
 
@@ -184,6 +189,7 @@ void *main_thread(void *arg)
 				DSExec();
 		}else{
 			DSExec();
+
 		}
 		if ( enable_sound)
 		{

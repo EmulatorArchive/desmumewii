@@ -189,7 +189,7 @@ struct POLY {
 	}
 };
 
-#define POLYLIST_SIZE 100000
+#define POLYLIST_SIZE 40000 //100000
 //#define POLYLIST_SIZE 2048
 struct POLYLIST {
 /*	
