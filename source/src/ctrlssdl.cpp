@@ -27,6 +27,7 @@
 //u16 keyboard_cfg[NB_KEYS];
 //u16 joypad_cfg[NB_KEYS];
 u16 wiimote_cfg[NB_KEYS];
+u16 gamecube_cfg[NB_KEYS];
 //u16 nbr_joy;
 mouse_status mouse;
 
@@ -97,12 +98,31 @@ const u32 default_wiimote_cfg[NB_KEYS] =
     WPAD_CLASSIC_BUTTON_ZR             // BOOST
 };
 
+const u32 default_gamecube_cfg[NB_KEYS] =
+{
+    PAD_BUTTON_A,                      // A
+    PAD_BUTTON_B,                      // B
+    PAD_BUTTON_RIGHT,                  // select
+    PAD_BUTTON_START,                  // start
+    NULL,                              // Right
+    NULL,                              // Left
+    NULL,                              // Up
+    NULL,                              // Down
+    PAD_TRIGGER_R,                     // R
+    PAD_TRIGGER_L,                     // L
+    PAD_BUTTON_X,                      // X
+    PAD_BUTTON_Y,                      // Y
+    NULL,                              // DEBUG
+    NULL                               // BOOST
+};
+
 /* Load default joystick and keyboard configurations */
 void load_default_config(const u16 kbCfg[])
 {
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
 //  memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
   memcpy(wiimote_cfg, default_wiimote_cfg, sizeof(wiimote_cfg));
+  memcpy(gamecube_cfg, default_gamecube_cfg, sizeof(gamecube_cfg));
 }
 
 /* Initialize joysticks 
@@ -423,33 +443,54 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
   
   	  int i;
 	  for(i=0;i<12;i++) {
-	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&default_wiimote_cfg[i]))
+	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&default_wiimote_cfg[i])||
+	       (PAD_ButtonsDown(0)&default_gamecube_cfg[i]) || (PAD_ButtonsHeld(0)&default_gamecube_cfg[i]))
 	  		ADD_KEY( *keypad, KEYMASK_(i));
 		else
 			RM_KEY( *keypad, KEYMASK_(i));
 	  }
 	  
-
-	  if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
+	  /* Stuff to read the gamecube controller analog stick and decide if left, right, up, or down, should be read as pressed on the keypad */
+	  if(PAD_StickX(0) > 20)
+	  		ADD_KEY( *keypad, KEYMASK_(4));
+		else
+			RM_KEY( *keypad, KEYMASK_(4));
+			
+	  if(PAD_StickX(0) < -20)
+	  		ADD_KEY( *keypad, KEYMASK_(5));
+		else
+			RM_KEY( *keypad, KEYMASK_(5));
+			
+	  if(PAD_StickY(0) > 20)
+	  		ADD_KEY( *keypad, KEYMASK_(6));
+		else
+			RM_KEY( *keypad, KEYMASK_(6));
+			
+	  if(PAD_StickY(0) < -20)
+	  		ADD_KEY( *keypad, KEYMASK_(7));
+		else
+			RM_KEY( *keypad, KEYMASK_(7));
+			
+	
+	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) || (PAD_ButtonsDown(0)&PAD_TRIGGER_Z) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A) || (PAD_ButtonsHeld(0)&PAD_TRIGGER_Z))
 	      mouse.down = TRUE;
 	  
-	  if (!WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A)
+	  if (!(WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A) && !(PAD_ButtonsDown(0)&PAD_TRIGGER_Z) && !(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0)&PAD_TRIGGER_Z))
 	      mouse.down = FALSE;
-	  
 
-      if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT){
+      if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT) || (PAD_SubStickX(0) < -20)){
 			--mouse.x;
 		  } 
 			
-	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT){
+	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT) || (PAD_SubStickX(0) > 20)){
 			++mouse.x;
 		  } 
 		  
-	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) {
+	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) || (PAD_SubStickY(0) < -20)) {
 			++mouse.y;
 		  } 
 		
-	  if (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP){
+	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP) || (PAD_SubStickY(0) > 20)){
 			--mouse.y;
 		  }
 
