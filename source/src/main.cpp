@@ -105,10 +105,19 @@ char* textFileBrowser(char* directory);
 #ifdef __cplusplus
 extern "C"
 #endif
+void *main_thread(void *arg);
 
 int main(int argc, char **argv)
 {
+	lwp_t draw_thread;
+	LWP_CreateThread(&draw_thread, &main_thread, 0, NULL, 500000, 67);
+	while(1);
 
+	return 0;
+}
+
+void *main_thread(void *arg)
+{	
 //	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 //	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
 //	struct armcpu_ctrl_iface *arm9_ctrl_iface;
@@ -385,9 +394,13 @@ static void *draw_thread(void*)
 		int topY = 40;
 		int bottomX, bottomY;
 		if (!vertical) {
+			topX = 	int((rmode->viWidth /2) - ((256*2) / 2));
+			topY = 	int((rmode->viHeight /2) - (192 / 2));
 			bottomX = topX + 256;
 			bottomY = topY;
 		} else {
+			topX = 	int((rmode->viWidth /2) - (256 / 2));
+			topY = 	int((rmode->viHeight /2) - ((192*2) / 2));
 			bottomX = topX;
 			bottomY = topY + 192;
 		}
