@@ -465,6 +465,7 @@ bool show_console = true;
 void DSExec(){  
 	//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
     
+	PAD_ScanPads();
 	WPAD_ScanPads();
 	
 	process_ctrls_event(&keypad, nds_screen_size_ratio);
@@ -481,19 +482,20 @@ void DSExec(){
 
 	update_keypad(keypad);     /* Update keypad */
 
-	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1)
+	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1) || (PAD_ButtonsDown(0) & PAD_BUTTON_LEFT))
 	{
 		show_console = !show_console;
 		log_console_enable_video(show_console);
 	}
 	
-	if (WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2)
+	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2) || (PAD_ButtonsDown(0) & PAD_BUTTON_UP))
 	{
 		vertical = !vertical;
 	}
 
 
-	if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) exit(0); // meh .. do this for now
+	if((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) || ((PAD_ButtonsHeld(0) & PAD_TRIGGER_Z) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_R) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_L)))
+        exit(0); // meh .. do this for now
 	
 	
 	
@@ -558,12 +560,12 @@ char* textFileBrowser(char* directory){
                         printf(buffer);
                 }
                 
-				WPAD_ScanPads();
                 /*** Wait for A/up/down press ***/
-                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN)) { WPAD_ScanPads(); }
-                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP)   currentSelection = (--currentSelection < 0) ? num_entries-1 : currentSelection;
-                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) currentSelection = (currentSelection + 1) % num_entries;
-                if(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A){
+                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) && !(PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) { PAD_ScanPads(); WPAD_ScanPads(); }
+                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) exit(0);
+				if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) || (PAD_ButtonsHeld(0) & PAD_BUTTON_UP))  currentSelection = (--currentSelection < 0) ? num_entries-1 : currentSelection;
+                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) || (PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN)) currentSelection = (currentSelection + 1) % num_entries;			
+                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) || (PAD_ButtonsHeld(0) & PAD_BUTTON_A)){
                         if(dir[currentSelection].attr & S_IFDIR){
                                 char newDir[MAXPATHLEN];
                                 sprintf(newDir, "%s/%s", directory, dir[currentSelection].name);
@@ -571,7 +573,7 @@ char* textFileBrowser(char* directory){
                                 printf("\x1b[2J");
                                 sprintf(buffer,"MOVING TO %s.\nPress B to continue.\n",newDir);
                                 printf(buffer);
-                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B)) { WPAD_ScanPads(); }
+                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_B)) { PAD_ScanPads(); WPAD_ScanPads(); }
                                 return textFileBrowser(newDir);
                         } else {
                                 char* newDir = (char*)malloc(MAXPATHLEN);
@@ -580,12 +582,12 @@ char* textFileBrowser(char* directory){
                                 printf("\x1b[2J");
                                 sprintf(buffer,"SELECTING %s.\nPress B to continue.\n",newDir);
                                 printf(buffer);
-                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B)) { WPAD_ScanPads(); }
+                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_B)) { PAD_ScanPads(); WPAD_ScanPads(); }
                                 return newDir;
                         }
                 }
                 /*** Wait for up/down button release ***/
-                while (!(!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN))){ WPAD_ScanPads(); }
+                while (!(!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN))){ PAD_ScanPads(); WPAD_ScanPads(); }
 		}	
 }
 
