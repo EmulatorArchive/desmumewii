@@ -586,7 +586,7 @@ void gfx3d_reset()
 //Submit a vertex to the GE
 static void SetVertex()
 {
-	float coord[3] = {
+/*	float coord[3] = {
 			float16table[u16coord[0]],
 			float16table[u16coord[1]],
 			float16table[u16coord[2]]
@@ -741,7 +741,7 @@ static void SetVertex()
 			poly.viewport = viewport;
 			polylist->count++;
 		}
-	}
+	}*/
 }
 
 static void gfx3d_glPolygonAttrib_cache()
@@ -1400,8 +1400,8 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	GFX_DELAY(103);
 
 #if 0
-	INFO("BoxTEST: x %f y %f width %f height %f depth %f\n", 
-				BTcoords[0], BTcoords[1], BTcoords[2], BTcoords[3], BTcoords[4], BTcoords[5]);
+	//INFO("BoxTEST: x %f y %f width %f height %f depth %f\n", 
+	//			BTcoords[0], BTcoords[1], BTcoords[2], BTcoords[3], BTcoords[4], BTcoords[5]);
 	/*for (int i = 0; i < 16; i++)
 	{
 		INFO("mtx1[%i] = %f ", i, mtxCurrent[1][i]);
@@ -1678,7 +1678,7 @@ static void gfx3d_execute(u8 cmd, u32 param)
 	//printf("*** gxFIFO: exec 0x%02X, size %03i\n", cmd, gxFIFO.size);
 #ifdef _3D_LOG_EXEC
 	u32 gxstat2 = T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600);
-	INFO("*** gxFIFO: exec 0x%02X, tail %03i, gxstat 0x%08X (timer %i)\n", cmd, gxFIFO.tail, gxstat2, nds_timer);
+	//INFO("*** gxFIFO: exec 0x%02X, tail %03i, gxstat 0x%08X (timer %i)\n", cmd, gxFIFO.tail, gxstat2, nds_timer);
 #endif
 	switch (cmd)
 	{
@@ -1794,7 +1794,7 @@ static void gfx3d_execute(u8 cmd, u32 param)
 			gfx3d_glVecTest(param);
 		break;
 		default:
-			INFO("Unknown execute FIFO 3D command 0x%02X with param 0x%08X\n", cmd, param);
+			//INFO("Unknown execute FIFO 3D command 0x%02X with param 0x%08X\n", cmd, param);
 		break;
 	}
 }
@@ -1866,7 +1866,7 @@ void gfx3d_glFlush(u32 v)
 #if 0
 	if (isSwapBuffers)
 	{
-		INFO("Error: swapBuffers already use\n");
+		//INFO("Error: swapBuffers already use\n");
 	}
 #endif
 	
@@ -2027,7 +2027,7 @@ void gfx3d_sendCommand(u32 cmd, u32 param)
 	//printf("gxFIFO: send 0x%02X: val=0x%08X, size=%03i (direct)\n", cmd, param, gxFIFO.size);
 
 #ifdef _3D_LOG
-	INFO("gxFIFO: send 0x%02X: val=0x%08X, pipe %02i, fifo %03i (direct)\n", cmd, param, gxPIPE.tail, gxFIFO.tail);
+	//INFO("gxFIFO: send 0x%02X: val=0x%08X, pipe %02i, fifo %03i (direct)\n", cmd, param, gxPIPE.tail, gxFIFO.tail);
 #endif
 
 	switch (cmd)
@@ -2076,7 +2076,7 @@ void gfx3d_sendCommand(u32 cmd, u32 param)
 			GFX_FIFOsend(cmd, param);
 		break;
 		default:
-			INFO("Unknown 3D command %03X with param 0x%08X (directport)\n", cmd, param);
+			//INFO("Unknown 3D command %03X with param 0x%08X (directport)\n", cmd, param);
 			break;
 	}
 }
@@ -2438,20 +2438,20 @@ private:
 
 		//both outside: insert no points
 		if(out0 && out1) {
-			CLIPLOG(" both outside\n");
+			//CLIPLOG(" both outside\n");
 		}
 
 		//both inside: insert the next point
 		if(!out0 && !out1) 
 		{
-			CLIPLOG(" both inside\n");
+			//CLIPLOG(" both inside\n");
 			m_next.clipVert(vert1);
 		}
 
 		//exiting volume: insert the clipped point
 		if(!out0 && out1)
 		{
-			CLIPLOG(" exiting\n");
+			//CLIPLOG(" exiting\n");
 			assert((u32)numScratchClipVerts < MAX_SCRATCH_CLIP_VERTS);
 			scratchClipVerts[numScratchClipVerts] = clipPoint<coord, which>(vert0,vert1);
 			m_next.clipVert(&scratchClipVerts[numScratchClipVerts++]);
@@ -2459,7 +2459,7 @@ private:
 
 		//entering volume: insert clipped point and the next (interior) point
 		if(out0 && !out1) {
-			CLIPLOG(" entering\n");
+			//CLIPLOG(" entering\n");
 			assert((u32)numScratchClipVerts < MAX_SCRATCH_CLIP_VERTS);
 			scratchClipVerts[numScratchClipVerts] = clipPoint<coord, which>(vert1,vert0);
 			m_next.clipVert(&scratchClipVerts[numScratchClipVerts++]);
@@ -2503,7 +2503,7 @@ typedef ClipperPlane<0,-1,Stage2> Stage1;        static Stage1 clipper  (clipper
 
 void GFX3D_Clipper::clipPoly(POLY* poly, VERT** verts)
 {
-	CLIPLOG("==Begin poly==\n");
+	//CLIPLOG("==Begin poly==\n");
 
 	int type = poly->type;
 	numScratchClipVerts = 0;
@@ -2561,26 +2561,26 @@ FORCEINLINE void GFX3D_Clipper::clipSegmentVsPlane(VERT** verts, const int coord
 
 	//both outside: insert no points
 	if(out0 && out1) {
-		CLIPLOG(" both outside\n");
+		//CLIPLOG(" both outside\n");
 	}
 
 	//both inside: insert the first point
 	if(!out0 && !out1) 
 	{
-		CLIPLOG(" both inside\n");
+		//CLIPLOG(" both inside\n");
 		outClippedPoly.clipVerts[outClippedPoly.type++] = *verts[1];
 	}
 
 	//exiting volume: insert the clipped point and the first (interior) point
 	if(!out0 && out1)
 	{
-		CLIPLOG(" exiting\n");
+		//CLIPLOG(" exiting\n");
 		outClippedPoly.clipVerts[outClippedPoly.type++] = clipPoint(verts[0],verts[1], coord, which);
 	}
 
 	//entering volume: insert clipped point
 	if(out0 && !out1) {
-		CLIPLOG(" entering\n");
+		//CLIPLOG(" entering\n");
 		outClippedPoly.clipVerts[outClippedPoly.type++] = clipPoint(verts[1],verts[0], coord, which);
 		outClippedPoly.clipVerts[outClippedPoly.type++] = *verts[1];
 
@@ -2590,7 +2590,7 @@ FORCEINLINE void GFX3D_Clipper::clipSegmentVsPlane(VERT** verts, const int coord
 FORCEINLINE void GFX3D_Clipper::clipPolyVsPlane(const int coord, int which)
 {
 	outClippedPoly.type = 0;
-	CLIPLOG2("Clipping coord %d against %f\n",coord,x);
+	//CLIPLOG2("Clipping coord %d against %f\n",coord,x);
 	for(int i=0;i<tempClippedPoly.type;i++)
 	{
 		VERT* testverts[2] = {&tempClippedPoly.clipVerts[i],&tempClippedPoly.clipVerts[(i+1)%tempClippedPoly.type]};
@@ -2613,7 +2613,7 @@ void GFX3D_Clipper::clipPoly(POLY* poly, VERT** verts)
 {
 	int type = poly->type;
 
-	CLIPLOG("==Begin poly==\n");
+	//CLIPLOG("==Begin poly==\n");
 
 	tempClippedPoly.clipVerts[0] = *verts[0];
 	tempClippedPoly.clipVerts[1] = *verts[1];
