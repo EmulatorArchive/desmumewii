@@ -646,10 +646,9 @@ static void SetVertex()
 	//	printf("----> modelview 1 state for that ack:\n");
 	//	//MatrixPrint(mtxCurrent[1]);
 	//}
-
-	/* TEH CRASH OCCURS SOMEWHERE IN DIS COMMENT!
 	
-	vert.texcoord[0] = last_s;
+	
+	/*vert.texcoord[0] = last_s;
 	vert.texcoord[1] = last_t;
 	vert.coord[0] = coordTransformed[0];
 	vert.coord[1] = coordTransformed[1];
