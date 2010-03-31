@@ -547,6 +547,8 @@ char* textFileBrowser(char* directory){
         int currentSelection = (num_entries > 2) ? 2 : 1;
         while(1){
                 printf("\x1b[2J");
+				printf("Welcome to DeSmuME Wii!\n\n");
+				printf("WARNING! If you paid for this software, you have been scammed!\n\n");
                 sprintf(buffer, "browsing %s:\n\n", directory);
                 printf(buffer);
                 int i = MIN(MAX(0,currentSelection-7),MAX(0,num_entries-14));
