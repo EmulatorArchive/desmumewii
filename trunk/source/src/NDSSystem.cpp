@@ -857,8 +857,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	cheatsInit(buf);
 
 	gameInfo.populate();
-//	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
-	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
+	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
 	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
 	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
 
@@ -982,7 +981,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	cheatsInit(buf);
 
 	gameInfo.populate();
-	gameInfo.crc = crc32(0,data,size);
+	//gameInfo.crc = crc32(0,data,size);
+	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
 	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
 	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
 
