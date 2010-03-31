@@ -602,7 +602,7 @@ static void SetVertex()
 		last_t =((coord[0]*mtxCurrent[3][1] +
 					coord[1]*mtxCurrent[3][5] +
 					coord[2]*mtxCurrent[3][9]) + _t * 16.0f) / 16.0f;
-	}/*
+	}
 
 	
 	//refuse to do anything if we have too many verts or polys
@@ -647,6 +647,8 @@ static void SetVertex()
 	//	//MatrixPrint(mtxCurrent[1]);
 	//}
 
+	/* TEH CRASH OCCURS SOMEWHERE IN DIS COMMENT!
+	
 	vert.texcoord[0] = last_s;
 	vert.texcoord[1] = last_t;
 	vert.coord[0] = coordTransformed[0];
@@ -657,7 +659,7 @@ static void SetVertex()
 	vert.color[1] = GFX3D_5TO6(colorRGB[1]);
 	vert.color[2] = GFX3D_5TO6(colorRGB[2]);
 	tempVertInfo.map[tempVertInfo.count] = vertlist->count + tempVertInfo.count - continuation;
-	tempVertInfo.count++;
+	tempVertInfo.count++;*/
 
 	//possibly complete a polygon
 	{
@@ -741,7 +743,7 @@ static void SetVertex()
 			poly.viewport = viewport;
 			polylist->count++;
 		}
-	}*/
+	}
 }
 
 static void gfx3d_glPolygonAttrib_cache()
