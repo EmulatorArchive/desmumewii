@@ -648,7 +648,7 @@ static void SetVertex()
 	//}
 	
 	
-	/*vert.texcoord[0] = last_s;
+	vert.texcoord[0] = last_s;
 	vert.texcoord[1] = last_t;
 	vert.coord[0] = coordTransformed[0];
 	vert.coord[1] = coordTransformed[1];
@@ -658,7 +658,7 @@ static void SetVertex()
 	vert.color[1] = GFX3D_5TO6(colorRGB[1]);
 	vert.color[2] = GFX3D_5TO6(colorRGB[2]);
 	tempVertInfo.map[tempVertInfo.count] = vertlist->count + tempVertInfo.count - continuation;
-	tempVertInfo.count++;*/
+	tempVertInfo.count++;
 
 	//possibly complete a polygon
 	{

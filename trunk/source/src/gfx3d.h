@@ -192,19 +192,20 @@ struct POLY {
 #define POLYLIST_SIZE 100000
 //#define POLYLIST_SIZE 2048
 struct POLYLIST {
-	
-	POLYLIST() 
+/*	
+	POLYLIST()  //: //list(0), count(0)
 	{
-		list = new POLY[POLYLIST_SIZE];
+		//list = new POLY[POLYLIST_SIZE];
+		//if (!list) exit(0);
 	}
 	~POLYLIST()
 	{
-		delete [] list;
-		list = 0;
+		//delete [] list;
+		//list = 0;
 	}
-
-	POLY* list;
-	int count;
+*/
+	POLY list[POLYLIST_SIZE];
+	long count;
 };
 
 struct VERT {
@@ -258,18 +259,19 @@ struct VERT {
 #define VERTLIST_SIZE 100000//400000
 //#define VERTLIST_SIZE 10000
 struct VERTLIST {
-	VERTLIST()
+/*	VERTLIST() //: list(0) , count(0)
 	{
-		list = new VERT[VERTLIST_SIZE];
+//		list = new VERT[VERTLIST_SIZE];
+//		if (!list) exit(0);
 	};
 	~VERTLIST()
 	{
-		delete [] list;
-		list = 0;
+//		delete [] list;
+//		list = 0;
 	};
-
-	VERT* list;
-	int count;
+*/
+	VERT list[VERTLIST_SIZE];
+	long count;
 };
 
 
