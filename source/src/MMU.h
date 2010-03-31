@@ -491,8 +491,8 @@ struct MMU_struct
 			MMU_Free();
 			return -3;
 		}
-		// 6MB
-		ARM9_REG = (u8*)memalign(8,0x600000);
+		// 400k
+		ARM9_REG = (u8*)memalign(8,0x40000);
 
 		if (!ARM9_REG)
 		{
