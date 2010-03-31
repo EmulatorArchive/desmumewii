@@ -450,22 +450,22 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 			RM_KEY( *keypad, KEYMASK_(i));
 	  }
 	  
-	  if((PAD_StickX(0) > 20) || (WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_RIGHT))
+	  if((PAD_StickX(0) > 20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_RIGHT))
 	  		ADD_KEY( *keypad, KEYMASK_(4));
 		else
 			RM_KEY( *keypad, KEYMASK_(4));
 			
-	  if((PAD_StickX(0) < -20) || (WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_LEFT))
+	  if((PAD_StickX(0) < -20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_LEFT))
 	  		ADD_KEY( *keypad, KEYMASK_(5));
 		else
 			RM_KEY( *keypad, KEYMASK_(5));
 			
-	  if((PAD_StickY(0) > 20) || (WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_UP))
+	  if((PAD_StickY(0) > 20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_UP))
 	  		ADD_KEY( *keypad, KEYMASK_(6));
 		else
 			RM_KEY( *keypad, KEYMASK_(6));
 			
-	  if((PAD_StickY(0) < -20) || (WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_DOWN))
+	  if((PAD_StickY(0) < -20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_DOWN))
 	  		ADD_KEY( *keypad, KEYMASK_(7));
 		else
 			RM_KEY( *keypad, KEYMASK_(7));
