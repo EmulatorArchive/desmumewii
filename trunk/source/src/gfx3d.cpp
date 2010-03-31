@@ -586,7 +586,7 @@ void gfx3d_reset()
 //Submit a vertex to the GE
 static void SetVertex()
 {
-/*	float coord[3] = {
+ 	float coord[3] = {
 			float16table[u16coord[0]],
 			float16table[u16coord[1]],
 			float16table[u16coord[2]]
@@ -602,7 +602,7 @@ static void SetVertex()
 		last_t =((coord[0]*mtxCurrent[3][1] +
 					coord[1]*mtxCurrent[3][5] +
 					coord[2]*mtxCurrent[3][9]) + _t * 16.0f) / 16.0f;
-	}
+	}/*
 
 	
 	//refuse to do anything if we have too many verts or polys
