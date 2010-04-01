@@ -48,9 +48,10 @@ SNDOGCUnMuteAudio,
 SNDOGCSetVolume
 };
 
-static u16 *stereodata16[2];
-static u16 *currentbuff;
+static u16 *stereodata16[2] = {NULL, NULL};
+static u16 *tmpbuffer = NULL;
 static u8 whichab;
+static u32 soundpos;
 static u32 soundoffset;
 static u32 soundbufsize;
 static lwpq_t audioqueue = LWP_TQUEUE_NULL;
@@ -59,14 +60,23 @@ static mutex_t audiomutex = LWP_MUTEX_NULL;
 
 static void *audio_thread(void*)
 {
-	LWP_InitQueue(&audioqueue);
-	
+	u8 *sdata, *soundbuf;
 	while(1)
 	{
 		LWP_MutexLock(audiomutex);
-		currentbuff = stereodata16[whichab];
 		whichab ^= 1;
-		soundoffset = 0;
+		sdata = (u8*)stereodata16[whichab];
+		soundbuf = (u8*)tmpbuffer;
+
+		for (u32 i = 0; i < soundbufsize; i++)
+		{
+			if (soundpos >= soundbufsize)
+				soundpos = 0;
+
+			sdata[i] = soundbuf[soundpos];
+			soundpos++;
+		}
+
 		LWP_MutexUnlock(audiomutex);
 
 		LWP_ThreadSleep(audioqueue);
@@ -80,8 +90,8 @@ static void *audio_thread(void*)
 static void MixAudio()
 {
 	AUDIO_StopDMA();
-	DCFlushRange(currentbuff, soundbufsize);
-	AUDIO_InitDMA((u32) currentbuff, soundbufsize);
+	DCFlushRange(stereodata16[whichab], soundbufsize);
+	AUDIO_InitDMA((u32) stereodata16[whichab], soundbufsize);
 	AUDIO_StartDMA();
 
 	LWP_ThreadSignal(audioqueue);
@@ -95,25 +105,30 @@ int SNDOGCInit(int buffersize)
 	AUDIO_Init(NULL);
 
 	AUDIO_SetDSPSampleRate(AI_SAMPLERATE_48KHZ);
-	AUDIO_RegisterDMACallback(MixAudio);
 
-	soundbufsize = buffersize * sizeof(s16) * 2;
 	soundoffset = 0;
+	soundbufsize = buffersize;
+	soundpos = 0;
 
-	if ((stereodata16[0] = (u16 *)memalign(soundbufsize, 32)) == NULL ||
-	    (stereodata16[1] = (u16 *)memalign(soundbufsize, 32)) == NULL)
+	if ((stereodata16[0] = (u16 *)memalign(32, soundbufsize)) == NULL ||
+	    (stereodata16[1] = (u16 *)memalign(32, soundbufsize)) == NULL ||
+		(tmpbuffer       = (u16 *)malloc(soundbufsize)) == NULL)
 		return -1;
 
 	memset(stereodata16[0], 0, soundbufsize);
 	memset(stereodata16[1], 0, soundbufsize);
+	memset(tmpbuffer,       0, soundbufsize);
 
-	currentbuff = stereodata16[1];
-
-	//if (audiothread == LWP_THREAD_NULL)
-		//LWP_CreateThread(&audiothread, audio_thread, NULL, NULL, 0, 66);
+	if (audiothread == LWP_THREAD_NULL)
+		LWP_CreateThread(&audiothread, audio_thread, NULL, NULL, 0, 67);
 
 	if (audiomutex == LWP_MUTEX_NULL)
 		LWP_MutexInit(&audiomutex, false);
+
+	if (audioqueue == LWP_TQUEUE_NULL)
+		LWP_InitQueue(&audioqueue);
+
+	SNDOGCUnMuteAudio();
 
 	return 0;
 }
@@ -122,13 +137,15 @@ int SNDOGCInit(int buffersize)
 
 void SNDOGCDeInit()
 {
-	AUDIO_RegisterDMACallback(NULL);
+	SNDOGCMuteAudio();
 	AUDIO_StopDMA();
 
 	if (stereodata16[0])
 		free(stereodata16[0]);
 	if (stereodata16[1])
 		free(stereodata16[1]);
+	if (tmpbuffer)
+		free(tmpbuffer);
 
 	LWP_MutexDestroy(audiomutex);
 	audiomutex = LWP_MUTEX_NULL;
@@ -138,7 +155,8 @@ void SNDOGCDeInit()
 
 void SNDOGCUpdateAudio(s16 *buffer, u32 num_samples)
 {
-	u32 copy1size=0, copy2size=0;
+	u32 copy1size = 0, copy2size = 0;
+	LWP_MutexLock(audiomutex);
 
 	if ((soundbufsize - soundoffset) < (num_samples * sizeof(s16) * 2))
 	{
@@ -151,32 +169,44 @@ void SNDOGCUpdateAudio(s16 *buffer, u32 num_samples)
 		copy2size = 0;
 	}
 
-	memcpy((((u8 *)stereodata16[whichab])+soundoffset), buffer, copy1size);
+	memcpy((((u8 *)tmpbuffer)+soundoffset), buffer, copy1size);
 
 	if (copy2size)
-		memcpy(stereodata16[whichab], ((u8 *)buffer)+copy1size, copy2size);
+		memcpy(tmpbuffer, ((u8 *) buffer) + copy1size, copy2size);
 
 	soundoffset += copy1size + copy2size;
 	soundoffset %= soundbufsize;
+
+	LWP_MutexUnlock(audiomutex);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 u32 SNDOGCGetAudioSpace()
 {
-	return ((soundbufsize - soundoffset) / sizeof(s16) / 2);
+	u32 freespace=0;
+
+	if (soundoffset > soundpos)
+		freespace = soundbufsize - soundoffset + soundpos;
+	else
+		freespace = soundpos - soundoffset;
+
+	return (freespace / sizeof(s16) / 2);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 void SNDOGCMuteAudio()
 {
+	AUDIO_RegisterDMACallback(NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 void SNDOGCUnMuteAudio()
 {
+	AUDIO_RegisterDMACallback(MixAudio);
+	MixAudio();
 }
 
 //////////////////////////////////////////////////////////////////////////////

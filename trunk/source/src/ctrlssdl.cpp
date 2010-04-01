@@ -33,8 +33,6 @@ mouse_status mouse;
 
 extern volatile BOOL execute;
 
-static SDL_Joystick **open_joysticks = NULL;
-
 /* Keypad key names */
 const char *key_names[NB_KEYS] =
 {
@@ -214,29 +212,29 @@ u16 lookup_key (u16 keyval) {
   return Key;
 }
 
-/* Empty SDL Events' queue */
+/* Empty SDL Events' queue 
 static void clear_events( void)
 {
   SDL_Event event;
-  /* IMPORTANT: Reenable joystick events iif needed. */
+  /* IMPORTANT: Reenable joystick events iif needed. 
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? */
+  /* There's an event waiting to be processed? 
   while (SDL_PollEvent(&event))
     {
     }
 
   return;
-}
+}*/
 
-/* Get and set a new joystick key */
+/* Get and set a new joystick key 
 u16 get_set_joy_key(int index) {
   BOOL done = FALSE;
   SDL_Event event;
   u16 key = joypad_cfg[index];
 
-  /* Enable joystick events if needed */
+  /* Enable joystick events if needed 
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE )
     SDL_JoystickEventState(SDL_ENABLE);
 
@@ -257,7 +255,7 @@ u16 get_set_joy_key(int index) {
   joypad_cfg[index] = key;
 
   return key;
-}
+}*/
 
 /* Reset corresponding key and its twin axis key 
 static u16 get_joy_axis_twin(u16 key)
