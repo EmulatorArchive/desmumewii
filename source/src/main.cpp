@@ -37,6 +37,8 @@
 #include "log_console.h"
 #include "rasterize.h"
 
+#include "filebrowser.h"
+
 #include <ogcsys.h>
 #include <sys/time.h>
 
@@ -91,11 +93,12 @@ void ShowFPS();
 void DSExec();
 void Pause();
 static void *draw_thread(void*);
-char* textFileBrowser(const char* directory);
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
-  
+
+#define max(a, b) ((a > b) ? b : a)
+
 #ifdef __cplusplus
 extern "C"
 #endif
@@ -116,26 +119,30 @@ void *main_thread(void *arg)
 //	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
 //	struct armcpu_ctrl_iface *arm9_ctrl_iface;
 //	struct armcpu_ctrl_iface *arm7_ctrl_iface;
-	const char* rom_filename;
+	char filename[MAXPATHLEN];
+	char *rom_filename = filename;
   
 	init();
 
-	log_console_init(rmode, 0, 20, 20, 400, 400);
+	log_console_init(rmode, 0, 20, 30, rmode->fbWidth - 40, rmode->xfbHeight - 60);
 	log_console_enable_video(true);
 	//log_console_enable_log(true);
 
 	printf("\x1b[2;0H");
 	printf("Welcome to DeSmuME Wii!!!\n");
-	  
+
 	VIDEO_WaitVSync();
 
 	fatInitDefault();
   
 	VIDEO_WaitVSync();
-	
+
 	printf("Pick a ROM:\n");
-	
-	rom_filename = textFileBrowser("sd:/DSROM");
+
+	sprintf(rom_filename, "sd:/DSROM");
+
+	if(FileBrowser(rom_filename) != 0)
+		sdl_quit = 1;
 	
 	cflash_disk_image_file = NULL;
 
@@ -229,21 +236,41 @@ void init(){
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode(NULL);
 
-	switch (rmode->viTVMode >> 2)
+	int videowidth = VI_MAX_WIDTH_NTSC;
+	int videoheight = VI_MAX_HEIGHT_NTSC;
+
+	if ((rmode->viTVMode >> 2) == VI_PAL)
 	{
-		case VI_PAL: // 576 lines (PAL 50hz)
-			rmode = &TVPal574IntDfScale;
-			rmode->xfbHeight = 480;
-			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
-			rmode->viHeight = 480;
-			break;
-
-		case VI_NTSC: // 480 lines (NTSC 60hz)
-			break;
-
-		default: // 480 lines (PAL 60Hz)
-			break;
+		videowidth = VI_MAX_WIDTH_PAL;
+		videoheight = VI_MAX_HEIGHT_PAL;
 	}
+
+	rmode->viHeight = ceil((float)(videoheight * 0.95) / 8) * 8;
+
+	rmode->xfbHeight = rmode->viHeight;
+	rmode->efbHeight = max(rmode->xfbHeight, 528);
+#ifdef HW_RVL
+	if (CONF_GetAspectRatio() == CONF_ASPECT_16_9)
+	{
+		rmode->viWidth = videowidth * 0.95;
+	}
+	else
+#endif
+	{
+		rmode->viWidth = videowidth * 0.93;
+	}
+
+	rmode->viWidth = ceil((float)rmode->viWidth / 16) * 16;
+
+	rmode->viXOrigin = (videowidth - rmode->viWidth) / 2;
+	rmode->viYOrigin = (videoheight - rmode->viHeight) / 2;
+
+#ifdef HW_RVL
+	s8 hor_offset = 0;
+
+	if (CONF_GetDisplayOffsetH(&hor_offset) > 0)
+		rmode->viXOrigin += hor_offset;
+#endif
 
 	VIDEO_Configure(rmode);
 
@@ -252,19 +279,22 @@ void init(){
 
 	VIDEO_ClearFrameBuffer(rmode, xfb[0], COLOR_BLACK);
 	VIDEO_ClearFrameBuffer(rmode, xfb[1], COLOR_BLACK);
-	VIDEO_SetNextFramebuffer (xfb[0]);
 
+	VIDEO_SetNextFramebuffer(xfb[0]);
 	VIDEO_SetBlack(FALSE);
-
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
-	if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
-	else while (VIDEO_GetNextField()) VIDEO_WaitVSync();
+
+	if (rmode->viTVMode & VI_NON_INTERLACE)
+		VIDEO_WaitVSync();
+	else
+	    while (VIDEO_GetNextField())
+	    	VIDEO_WaitVSync();
 
 	memset(gp_fifo, 0, DEFAULT_FIFO_SIZE);
 	GX_Init(gp_fifo, DEFAULT_FIFO_SIZE);
 
-	GX_SetCopyClear(background, 0x00ffffff);
+	GX_SetCopyClear(background, GX_MAX_Z24);
  
 	// other gx setup
 	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
@@ -519,86 +549,6 @@ void DSExec(){
 }
 
 #define MAXLINES 6
-
-static char buffer[96];
-typedef struct {
-        char name[MAXPATHLEN];
-        int  size;
-        int  attr;
-} my_dir_ent;
-
-char* textFileBrowser(const char* directory){
-        // Set everything up to read
-        DIR_ITER* dp = diropen(directory);
-        if(!dp){ return NULL; }
-        struct stat fstat;
-        char filename[MAXPATHLEN];
-        int num_entries = 2, i = 0;
-        my_dir_ent* dir = (my_dir_ent*)malloc( num_entries * sizeof(dir_ent) );
-        // Read each entry of the directory
-        while( dirnext(dp, filename, &fstat) == 0 ){
-                // Make sure we have room for this one
-                if(i == num_entries){
-                        ++num_entries;
-                        dir = (my_dir_ent*)realloc( dir, num_entries * sizeof(dir_ent) ); 
-                }
-                strcpy(dir[i].name, filename);
-                dir[i].size   = fstat.st_size;
-                dir[i].attr   = fstat.st_mode;
-                ++i;
-        }
-        
-        dirclose(dp);
-        
-        int currentSelection = (num_entries > 2) ? 2 : 1;
-        while(1){
-                printf("\x1b[2J");
-				printf("Welcome to DeSmuME Wii!\n\n");
-				printf("WARNING! If you paid for this software, you have been scammed!\n\n");
-                sprintf(buffer, "browsing %s:\n\n", directory);
-                printf(buffer);
-                int i = MIN(MAX(0,currentSelection-7),MAX(0,num_entries-14));
-                int max = MIN(num_entries, MAX(currentSelection+7,14));
-                for(; i<max; ++i){
-                        if(i == currentSelection)
-                                sprintf(buffer, "*");
-                        else    sprintf(buffer, " ");
-                        sprintf(buffer, "%s\t%-32s\t%s\n", buffer,
-                                dir[i].name, (dir[i].attr&S_IFDIR) ? "DIR" : "");
-                        printf(buffer);
-                }
-                
-                /*** Wait for A/up/down press ***/
-                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) && !(PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) { PAD_ScanPads(); WPAD_ScanPads(); }
-                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) exit(0);
-				if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) || (PAD_ButtonsHeld(0) & PAD_BUTTON_UP))  currentSelection = (--currentSelection < 0) ? num_entries-1 : currentSelection;
-                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) || (PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN)) currentSelection = (currentSelection + 1) % num_entries;			
-                if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) || (PAD_ButtonsHeld(0) & PAD_BUTTON_A)){
-                        if(dir[currentSelection].attr & S_IFDIR){
-                                char newDir[MAXPATHLEN];
-                                sprintf(newDir, "%s/%s", directory, dir[currentSelection].name);
-                                free(dir);
-                                printf("\x1b[2J");
-                                sprintf(buffer,"MOVING TO %s.\nPress B to continue.\n",newDir);
-                                printf(buffer);
-                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_B)) { PAD_ScanPads(); WPAD_ScanPads(); }
-                                return textFileBrowser(newDir);
-                        } else {
-                                char* newDir = (char*)malloc(MAXPATHLEN);
-                                sprintf(newDir, "%s/%s", directory, dir[currentSelection].name);
-                                free(dir);
-                                printf("\x1b[2J");
-                                sprintf(buffer,"SELECTING %s.\nPress B to continue.\n",newDir);
-                                printf(buffer);
-                                while (!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_B)) { PAD_ScanPads(); WPAD_ScanPads(); }
-                                return newDir;
-                        }
-                }
-                /*** Wait for up/down button release ***/
-                while (!(!(WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_A) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_UP) && !(WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) && !(PAD_ButtonsHeld(0) & PAD_BUTTON_DOWN))){ PAD_ScanPads(); WPAD_ScanPads(); }
-		}	
-}
-
 
 void Pause(){
 
