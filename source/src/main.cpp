@@ -24,12 +24,12 @@
 #include <SDL/SDL.h>
 #include <sys/dir.h>
 #include <stdio.h>
-#include <uninstd.h>
+#include <unistd.h>
 #include "MMU.h"
 #include "NDSSystem.h"
 #include "cflash.h"
 #include "debug.h"
-#include "sndsdl.h"
+#include "sndogc.h"
 #include "ctrlssdl.h"
 #include "render3D.h"
 #include "gdbstub.h"
@@ -52,13 +52,7 @@ static float nds_screen_size_ratio = 1.0f;
 
 #define FPS_LIMITER_FRAME_PERIOD 8
 
-SDL_Surface * surface;
-
 GXRModeObj *rmode = NULL;
-
-
-/* this holds some info about our display */
-const SDL_VideoInfo *videoInfo;  
 
 /* Flags to pass to SDL_SetVideoMode */
 //static int sdl_videoFlags = 0;
@@ -80,7 +74,7 @@ static u8 abort_thread = 0;
 SoundInterface_struct *SNDCoreList[] = {
   &SNDDummy,
   //&SNDFile,
-  &SNDSDL,
+  &SNDOGC,
   NULL
 };
 
@@ -160,7 +154,7 @@ void *main_thread(void *arg)
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
-		SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
+		SPU_ChangeSoundCore(SNDCORE_OGC, 2048);
 	}
   
 	//rom_filename = "sd:/boot.nds";
@@ -172,8 +166,6 @@ void *main_thread(void *arg)
 	}
 
 	execute = true;
-
-    //SDL_ShowCursor(SDL_DISABLE);
 
 	log_console_enable_video(false);
 
@@ -215,7 +207,9 @@ void *main_thread(void *arg)
 	VIDEO_WaitVSync();
 	VIDEO_SetBlack(true);
 
-	return 0;
+	exit(0);
+
+	return NULL;
 }
 
 
@@ -234,7 +228,7 @@ void init(){
 	currfb = 0;
 
     // initialize SDL video. If there was an error SDL shows it on the screen
-    if ( SDL_Init(SDL_INIT_AUDIO) < 0 ) {
+    if ( SDL_Init(0) < 0 ) {
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError() );
 		SDL_Delay( 500 );
         exit(EXIT_FAILURE);
