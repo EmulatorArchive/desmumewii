@@ -21,7 +21,6 @@
 
 #include <fat.h>
 #include <wiiuse/wpad.h>
-#include <SDL/SDL.h>
 #include <sys/dir.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -34,13 +33,12 @@
 #include "render3D.h"
 #include "gdbstub.h"
 #include "FrontEnd.h"
-#include "Version.h"
+#include "version.h"
 #include "log_console.h"
 #include "rasterize.h"
 
-// libogc's MEM_K0_TO_K1 macro causes compile-time errors
-#undef MEM_K0_TO_K1
-#define MEM_K0_TO_K1(x) (u8 *)(x) + (SYS_BASE_UNCACHED - SYS_BASE_CACHED)
+#include <ogcsys.h>
+#include <sys/time.h>
 
 NDS_header * header;
 
@@ -54,12 +52,10 @@ static float nds_screen_size_ratio = 1.0f;
 
 GXRModeObj *rmode = NULL;
 
-/* Flags to pass to SDL_SetVideoMode */
-//static int sdl_videoFlags = 0;
 static int sdl_quit = 0;
 static u16 keypad;
 
-static u8 *xfb[2];
+static unsigned int *xfb[2];
 static int currfb;
 static GXTexObj TopTex;
 #define DEFAULT_FIFO_SIZE (256*1024)
@@ -95,7 +91,7 @@ void ShowFPS();
 void DSExec();
 void Pause();
 static void *draw_thread(void*);
-char* textFileBrowser(char* directory);
+char* textFileBrowser(const char* directory);
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -173,7 +169,7 @@ void *main_thread(void *arg)
 	if(vidthread == LWP_THREAD_NULL)
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 68);
 
-    while(!sdl_quit)
+	while(!sdl_quit)
 	{
 		// Look for queued events and update keypad status
 		if(frameskip != 0){
@@ -197,7 +193,6 @@ void *main_thread(void *arg)
 	LWP_JoinThread(vidthread, NULL);
 	vidthread = LWP_THREAD_NULL;
 
-	SDL_Quit();
 	NDS_DeInit();
 
 	GX_AbortFrame();
@@ -227,20 +222,10 @@ void init(){
 	GXColor background = {0, 0, 0, 0xff};
 	currfb = 0;
 
-    // initialize SDL video. If there was an error SDL shows it on the screen
-    if ( SDL_Init(0) < 0 ) {
-        fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError() );
-		SDL_Delay( 500 );
-        exit(EXIT_FAILURE);
-    }
-    
-    // button initialization
+	// button initialization
 	PAD_Init();
-    WPAD_Init();
+	WPAD_Init();
  
-    // make sure SDL cleans up before exit
-    atexit(SDL_Quit);
-
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode(NULL);
 
@@ -262,8 +247,8 @@ void init(){
 
 	VIDEO_Configure(rmode);
 
-	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
-	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+	xfb[0] = (u32 *)MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+	xfb[1] = (u32 *)MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
 
 	VIDEO_ClearFrameBuffer(rmode, xfb[0], COLOR_BLACK);
 	VIDEO_ClearFrameBuffer(rmode, xfb[1], COLOR_BLACK);
@@ -342,7 +327,7 @@ void init(){
 	VIDEO_SetBlack(false);
 }
 
-#define RGB15_REVERSE(col) ( 0x8000 | (((col) & 0x001F) << 11) | ((col) & 0x03E0)  | (((col) & 0x7C00) >> 10) )
+#define RGB15_REVERSE(col) ( 0x8000 | (((col) & 0x001F) << 10) | ((col) & 0x03E0)  | (((col) & 0x7C00) >> 10) )
 
 static void Draw(void) {
 	// convert to 4x4 textels for GX
@@ -444,7 +429,21 @@ static void *draw_thread(void*)
 	return NULL;
 }
 
-void ShowFPS(){
+static int64_t gettime(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+	return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static u32 GetTicks (void)
+{
+	const u64 ticks      = gettime();
+	const u64 ms         = ticks / TB_TIMER_CLOCK;
+	return ms;
+}
+
+void ShowFPS() {
 	u32 fps_timing = 0;
 	u32 fps_frame_counter = 0;
 	u32 fps_previous_time = 0;
@@ -452,7 +451,7 @@ void ShowFPS(){
 	float fps;
 
 	fps_frame_counter += 1;
-	fps_temp_time = SDL_GetTicks();
+	fps_temp_time = GetTicks();
 	fps_timing += fps_temp_time - fps_previous_time;
 	fps_previous_time = fps_temp_time;
 
@@ -471,8 +470,7 @@ void ShowFPS(){
 
 bool show_console = true;
 void DSExec(){  
-	//	sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
-    
+   
 	PAD_ScanPads();
 	WPAD_ScanPads();
 	
@@ -529,7 +527,7 @@ typedef struct {
         int  attr;
 } my_dir_ent;
 
-char* textFileBrowser(char* directory){
+char* textFileBrowser(const char* directory){
         // Set everything up to read
         DIR_ITER* dp = diropen(directory);
         if(!dp){ return NULL; }
