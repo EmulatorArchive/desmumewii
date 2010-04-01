@@ -336,8 +336,8 @@ void init(){
 
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
 
-	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
-	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
 
 	memset(TopScreen, 0, 256*192*sizeof(*TopScreen));
 	memset(BottomScreen, 0, 256*192*sizeof(*BottomScreen));
@@ -348,37 +348,32 @@ void init(){
 	VIDEO_SetBlack(false);
 }
 
-CACHE_ALIGN const u8 material_5bit_to_6bit[] = {
-	0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0E,
-	0x10, 0x12, 0x14, 0x16, 0x19, 0x1A, 0x1C, 0x1E,
-	0x21, 0x23, 0x25, 0x27, 0x29, 0x2B, 0x2D, 0x2F,
-	0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D, 0x3F
-};
-
-#define RGB15TO16_REVERSE(col) ( ((col & 0x001F) << 11) | (material_5bit_to_6bit[(col & 0x03E0) >> 5] << 5) | ((col & 0x7C00) >> 10) ) 
+#define RGB15_REVERSE(col) ( 0x8000 | (((col) & 0x001F) << 11) | ((col) & 0x03E0)  | (((col) & 0x7C00) >> 10) )
 
 static void Draw(void) {
 	// convert to 4x4 textels for GX
-	u16 *top = (u16*)&GPU_screen;
-	u16 *bottom = (u16*)&GPU_screen+256*192;
-	int i = 0;
-
+	u16 *sTop = (u16*)&GPU_screen;
+	u16 *sBottom = sTop+256*192;
+	u16 *dTop = TopScreen;
+	u16 *dBottom = BottomScreen;
 	LWP_MutexLock(vidmutex);
-	u16 r,g,b;
-	for (int y = 0; y < 192; y+=4) {
-		for (int x = 0; x < 256; x+=4) {
-			for (int k = 0; k < 4; k++) {
-				int ty = y + k;
-				u16 *sTop = top+256*ty;
-				u16 *sBottom = bottom+256*ty;
-				for (int l = 0; l < 4; l++) {
-					int tx = x + l;
-					TopScreen[i] = RGB15TO16_REVERSE(sTop[tx]);
-					BottomScreen[i] = RGB15TO16_REVERSE(sBottom[tx]);
-					i++;
+	for (int y = 0; y < 48; y++) {
+		for (int h = 0; h < 4; h++) {
+			for (int x = 0; x < 64; x++) {
+				for (int w = 0; w < 4; w++) {
+					*dTop++ = RGB15_REVERSE(sTop[w]);
+					*dBottom++ = RGB15_REVERSE(sBottom[w]);
 				}
+				dTop+=12;     // next tile
+				dBottom+=12;
+				sTop+=4;
+				sBottom+=4;
 			}
+			dTop-=1020;     // next line
+			dBottom-=1020;
 		}
+		dTop+=1008;       // next row
+		dBottom+=1008;
 	}
 
 	DCFlushRange(TopScreen, 256*192*2);
