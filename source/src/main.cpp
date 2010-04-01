@@ -174,7 +174,7 @@ void *main_thread(void *arg)
 
 
 	if(vidthread == LWP_THREAD_NULL)
-		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 68);
+		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
 	while(!sdl_quit)
 	{
