@@ -143,27 +143,40 @@ static void GPU_InitFadeColors()
 
 	for(int i = 0; i <= 16; i++)
 	{
+		int idiv16 = (i >> 4);
 		for(int j = 0x8000; j < 0x10000; j++)
 		{
 			COLOR cur;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red + ((31 - cur.bits.red) * i / 16));
-			cur.bits.green = (cur.bits.green + ((31 - cur.bits.green) * i / 16));
-			cur.bits.blue = (cur.bits.blue + ((31 - cur.bits.blue) * i / 16));
+			cur.bits.red = (cur.bits.red + ((31 - cur.bits.red) * idiv16));
+			cur.bits.green = (cur.bits.green + ((31 - cur.bits.green) * idiv16));
+			cur.bits.blue = (cur.bits.blue + ((31 - cur.bits.blue) * idiv16));
 			cur.bits.alpha = 0;
 			fadeInColors[i][j & 0x7FFF] = cur.val;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red - (cur.bits.red * i / 16));
-			cur.bits.green = (cur.bits.green - (cur.bits.green * i / 16));
-			cur.bits.blue = (cur.bits.blue - (cur.bits.blue * i / 16));
+			cur.bits.red = (cur.bits.red - (cur.bits.red * idiv16));
+			cur.bits.green = (cur.bits.green - (cur.bits.green * idiv16));
+			cur.bits.blue = (cur.bits.blue - (cur.bits.blue * idiv16));
 			cur.bits.alpha = 0;
 			fadeOutColors[i][j & 0x7FFF] = cur.val;
 		}
 	}
 
-
+	//--DCN: This could be about 60 times faster.
+	for(int eva=0;eva<=16;eva++){
+		for(int evb=0;evb<=16;evb++){
+			for(int c0=0;c0<=31;c0++){ 
+				for(int c1=0;c1<=31;c1++){
+					int final = std::min<int>(31,(((c0 * eva) + (c1 * evb)) >>4));
+					gpuBlendTable555[eva][evb][c0][c1] = final;
+				}
+			}
+		}
+	}			
+	//Old:
+	/*
 	for(int c0=0;c0<=31;c0++) 
 		for(int c1=0;c1<=31;c1++) 
 			for(int eva=0;eva<=16;eva++)
@@ -173,6 +186,7 @@ static void GPU_InitFadeColors()
 					int final = std::min<int>(31,blend);
 					gpuBlendTable555[eva][evb][c0][c1] = final;
 				}
+	//*/
 }
 
 static CACHE_ALIGN GPU GPU_main, GPU_sub;
@@ -261,14 +275,15 @@ static void GPU_resortBGs(GPU *gpu)
 		item->nbBGs=0;
 		item->nbPixelsX=0;
 	}
-	for (i=NB_BG; i>0; ) {
-		i--;
+	i = NB_BG; 
+	do{
+		--i;
 		if (!gpu->LayersEnable[i]) continue;
 		prio = (gpu->dispx_st)->dispx_BGxCNT[i].bits.Priority;
 		item = &(gpu->itemsForPriority[prio]);
 		item->BGs[item->nbBGs]=i;
-		item->nbBGs++;
-	}
+		++item->nbBGs;
+	}while(i > 0);
 
 	int bg0Prio = gpu->dispx_st->dispx_BGxCNT[0].bits.Priority;
 	gpu->bg0HasHighestPrio = TRUE;
@@ -328,12 +343,13 @@ void GPU_setMasterBrightness (GPU *gpu, u16 val)
 
 void SetupFinalPixelBlitter (GPU *gpu)
 {
-	u8 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
-	u8 blendMode  = (gpu->BLDCNT >> 6)&3;
+	u32 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
+	u32 blendMode  = (gpu->BLDCNT >> 6)&3;
+	u32 winUsedBlend = (windowUsed<<2) + blendMode;
 
-	gpu->setFinalColorSpr_funcNum = windowUsed*4 + blendMode;
-	gpu->setFinalColorBck_funcNum = windowUsed*4 + blendMode;
-	gpu->setFinalColor3d_funcNum = windowUsed*4 + blendMode;
+	gpu->setFinalColorSpr_funcNum = winUsedBlend;
+	gpu->setFinalColorBck_funcNum = winUsedBlend;
+	gpu->setFinalColor3d_funcNum  = winUsedBlend;
 	
 }
     
@@ -571,11 +587,11 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	int x = dstX;
 	int passing = dstX<<1;
 	u8* color = &_3dColorLine[srcX<<2];
-	u8 red = color[0];
-	u8 green = color[1];
-	u8 blue = color[2];
-	u8 alpha = color[3];
 	u8* dst = currDst;
+	u32 red = color[0];
+	u32 green = color[1];
+	u32 blue = color[2];
+	u32 alpha = color[3];
 	u16 final;
 
 	bool windowEffect = true;
@@ -592,7 +608,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	int bg_under = bgPixels[dstX];
 	if(blend2[bg_under])
 	{
-		alpha++;
+		++alpha;
 		if(alpha<32)
 		{
 			//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
@@ -631,15 +647,12 @@ template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
 FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x)
 {
 	//no further analysis for no special effects. on backdrops. just draw it.
-	if(FUNC==None && BACKDROP) return true;
-
-	//blend backdrop with what?? this doesn't make sense
-	if(FUNC==Blend && BACKDROP) return true;
+	//Blend backdrop with what? This doesn't make sense
+	if(BACKDROP && (FUNC == None || FUNC == Blend)) return true;
 
 	bool windowEffect = true;
 
-	if(WINDOW)
-	{
+	if(WINDOW){
 		bool windowDraw = false;
 		renderline_checkWindows(x, windowDraw, windowEffect);
 
@@ -724,7 +737,7 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 	//assert((color&0x8000)==0);
 	if(!BACKDROP) color &= 0x7FFF; //but for the backdrop we can easily guarantee earlier that theres no bit here
 
-	bool draw;
+	bool draw = false;
 
 	const int test = BACKDROP?FUNCNUM:setFinalColorBck_funcNum;
 	switch(test)
@@ -742,7 +755,7 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 	if(BACKDROP || draw) //backdrop must always be drawn
 	{
 		T2WriteWord(currDst, x<<1, color | 0x8000);
-		if(!BACKDROP) bgPixels[x] = currBgNum; //lets do this in the backdrop drawing loop, should be faster
+		if(!BACKDROP) bgPixels[x] = currBgNum; //Let's do this in the backdrop drawing loop, should be faster
 	}
 }
 
@@ -793,13 +806,14 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 	//which try to render the enter BG. in cases where that is large, it could be up to 1024 wide.
 	assert(debug || x<256);
 
-	int x_int;
-
 	//due to this early out, we will get incorrect behavior in cases where 
 	//we enable mosaic in the middle of a frame. this is deemed unlikely.
 	if(!MOSAIC) {
-		if(opaque) goto finish;
-		else return;
+		if(opaque){
+			//--DCN: I hate goto; hate it like pain
+			setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
+		}
+		return;
 	}
 
 	if(!opaque) color = 0xFFFF;
@@ -807,15 +821,13 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 
 	//due to the early out, enabled must always be true
 	//x_int = enabled ? GPU::mosaicLookup.width[x].trunc : x;
-	x_int = GPU::mosaicLookup.width[x].trunc;
+	int x_int = GPU::mosaicLookup.width[x].trunc;
 
 	if(GPU::mosaicLookup.width[x].begin && GPU::mosaicLookup.height[currLine].begin) {}
 	else color = mosaicColors.bg[currBgNum][x_int];
 	mosaicColors.bg[currBgNum][x] = color;
 
-	if(color != 0xFFFF)
-	{
-finish:
+	if(color != 0xFFFF){
 		setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
 	}
 }
@@ -840,13 +852,14 @@ static void mosaicSpriteLinePixel(GPU * gpu, int x, u16 l, u8 * dst, u8 * dst_al
 	objColor.alpha = dst_alpha[x];
 	objColor.opaque = opaque;
 
-	x_int = enabled ? GPU::mosaicLookup.width[x].trunc : x;
+	//--DCN: If enabled is false, then we don't need to check
+	// if it's true, since it would have returned earlier
+	x_int = GPU::mosaicLookup.width[x].trunc;
+	//x_int = enabled ? GPU::mosaicLookup.width[x].trunc;
 
-	if(enabled)
-	{
-		if(GPU::mosaicLookup.width[x].begin && GPU::mosaicLookup.height[y].begin) {}
-		else objColor = gpu->mosaicColors.obj[x_int];
-	}
+	if(GPU::mosaicLookup.width[x].begin && GPU::mosaicLookup.height[y].begin) {}
+	else objColor = gpu->mosaicColors.obj[x_int];
+
 	gpu->mosaicColors.obj[x] = objColor;
 
 	T1WriteWord(dst,x<<1,objColor.color);
@@ -856,7 +869,7 @@ static void mosaicSpriteLinePixel(GPU * gpu, int x, u16 l, u8 * dst, u8 * dst_al
 
 FORCEINLINE static void mosaicSpriteLine(GPU * gpu, u16 l, u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 {
-	//don't even try this unless the mosaic is effective
+	//Don't even try this unless the mosaic is effective
 	if(gpu->mosaicLookup.widthValue != 0 || gpu->mosaicLookup.heightValue != 0)
 		for(int i=0;i<256;i++)
 			mosaicSpriteLinePixel(gpu,i,l,dst,dst_alpha,typeTab,prioTab);
@@ -871,12 +884,12 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 
 	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
 	u8 num = gpu->currBgNum;
-	u16 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
-	u16 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
-	u16 lg     = gpu->BGSize[num][0];
-	u16 ht     = gpu->BGSize[num][1];
-	u16 wmask  = (lg-1);
-	u16 hmask  = (ht-1);
+	u32 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
+	u32 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	u32 lg     = gpu->BGSize[num][0];
+	u32 ht     = gpu->BGSize[num][1];
+	u32 wmask  = (lg-1);
+	u32 hmask  = (ht-1);
 	YBG &= hmask;
 
 	//TODO - handle wrapping / out of bounds correctly from rot_scale_op?
@@ -889,7 +902,7 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 	for(int x = 0; x < lg; ++x, ++XBG)
 	{
 		XBG &= wmask;
-		u8 pixel = map[XBG];
+		u32 pixel = map[XBG];
 		u16 color = T1ReadWord(pal, pixel<<1);
 		gpu->__setFinalColorBck<MOSAIC,false>(color,x,color);
 	}
@@ -902,28 +915,27 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 // render a text background to the combined pixelbuffer
 template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG, u16 LG)
 {
-	u8 num = gpu->currBgNum;
+	u32 num = gpu->currBgNum;
 	struct _BGxCNT *bgCnt = &(gpu->dispx_st)->dispx_BGxCNT[num].bits;
 	struct _DISPCNT *dispCnt = &(gpu->dispx_st)->dispx_DISPCNT.bits;
-	u16 lg     = gpu->BGSize[num][0];
-	u16 ht     = gpu->BGSize[num][1];
-	u16 wmask  = (lg-1);
-	u16 hmask  = (ht-1);
-	u16 tmp    = ((YBG & hmask) >> 3);
+	TILEENTRY tileentry;
+	u32 lg     = gpu->BGSize[num][0];
+	u32 ht     = gpu->BGSize[num][1];
+	u32 wmask  = (lg-1);
+	u32 hmask  = (ht-1);
+	u32 tmp    = ((YBG & hmask) >> 3);
 	u32 map;
 	u8 *pal, *line;
 	u32 tile;
-	u16 color;
-	u16 xoff;
-	u16 yoff;
+	u32 xoff;
+	u32 yoff;
 	u32 x      = 0;
 	u32 xfin;
-
-	s8 line_dir = 1;
 	u32 mapinfo;
-	TILEENTRY tileentry;
-
 	u32 tmp_map = gpu->BG_map_ram[num] + (tmp&31) * 64;
+	u16 color;
+	s8 line_dir = 1;
+	
 	if(tmp>31) 
 		tmp_map+= ADDRESS_STEP_512B << bgCnt->ScreenSize ;
 
@@ -941,18 +953,18 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 		{
 			u16 tilePalette = 0;
 			tmp = ((xoff&wmask)>>3);
-			mapinfo = map + (tmp&0x1F) * 2;
+			mapinfo = map + ((tmp&0x1F) << 1);
 			if(tmp>31) mapinfo += 32*32*2;
 			tileentry.val = T1ReadWord(MMU_gpu_map(mapinfo), 0);
 
-			tilePalette = (tileentry.bits.Palette*16);
+			tilePalette = (tileentry.bits.Palette << 4);
 
 			line = (u8*)MMU_gpu_map(tile + (tileentry.bits.TileNum * 0x20) + ((tileentry.bits.VFlip) ? (7*4)-yoff : yoff));
 			
 			if(tileentry.bits.HFlip)
 			{
 				line += (3 - ((xoff&7)>>1));
-				for(; x < xfin; line --) 
+				for(; x < xfin; --line) 
 				{	
 					u8 currLine = *line;
 
@@ -960,19 +972,19 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 					{
 						color = T1ReadWord(pal, ((currLine>>4) + tilePalette) << 1);
 						gpu->__setFinalColorBck<MOSAIC,false>(color,x,currLine>>4);
-						x++; xoff++;
+						++x; ++xoff;
 					}
 					
 					if(x<xfin)
 					{
 						color = T1ReadWord(pal, ((currLine&0xF) + tilePalette) << 1);
 						gpu->__setFinalColorBck<MOSAIC,false>(color,x,currLine&0xF);
-						x++; xoff++;
+						++x; ++xoff;
 					}
 				}
 			} else {
 				line += ((xoff&7)>>1);
-				for(; x < xfin; line ++) 
+				for(; x < xfin; ++line) 
 				{
 					u8 currLine = *line;
 
@@ -980,14 +992,14 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 					{
 						color = T1ReadWord(pal, ((currLine&0xF) + tilePalette) << 1);
 						gpu->__setFinalColorBck<MOSAIC,false>(color,x,currLine&0xF);
-						x++; xoff++;
+						++x; ++xoff;
 					}
 
 					if(x<xfin)
 					{
 						color = T1ReadWord(pal, ((currLine>>4) + tilePalette) << 1);
 						gpu->__setFinalColorBck<MOSAIC,false>(color,x,currLine>>4);
-						x++; xoff++;
+						++x; ++xoff;
 					}
 				}
 			}
@@ -1009,7 +1021,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 	for(x = 0; x < LG; xfin = std::min<u16>(x+8, LG))
 	{
 		tmp = (xoff & (lg-1))>>3;
-		mapinfo = map + (tmp & 31) * 2;
+		mapinfo = map + ((tmp & 31) << 1);
 		if(tmp > 31) mapinfo += 32*32*2;
 		tileentry.val = T1ReadWord(MMU_gpu_map(mapinfo), 0);
 
@@ -1032,7 +1044,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 
 			gpu->__setFinalColorBck<MOSAIC,false>(color,x,*line);
 			
-			x++; xoff++;
+			++x; ++xoff;
 
 			line += line_dir;
 		}
@@ -1044,8 +1056,8 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 /*****************************************************************************/
 
 template<bool MOSAIC> FORCEINLINE void rot_tiled_8bit_entry(GPU * gpu, s32 auxX, s32 auxY, int lg, u32 map, u32 tile, u8 * pal, int i) {
-	u8 palette_entry;
-	u16 tileindex, x, y, color;
+	u32 palette_entry;
+	u32 tileindex, x, y, color;
 
 	tileindex = *(u8*)MMU_gpu_map(map + ((auxX>>3) + (auxY>>3) * (lg>>3)));
 
@@ -1063,8 +1075,8 @@ template<bool MOSAIC, bool extPal> FORCEINLINE void rot_tiled_16bit_entry(GPU * 
 	TILEENTRY tileentry;
 	tileentry.val = T1ReadWord(map_addr, 0);
 
-	const u16 x = ((tileentry.bits.HFlip) ? 7 - (auxX) : (auxX))&7;
-	const u16 y = ((tileentry.bits.VFlip) ? 7 - (auxY) : (auxY))&7;
+	const u32 x = ((tileentry.bits.HFlip) ? 7 - (auxX) : (auxX))&7;
+	const u32 y = ((tileentry.bits.VFlip) ? 7 - (auxY) : (auxY))&7;
 
 	const u8 palette_entry = *(u8*)MMU_gpu_map(tile + ((tileentry.bits.TileNum<<6)+(y<<3)+x));
 	const u16 color = T1ReadWord(pal, (palette_entry + (extPal ? (tileentry.bits.Palette<<8) : 0)) << 1);
