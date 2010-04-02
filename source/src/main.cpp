@@ -88,6 +88,7 @@ GPU3DInterface *core3DList[] = {
 //////////////////////////////////////////////////////////////////
 
 void init();
+bool PickDevice();
 static void Draw(void);
 void ShowFPS();
 void DSExec();
@@ -124,14 +125,17 @@ int main(int argc, char **argv)
 	printf("Welcome to DeSmuME Wii!!!\n");
 
 	VIDEO_WaitVSync();
+	
+    bool device = PickDevice();
 
 	fatInitDefault();
   
 	VIDEO_WaitVSync();
 
-	printf("Pick a ROM:\n");
-
+    if(!device)
 	sprintf(rom_filename, "sd:/DSROM");
+	else
+	sprintf(rom_filename, "usb:/DSROM");
 
 	if(FileBrowser(rom_filename) != 0)
 		sdl_quit = 1;
@@ -542,8 +546,6 @@ void DSExec(){
 
 }
 
-#define MAXLINES 6
-
 void Pause(){
 
 	for(;;){
@@ -552,4 +554,40 @@ void Pause(){
 			break;
 	}
 
+}
+
+bool PickDevice(){
+
+    bool device = false;
+
+	while(true){
+	
+	     PAD_ScanPads();
+		 WPAD_ScanPads();
+		 
+		 printf("\x1b[2J");
+		 printf("\x1b[2;0H");
+		 printf("Select Device: ");
+		 if(!device)
+		 printf("SD");
+		 if(device)
+		 printf("USB");
+		 
+		 if(PAD_ButtonsDown(0)&PAD_BUTTON_LEFT || PAD_ButtonsDown(0)&PAD_BUTTON_RIGHT || WPAD_ButtonsDown(0)&WPAD_BUTTON_LEFT ||
+		    WPAD_ButtonsDown(0)&WPAD_BUTTON_RIGHT || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_LEFT || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_RIGHT){
+			if(device)
+			device = false;
+			else
+			device = true;
+			}
+		
+		 if(PAD_ButtonsDown(0)&PAD_BUTTON_A || WPAD_ButtonsDown(0)&WPAD_BUTTON_A || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_A)
+		    break;
+			
+		VIDEO_WaitVSync();
+			
+	}
+	
+	return device;
+	
 }

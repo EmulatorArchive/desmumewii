@@ -187,6 +187,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 			}
 			start = page * per_page;
 			limit = ( num_entries > (start + per_page) ) ? ( start + per_page ) : num_entries;
+			printf("\x1b[2J");
 			printf("\x1B[2;2H");
 			printf("\x1b[33m");
 			printf("\t%s\n\n", file_struct->title);
