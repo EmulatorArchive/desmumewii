@@ -119,14 +119,14 @@ int SNDOGCInit(int buffersize)
 	memset(stereodata16[1], 0, soundbufsize);
 	memset(tmpbuffer,       0, soundbufsize);
 
-	if (audiothread == LWP_THREAD_NULL)
-		LWP_CreateThread(&audiothread, audio_thread, NULL, NULL, 0, 67);
-
 	if (audiomutex == LWP_MUTEX_NULL)
 		LWP_MutexInit(&audiomutex, false);
 
 	if (audioqueue == LWP_TQUEUE_NULL)
 		LWP_InitQueue(&audioqueue);
+	
+	if (audiothread == LWP_THREAD_NULL)
+		LWP_CreateThread(&audiothread, audio_thread, NULL, NULL, 0, 67);
 
 	SNDOGCUnMuteAudio();
 

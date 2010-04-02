@@ -102,19 +102,9 @@ static void *draw_thread(void*);
 #ifdef __cplusplus
 extern "C"
 #endif
-void *main_thread(void *arg);
 
 int main(int argc, char **argv)
 {
-	lwp_t draw_thread;
-	LWP_CreateThread(&draw_thread, &main_thread, 0, NULL, 50000, 67);
-	while(1);
-
-	return 0;
-}
-
-void *main_thread(void *arg)
-{	
 //	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 //	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
 //	struct armcpu_ctrl_iface *arm9_ctrl_iface;
@@ -171,7 +161,6 @@ void *main_thread(void *arg)
 	execute = true;
 
 	log_console_enable_video(false);
-
 
 	if(vidthread == LWP_THREAD_NULL)
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
