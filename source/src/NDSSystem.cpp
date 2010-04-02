@@ -91,7 +91,8 @@ void Init_VMem()
 	if (!temp_vm_buffer) temp_vm_buffer = new u8[TEMP_ROM_SIZE];
 
 	// 1st read !
-	fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf);
+	int err = 0;
+	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
 	
 };
 
@@ -115,7 +116,8 @@ u8* MMU_CART_ROM(u32 position)
 	fseek(vmf,0,SEEK_SET); // to start
 	fseek(vmf,position,SEEK_SET);
 
-	fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf);
+	int err = 0;
+	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
 
 	last_address = position;
 
