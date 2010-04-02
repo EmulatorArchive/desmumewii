@@ -104,9 +104,18 @@ static void *draw_thread(void*);
 extern "C"
 #endif
 
-void Execute();
+void *main_thread(void *arg);
 
 int main(int argc, char **argv)
+{
+	lwp_t draw_thread;
+	LWP_CreateThread(&draw_thread, &main_thread, 0, NULL, 50000, 67);
+	while(1);
+
+	return 0;
+}
+
+void *main_thread(void *arg)
 {
 //	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 //	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
@@ -125,17 +134,14 @@ int main(int argc, char **argv)
 	printf("Welcome to DeSmuME Wii!!!\n");
 
 	VIDEO_WaitVSync();
-	
-    bool device = PickDevice();
+
+	bool device = PickDevice();
 
 	fatInitDefault();
   
 	VIDEO_WaitVSync();
 
-    if(!device)
-	sprintf(rom_filename, "sd:/DSROM");
-	else
-	sprintf(rom_filename, "usb:/DSROM");
+	sprintf(rom_filename, "%s:/DSROM", device ? "usb" : "sd" );
 
 	if(FileBrowser(rom_filename) != 0)
 		sdl_quit = 1;
@@ -167,12 +173,7 @@ int main(int argc, char **argv)
 	execute = true;
 
 	log_console_enable_video(false);
-	
-	Execute();
-	return 0;
-}
 
-void Execute() {
 	if(vidthread == LWP_THREAD_NULL)
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
@@ -210,9 +211,9 @@ void Execute() {
 	VIDEO_SetBlack(true);
 
 	exit(0);
+	
+	return NULL;
 }
-
-
 
 //////////////////////////////////////////////////////////////////
 //////////////////////////// FUNCTIONS ///////////////////////////
