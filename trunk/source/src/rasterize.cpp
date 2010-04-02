@@ -120,7 +120,11 @@ static FORCEINLINE int fastFloor(float f)
 union FragmentColor {
 	u32 color;
 	struct {
+#ifdef WORDS_BIGENDIAN
+		u8 a,b,g,r;
+#else
 		u8 r,g,b,a;
+#endif
 	};
 };
 
