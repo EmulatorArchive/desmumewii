@@ -69,7 +69,7 @@ extern buttonstruct<bool> Turbo;
 extern buttonstruct<int> TurboTime;
 extern buttonstruct<bool> AutoHold;
 
-int NDS_WritePNG(const char *fname);
+//int NDS_WritePNG(const char *fname);
 
 extern volatile bool execute;
 extern BOOL click;
@@ -359,7 +359,6 @@ bool NDS_ExportSave(const char *filename);
 void nds_savestate(EMUFILE* os);
 bool nds_loadstate(EMUFILE* is, int size);
 
-int NDS_WriteBMP(const char *filename);
 int NDS_LoadFirmware(const char *filename);
 int NDS_CreateDummyFirmware( struct NDS_fw_config_data *user_settings);
 

@@ -335,8 +335,11 @@ struct GFX3D
 		, frameCtr(0)
 		, frameCtrRaw(0)
 	{
-		for(int i=0;i<ARRAY_SIZE(u16ToonTable);i++)
+		int i = ARRAY_SIZE(u16ToonTable) - 1;
+		do{
 			u16ToonTable[i] = 0;
+			--i;
+		}while(i >= 0);
 	}
 	BOOL enableTexturing, enableAlphaTest, enableAlphaBlending, 
 		enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;

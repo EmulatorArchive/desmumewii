@@ -11,6 +11,20 @@
 #include "gfx3d.h"
 #include "NDSSystem.h"
 
+//--DCN (what is this wizardry!?)
+// It's shifting magic! Works for both signed and unsigned ints.
+// This is FAR better than multiplication because multiplication:
+// A) Takes up the entire Integer Unit the entire time
+// B) Can only be performed on one Integer Unit (IU1)
+// -- These can be pipelined and performed on IU2 as well. Score!
+#define INTx3(i) ((i<<1) + i)
+#define INTx5(i) ((i<<2) + i)
+#define INTx6(i) ((i<<2) + (i<<1))
+#define INTx7(i) ((i<<3) - i)
+#define INTx9(i) ((i<<3) + i)
+#define INTx10(i) ((i<<3) + (i<<1))
+
+
 using std::min;
 using std::max;
 
@@ -44,8 +58,11 @@ public:
 	//the length shall be as specified in this MemSpan, unless you specify otherwise
 	int memcmp(void* buf2, int size=-1)
 	{
-		if(size==-1) size = this->size;
-		size = min(this->size,size);
+		if(size==-1){
+			size = this->size;
+		}else{
+			size = min(this->size,size);
+		}
 		for(int i=0;i<numItems;i++)
 		{
 			Item &item = items[i];
@@ -97,13 +114,13 @@ public:
 			int todo = min((int)item.len,size);
 			size -= todo;
 			done += todo;
-			for(int j = 0;j < todo / 2;j++)
-			{
-				u16 tmp;
-				tmp = *src++;
+			int j = (todo >> 1) - 1;
+			do{
+				u16 tmp = *src++;
 				tmp |= *(src++) << 8;
 				*bufptr++ = tmp;
-			}
+				--j;
+			}while(j >= 0);
 			if(size==0) return done;
 		}
 		return done;
@@ -145,6 +162,7 @@ static MemSpan MemSpan_TexPalette(u32 ofs, u32 len)
 		MemSpan::Item &curr = ret.items[ret.numItems++];
 		curr.start = ofs&0x3FFF;
 		u32 slot = (ofs>>14)&7; //this masks to 8 slots, but there are really only 6
+		//--DCN: ...then why are we masking to 8 slots? Hmm?
 		if(slot>5) {
 			PROGINFO("Texture palette overruns texture memory. Wrapping at palette slot 0.\n");
 			slot -= 5;
@@ -340,10 +358,10 @@ public:
 		newitem->texpal = texpal;
 		newitem->sizeX=sizeX;
 		newitem->sizeY=sizeY;
-		newitem->invSizeX=1.0f/((float)(sizeX));
-		newitem->invSizeY=1.0f/((float)(sizeY));
+		newitem->invSizeX=1.0f/((float)(s32(sizeX)));
+		newitem->invSizeY=1.0f/((float)(s32(sizeY)));
 		newitem->dump.textureSize = ms.dump(newitem->dump.texture,sizeof(newitem->dump.texture));
-		newitem->decode_len = sizeX*sizeY*4;
+		newitem->decode_len = sizeX*sizeY<<2;
 		newitem->mode = textureMode;
 		newitem->decoded = new u8[newitem->decode_len];
 		list_push_front(newitem);
@@ -354,7 +372,7 @@ public:
 		//dump palette data for cache keying
 		if(palSize)
 		{
-			memcpy(newitem->dump.palette, pal, palSize*2);
+			memcpy(newitem->dump.palette, pal, palSize<<1);
 		}
 		//dump 4x4 index data for cache keying
 		newitem->dump.indexSize = 0;
@@ -416,7 +434,7 @@ public:
 						c = pal[bits];
 						*dwdst++ = CONVERT(c,(bits == 0) ? palZeroTransparent : opaqueColor);
 
-						adr++;
+						++adr;
 					}
 				}
 				break;
@@ -427,17 +445,15 @@ public:
 					adr = ms.items[j].ptr;
 					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
-						u8 bits;
-						u16 c;
+						u8 bits = (*adr)&0xF;
+						u16 c = pal[bits];
 
-						bits = (*adr)&0xF;
-						c = pal[bits];
 						*dwdst++ = CONVERT(c,(bits == 0) ? palZeroTransparent : opaqueColor);
 
 						bits = ((*adr)>>4);
 						c = pal[bits];
 						*dwdst++ = CONVERT(c,(bits == 0) ? palZeroTransparent : opaqueColor);
-						adr++;
+						++adr;
 					}
 				}
 				break;
@@ -446,12 +462,14 @@ public:
 			{
 				for(int j=0;j<ms.numItems;j++) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; ++x)
-					{
+					int x = ms.items[j].len - 1;
+					
+					do{
 						u16 c = pal[*adr];
 						*dwdst++ = CONVERT(c,(*adr == 0) ? palZeroTransparent : opaqueColor);
-						adr++;
-					}
+						++adr;
+						--x;
+					}while(x >= 0);
 				}
 			}
 			break;
@@ -462,7 +480,7 @@ public:
 				if(ms.numItems != 1) {
 					PROGINFO("Your 4x4 texture has overrun its texture slot.\n");
 				}
-				//this check isnt necessary since the addressing is tied to the texture data which will also run out:
+				//This check isn't necessary since the addressing is tied to the texture data which will also run out:
 				//if(msIndex.numItems != 1) PROGINFO("Your 4x4 texture index has overrun its slot.\n");
 
 	#define PAL4X4(offset) ( *(u16*)( MMU.texInfo.texPalSlot[((paletteAddress + (offset)*2)>>14)] + ((paletteAddress + (offset)*2)&0x3FFF) ) )
@@ -477,18 +495,18 @@ public:
 				else 
 					slot1=(u16*)&MMU.texInfo.textureSlotAddr[1][(format & 0x3FFF)<<2];
 
-				u16 yTmpSize = (sizeY>>2);
-				u16 xTmpSize = (sizeX>>2);
+				s32 yTmpSize = (sizeY>>2);
+				s32 xTmpSize = (sizeX>>2);
 
-				//this is flagged whenever a 4x4 overruns its slot.
-				//i am guessing we just generate black in that case
+				//This is flagged whenever a 4x4 overruns its slot.
+				//I am guessing we just generate black in that case
 				bool dead = false;
 
-				for (int y = 0; y < yTmpSize; y ++)
+				for (int y = 0; y < yTmpSize; ++y )
 				{
 					u32 tmpPos[4]={(y<<2)*sizeX,((y<<2)+1)*sizeX,
 						((y<<2)+2)*sizeX,((y<<2)+3)*sizeX};
-					for (int x = 0; x < xTmpSize; x ++, d++)
+					for (int x = 0; x < xTmpSize; ++x , ++d)
 					{
 						if(d >= limit)
 							dead = true;
@@ -530,24 +548,30 @@ public:
 							break;
 						case 3: 
 							{
-								u32 red1, red2;
-								u32 green1, green2;
-								u32 blue1, blue2;
-								u16 tmp1, tmp2;
+								u32 red1 = tmp_col[0] & 0xff;
+								u32 green1 = (tmp_col[0]>>8) & 0xff;
+								u32 blue1 = (tmp_col[0]>>16) & 0xff;
+								u32 red2 = tmp_col[1] & 0xff;
+								u32 green2 = (tmp_col[1]>>8) & 0xff;
+								u32 blue2 = (tmp_col[1]>>16) & 0xff;
 
-								red1=tmp_col[0]&0xff;
-								green1=(tmp_col[0]>>8)&0xff;
-								blue1=(tmp_col[0]>>16)&0xff;
-								red2=tmp_col[1]&0xff;
-								green2=(tmp_col[1]>>8)&0xff;
-								blue2=(tmp_col[1]>>16)&0xff;
-
-								tmp1=((red1*5+red2*3)>>6)|
+								//--DCN: Old...
+								/*
+								u16 tmp1=((red1*5+red2*3)>>6)|
 									(((green1*5+green2*3)>>6)<<5)|
 									(((blue1*5+blue2*3)>>6)<<10);
-								tmp2=((red2*5+red1*3)>>6)|
+								u16 tmp2=((red2*5+red1*3)>>6)|
 									(((green2*5+green1*3)>>6)<<5)|
 									(((blue2*5+blue1*3)>>6)<<10);
+								//*/
+
+								//--New!
+								u16 tmp1 = u16(((INTx5(red1) + INTx3(red2)) >> 6)|
+									(((INTx5(green1) + INTx3(green2)) >> 6) << 5)|
+									(((INTx5(blue1) + INTx3(blue2)) >> 6) << 10));
+								u16 tmp2 = u16(((INTx5(red2) + INTx5(red1)) >> 6)|
+									(((INTx5(green2) + INTx3(green1)) >> 6) << 5)|
+									(((INTx5(blue2) + INTx3(blue1)) >> 6) << 10));
 
 								tmp_col[2]=RGB16TO32(tmp1,255);
 								tmp_col[3]=RGB16TO32(tmp2,255);
@@ -593,22 +617,25 @@ public:
 			{
 				for(int j=0;j<ms.numItems;j++) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; ++x)
-					{
+					int x = ms.items[j].len - 1;
+					
+					do{
+
 						u16 c = pal[*adr&0x07];
 						u8 alpha = (*adr>>3);
 						if(TEXFORMAT == TexFormat_15bpp)
 							*dwdst++ = RGB15TO6665(c,alpha);
 						else
 							*dwdst++ = RGB15TO32(c,material_5bit_to_8bit[alpha]);
-						adr++;
-					}
+						++adr;
+					}while(x >= 0);
 				}
 				break;
 			}
 		case TEXMODE_16BPP:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				int msItemsLen = ms.numItems;
+				for(int j = 0; j < msItemsLen; ++j) {
 					u16* map = (u16*)ms.items[j].ptr;
 					int len = ms.items[j].len>>1;
 					for(int x = 0; x < len; ++x)
@@ -637,11 +664,11 @@ public:
 
 	void evict(u32 target = kMaxCacheSize)
 	{
-		//dont do anything unless we're over the target
-		if(cache_size<target) return;
+		//Don't do anything unless we're over the target
+		if(cache_size < target) return;
 
 		//aim at cutting the cache to half of the max size
-		target/=2;
+		target >>= 1;
 
 		//evicts items in an arbitrary order until it is less than the max cache size
 		//TODO - do this based on age and not arbitrarily

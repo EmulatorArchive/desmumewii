@@ -247,7 +247,7 @@ static u16 getBootCodeCRC16()
 			if(crc & 0x0001)
 				crc = ((crc >> 1) ^ (val[j] << (7-j)));
 			else
-				crc =  (crc >> 1);
+				crc >>= 1;
 		}
 	}
 
@@ -260,7 +260,7 @@ static u16 getBootCodeCRC16()
 			if(crc & 0x0001)
 				crc = ((crc >> 1) ^ (val[j] << (7-j)));
 			else
-				crc =  (crc >> 1);
+				crc >>= 1;
 		}
 	}
 
@@ -277,8 +277,8 @@ static u32 * decryptFirmwareBlock(const char *blockName, u32 *src, u32 &size)
 	u32 offset;
 	u32 windowOffset;
 	u32 xLen;
-	u8 d;
 	u16 data;
+	u8 d;
 
 	memcpy(curBlock, src, 8);
 	crypt64BitDown(curBlock);
@@ -307,14 +307,14 @@ static u32 * decryptFirmwareBlock(const char *blockName, u32 *src, u32 &size)
 			if(d & 0x80)
 			{
 				data = (T1ReadByte((u8*)curBlock, (xIn % 8)) << 8);
-				xIn++;
+				++xIn;
 				if((xIn % 8) == 0)
 				{
 					memcpy(curBlock, (((u8*)src) + xIn), 8);
 					crypt64BitDown(curBlock);
 				}
 				data |= T1ReadByte((u8*)curBlock, (xIn % 8));
-				xIn++;
+				++xIn;
 				if((xIn % 8) == 0)
 				{
 					memcpy(curBlock, (((u8*)src) + xIn), 8);
@@ -328,10 +328,10 @@ static u32 * decryptFirmwareBlock(const char *blockName, u32 *src, u32 &size)
 				for(j = 0; j < len; j++)
 				{
 					T1WriteByte((u8*)dst, xOut, T1ReadByte((u8*)dst, windowOffset));
-					xOut++;
-					windowOffset++;
+					++xOut;
+					++windowOffset;
 
-					xLen--;
+					--xLen;
 					if(xLen == 0)
 						goto lz77End;
 				}
@@ -339,15 +339,15 @@ static u32 * decryptFirmwareBlock(const char *blockName, u32 *src, u32 &size)
 			else
 			{
 				T1WriteByte((u8*)dst, xOut, T1ReadByte((u8*)curBlock, (xIn % 8)));
-				xOut++;
-				xIn++;
+				++xOut;
+				++xIn;
 				if((xIn % 8) == 0)
 				{
 					memcpy(curBlock, (((u8*)src) + xIn), 8);
 					crypt64BitDown(curBlock);
 				}
 
-				xLen--;
+				--xLen;
 				if(xLen == 0)
 					goto lz77End;
 			}
@@ -363,16 +363,14 @@ lz77End:
 
 static BOOL decryptFirmware(u8 *data)
 {
-	u16 shifts;
-	u16 shift1, shift2, shift3, shift4;
 	u32 part1addr, part2addr, part3addr, part4addr, part5addr;
 	u32 part1ram, part2ram;
 
-	shifts = T1ReadWord(data, 0x14);
-	shift1 = (shifts & 0x7);
-	shift2 = ((shifts >> 3) & 0x7);
-	shift3 = ((shifts >> 6) & 0x7);
-	shift4 = ((shifts >> 9) & 0x7);
+	u16 shifts = T1ReadWord(data, 0x14);
+	u16 shift1 = (shifts & 0x7);
+	u16 shift2 = ((shifts >> 3) & 0x7);
+	u16 shift3 = ((shifts >> 6) & 0x7);
+	u16 shift4 = ((shifts >> 9) & 0x7);
 
 	part1addr = T1ReadWord(data, 0x0C);
 	part1addr = (part1addr << (2+shift1));
@@ -440,7 +438,7 @@ calc_CRC16( u32 start, const u8 *data, int count) {
 	const u16 val[8] = { 0xC0C1,0xC181,0xC301,0xC601,0xCC01,0xD801,0xF001,0xA001 };
 	for(i = 0; i < count; i++)
 	{
-		crc = crc ^ data[i];
+		crc ^= data[i];
 
 		for(j = 0; j < 8; j++) {
 			int do_bit = 0;
@@ -448,10 +446,10 @@ calc_CRC16( u32 start, const u8 *data, int count) {
 			if ( crc & 0x1)
 				do_bit = 1;
 
-			crc = crc >> 1;
+			crc >>= 1;
 
 			if ( do_bit) {
-				crc = crc ^ (val[j] << (7-j));
+				crc ^= (val[j] << (7-j));
 			}
 		}
 	}
@@ -498,25 +496,20 @@ copy_firmware_user_data( u8 *dest_buffer, const u8 *fw_data) {
 		}
 
 		if ( user1_valid) {
+			copy_settings_offset = user_settings_offset;
 			if ( user2_valid) {
-				u16 count1, count2;
-
-				count1 = fw_data[user_settings_offset + 0x70];
+				
+				u32 count1 = fw_data[user_settings_offset + 0x70];
 				count1 |= fw_data[user_settings_offset + 0x71] << 8;
 
-				count2 = fw_data[user_settings_offset + 0x100 + 0x70];
+				u32 count2 = fw_data[user_settings_offset + 0x100 + 0x70];
 				count2 |= fw_data[user_settings_offset + 0x100 + 0x71] << 8;
 
 				if ( count2 > count1) {
-					copy_settings_offset = user_settings_offset + 0x100;
-				}
-				else {
-					copy_settings_offset = user_settings_offset;
+					copy_settings_offset += 0x100;
 				}
 			}
-			else {
-				copy_settings_offset = user_settings_offset;
-			}
+			
 		}
 		else if ( user2_valid) {
 			/* copy the second user settings */
@@ -782,7 +775,7 @@ static void loadrom(std::string fname) {
 int NDS_LoadROM(const char *filename, const char *logicalFilename)
 {
 	int					type = ROM_NDS;
-	u32					 mask;
+	u32					mask;
 	char				buf[MAX_PATH];
 
 	if (filename == NULL)
@@ -868,30 +861,32 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #else
 int NDS_LoadROM(const char *filename, const char *logicalFilename)
 {
-	int					ret;
-	int					type;
-	ROMReader_struct	*reader;
-	void				*file;
-	u32					size, mask;
-	u8					*data;
-	char				*noext;
-	char				buf[MAX_PATH];
-
 	if (filename == NULL)
-		return -1;
+		return -1;	
+	
+	ROMReader_struct	*reader;
+	int					ret;
+	int					type = ROM_NDS;
+	u32					size, mask;
+	void				*file;
+	u8					*data;
+	char				buf[MAX_PATH];
+	char				*noext = strdup(filename);
 
-	noext = strdup(filename);
 	reader = ROMReaderInit(&noext);
 
 	if(logicalFilename) path.init(logicalFilename);
 	else path.init(filename);
-	if(!strcasecmp(path.extension().c_str(), "zip"))		type = ROM_NDS;
+
+	/*
+	if(!strcasecmp(path.extension().c_str(), "zip"))		
+		type = ROM_NDS;
 	else if ( !strcasecmp(path.extension().c_str(), "nds"))
 		type = ROM_NDS;
-	else if ( path.isdsgba(path.path))
+	else 
+	//*/
+	if ( path.isdsgba(path.path))
 		type = ROM_DSGBA;
-	else
-		type = ROM_NDS;
 
 
 	file = reader->Init(filename);
@@ -1041,7 +1036,7 @@ bool NDS_ExportSave(const char *filename)
 
 	return false;
 }
-
+/*
 static int WritePNGChunk(FILE *fp, uint32 size, const char *type, const uint8 *data)
 {
 	uint32 crc;
@@ -1075,6 +1070,7 @@ static int WritePNGChunk(FILE *fp, uint32 size, const char *type, const uint8 *d
 		return 0;
 	return 1;
 }
+
 int NDS_WritePNG(const char *fname)
 {
 	int x, y;
@@ -1173,6 +1169,7 @@ PNGerr:
 		fclose(pp);
 	return(0);
 }
+//*/
 
 typedef struct
 {
@@ -1199,100 +1196,6 @@ typedef struct
 	u32 imgoffset __PACKED;
 } bmpfileheader_struct;
 #include "PACKED_END.h"
-
-int NDS_WriteBMP(const char *filename)
-{
-	bmpfileheader_struct fileheader;
-	bmpimgheader_struct imageheader;
-	FILE *file;
-	int i,j;
-	u16 * bmp = (u16 *)GPU_screen;
-	size_t elems_written = 0;
-
-	memset(&fileheader, 0, sizeof(fileheader));
-	fileheader.size = sizeof(fileheader);
-	fileheader.id = 'B' | ('M' << 8);
-	fileheader.imgoffset = sizeof(fileheader)+sizeof(imageheader);
-
-	memset(&imageheader, 0, sizeof(imageheader));
-	imageheader.size = sizeof(imageheader);
-	imageheader.width = 256;
-	imageheader.height = 192*2;
-	imageheader.planes = 1;
-	imageheader.bpp = 24;
-	imageheader.cmptype = 0; // None
-	imageheader.imgsize = imageheader.width * imageheader.height * 3;
-
-	if ((file = fopen(filename,"wb")) == NULL)
-		return 0;
-
-	elems_written += fwrite(&fileheader, 1, sizeof(fileheader), file);
-	elems_written += fwrite(&imageheader, 1, sizeof(imageheader), file);
-
-	for(j=0;j<192*2;j++)
-	{
-		for(i=0;i<256;i++)
-		{
-			u8 r,g,b;
-			u16 pixel = bmp[(192*2-j-1)*256+i];
-			r = pixel>>10;
-			pixel-=r<<10;
-			g = pixel>>5;
-			pixel-=g<<5;
-			b = (u8)pixel;
-			r*=255/31;
-			g*=255/31;
-			b*=255/31;
-			elems_written += fwrite(&r, 1, sizeof(u8), file); 
-			elems_written += fwrite(&g, 1, sizeof(u8), file); 
-			elems_written += fwrite(&b, 1, sizeof(u8), file);
-		}
-	}
-	fclose(file);
-
-	return 1;
-}
-
-int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename)
-{
-	bmpfileheader_struct fileheader;
-	bmpimgheader_struct imageheader;
-	FILE *file;
-	size_t elems_written = 0;
-	memset(&fileheader, 0, sizeof(fileheader));
-	fileheader.size = sizeof(fileheader);
-	fileheader.id = 'B' | ('M' << 8);
-	fileheader.imgoffset = sizeof(fileheader)+sizeof(imageheader);
-
-	memset(&imageheader, 0, sizeof(imageheader));
-	imageheader.size = sizeof(imageheader);
-	imageheader.width = width;
-	imageheader.height = height;
-	imageheader.planes = 1;
-	imageheader.bpp = 32;
-	imageheader.cmptype = 0; // None
-	imageheader.imgsize = imageheader.width * imageheader.height * 4;
-
-	if ((file = fopen(filename,"wb")) == NULL)
-		return 0;
-
-	elems_written += fwrite(&fileheader, 1, sizeof(fileheader), file);
-	elems_written += fwrite(&imageheader, 1, sizeof(imageheader), file);
-
-	for(int i=0;i<height;i++)
-		for(int x=0;x<width;x++)
-		{
-			u8* pixel = (u8*)buf + (height-i-1)*width*4;
-			pixel += (x*4);
-			elems_written += fwrite(pixel+2,1,1,file);
-			elems_written += fwrite(pixel+1,1,1,file);
-			elems_written += fwrite(pixel+0,1,1,file);
-			elems_written += fwrite(pixel+3,1,1,file);
-		}
-	fclose(file);
-
-	return 1;
-}
 
 
 static void fill_user_data_area( struct NDS_fw_config_data *user_settings,u8 *data, int count)
@@ -2811,9 +2714,11 @@ buttonstruct<bool> AutoHold;
 
 void ClearAutoHold(void) {
 	
-	for (int i=0; i < ARRAY_SIZE(AutoHold.array); i++) {
-		AutoHold.array[i]=false;
-	}
+	int i = ARRAY_SIZE(AutoHold.array) - 1;
+	do{
+		AutoHold.array[i] = false;
+		--i;
+	}while(i >= 0);
 }
 
 
