@@ -753,6 +753,7 @@ bool BackupDevice::save_no_gba(const char* fname)
 
 void BackupDevice::loadfile()
 {
+	return; // scanff .. I think this is conflicting with the thread IO and vmem .. return for now .. cause of the WHITE screen I think!
 	//never use save files if we are in movie mode
 	if(isMovieMode) return;
 	if(filename.length() ==0) return; //No sense crashing if no filename supplied
