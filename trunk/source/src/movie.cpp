@@ -381,14 +381,14 @@ static void closeRecordingMovie()
 /// Stop movie playback.
 static void StopPlayback()
 {
-	driver->USR_InfoMessage("Movie playback stopped.");
+//	driver->USR_InfoMessage("Movie playback stopped.");
 	movieMode = MOVIEMODE_INACTIVE;
 }
 
 /// Stop movie playback without closing the movie.
 static void FinishPlayback()
 {
-	driver->USR_InfoMessage("Movie finished playing.");
+//	driver->USR_InfoMessage("Movie finished playing.");
 	movieMode = MOVIEMODE_FINISHED;
 }
 
@@ -396,7 +396,7 @@ static void FinishPlayback()
 /// Stop movie recording
 static void StopRecording()
 {
-	driver->USR_InfoMessage("Movie recording stopped.");
+//	driver->USR_InfoMessage("Movie recording stopped.");
 	movieMode = MOVIEMODE_INACTIVE;
 	
 	closeRecordingMovie();
@@ -502,11 +502,11 @@ const char* _CDECL_ FCEUI_LoadMovie(const char *fname, bool _read_only, bool tas
 	freshMovie = true;
 	ClearAutoHold();
 
-	if(movie_readonly)
+/*	if(movie_readonly)
 		driver->USR_InfoMessage("Replay started Read-Only.");
 	else
 		driver->USR_InfoMessage("Replay started Read+Write.");
-
+*/
 	return NULL; // success
 }
 
@@ -614,7 +614,7 @@ void _CDECL_ FCEUI_SaveMovie(const char *fname, std::wstring author, int flag, s
 		if(!success) return;
 	}
 
-	driver->USR_InfoMessage("Movie recording started.");
+//	driver->USR_InfoMessage("Movie recording started.");
 }
 
 

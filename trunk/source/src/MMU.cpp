@@ -1954,7 +1954,7 @@ void DmaController::write32(const u32 val)
 	if(!doNotStart)
 		doSchedule();
 
-	driver->DEBUG_UpdateIORegView(BaseDriver::EDEBUG_IOREG_DMA);
+//	driver->DEBUG_UpdateIORegView(BaseDriver::EDEBUG_IOREG_DMA);
 }
 
 void DmaController::exec()
@@ -2031,7 +2031,7 @@ start:
 		}
 	}
 
-	driver->DEBUG_UpdateIORegView(BaseDriver::EDEBUG_IOREG_DMA);
+//	driver->DEBUG_UpdateIORegView(BaseDriver::EDEBUG_IOREG_DMA);
 }
 
 void DmaController::doCopy()

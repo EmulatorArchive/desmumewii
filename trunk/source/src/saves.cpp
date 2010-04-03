@@ -1113,7 +1113,7 @@ static void loadstate()
 
 	SetupMMU(nds.debugConsole);
 
-	execute = !driver->EMU_IsEmulationPaused();
+	execute = 1;//!driver->EMU_IsEmulationPaused();
 }
 
 bool savestate_load(EMUFILE* is)
