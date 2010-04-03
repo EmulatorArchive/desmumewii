@@ -80,19 +80,25 @@ TSCalInfo TSCal;
 static u8* temp_vm_buffer = 0; // temp storage of game data
 static FILE* vmf = 0;
 static u32 last_address = 0;
-
+static int vmem_read = 0;
 void Init_VMem()
 {
-	if (vmf) fclose(vmf);
+	vmem_read = last_address = 0;
+
+	if (vmf) 
+	{
+		fclose(vmf);
+		vmf = 0;
+	}
 
 	vmf = fopen(path.path.c_str(),"rb");
-	if (!vmf) return;
+	if (!vmf) exit(0);
 
 	if (!temp_vm_buffer) temp_vm_buffer = new u8[TEMP_ROM_SIZE];
 
 	// 1st read !
 	int err = 0;
-	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
+	while(((vmem_read=fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf)) <=0))  if (err++ > 15) break;
 
 	if(err>15) exit(0);
 	
@@ -110,20 +116,26 @@ u8* MMU_CART_ROM(u32 position)
 {
 	if (!vmf) exit(0); // ahhhhhh
 
-	if ((position >= last_address) && (position < (last_address+TEMP_ROM_SIZE)-4)/*safety*/)
+	if ((position >= last_address) && (position < (last_address+vmem_read)-4)/*safety*/)
 	{
 		return &temp_vm_buffer[position-last_address];
 	}
 
-	fseek(vmf,0,SEEK_SET); // to start
-	fseek(vmf,position,SEEK_SET);
+	if(fseek(vmf,0,SEEK_SET) == 0)  // to start
+	{
+		fseek(vmf,position,SEEK_SET);
 
-	int err = 0;
-	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
+		int err = 0;
+		while(((vmem_read=fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf)) <=0))  if (err++ > 15) break;
 
-	if(err>15) exit(0);
+		if(err>15) exit(0);
 
-	last_address = position;
+		last_address = position;
+	}else{
+		// only here for debugging...we're screwed at this point
+		printf("Error Seeking in VMEM!!!");
+		last_address = 0;
+	}
 
 	return temp_vm_buffer;
 };
