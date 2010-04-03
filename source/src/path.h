@@ -3,7 +3,7 @@
 #ifdef WIN32
 #include "resource.h"
 #else
-#include "glib/glib.h"
+//#include "glib/glib.h"
 #endif
 #include "time.h"
 #include "utils/xstring.h"

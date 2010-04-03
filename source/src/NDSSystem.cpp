@@ -93,6 +93,8 @@ void Init_VMem()
 	// 1st read !
 	int err = 0;
 	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
+
+	if(err>15) exit(0);
 	
 };
 
@@ -118,6 +120,8 @@ u8* MMU_CART_ROM(u32 position)
 
 	int err = 0;
 	while((fread(temp_vm_buffer,1,TEMP_ROM_SIZE,vmf) <=0))  if (err++ > 15) break;
+
+	if(err>15) exit(0);
 
 	last_address = position;
 

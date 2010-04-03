@@ -40,7 +40,7 @@
 #include "NDSSystem.h"
 #include "render3D.h"
 #include "cp15.h"
-#include "GPU_osd.h"
+//#include "GPU_osd.h"
 #include "version.h"
 
 #include "readwrite.h"
@@ -612,13 +612,13 @@ void savestate_slot(int num)
 
    if (savestate_save(filename))
    {
-	   osd->setLineColor(255, 255, 255);
-	   osd->addLine("Saved to %i slot", num);
+//	   osd->setLineColor(255, 255, 255);
+//	   osd->addLine("Saved to %i slot", num);
    }
    else
    {
-	   osd->setLineColor(255, 0, 0);
-	   osd->addLine("Error saving %i slot", num);
+//	   osd->setLineColor(255, 0, 0);
+//	   osd->addLine("Error saving %i slot", num);
 	   return;
    }
 
@@ -645,13 +645,13 @@ void loadstate_slot(int num)
    sprintf(filename+strlen(filename), ".ds%d", num);
    if (savestate_load(filename))
    {
-	   osd->setLineColor(255, 255, 255);
-	   osd->addLine("Loaded from %i slot", num);
+//	   osd->setLineColor(255, 255, 255);
+//	   osd->addLine("Loaded from %i slot", num);
    }
    else
    {
-	   osd->setLineColor(255, 0, 0);
-	   osd->addLine("Error loading %i slot", num);
+//	   osd->setLineColor(255, 0, 0);
+//	   osd->addLine("Error loading %i slot", num);
    }
 }
 
@@ -687,8 +687,8 @@ int sram_load (const char *file_name) {
 
 	fclose ( file );
 
-	osd->setLineColor(255, 255, 255);
-	osd->addLine("Loaded SRAM");
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Loaded SRAM");
 
 	return 1;
 
@@ -707,8 +707,8 @@ int sram_save (const char *file_name) {
 
 	fclose ( file );
 
-	osd->setLineColor(255, 255, 255);
-	osd->addLine("Saved SRAM");
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Saved SRAM");
 
 	return 1;
 

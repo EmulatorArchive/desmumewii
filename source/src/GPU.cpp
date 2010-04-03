@@ -34,7 +34,7 @@
 #include "render3D.h"
 #include "gfx3d.h"
 #include "debug.h"
-#include "GPU_osd.h"
+//#include "GPU_osd.h"
 #include "NDSSystem.h"
 #include "readwrite.h"
 
@@ -1849,8 +1849,8 @@ int Screen_Init(int coreid)
 		((u16*)GPU_screen)[i] = 0x7FFF;
 	disp_fifo.head = disp_fifo.tail = 0;
 
-	if (osd)  {delete osd; osd =NULL; }
-	osd  = new OSDCLASS(-1);
+	//if (osd)  {delete osd; osd =NULL; }
+	//osd  = new OSDCLASS(-1);
 
 	return GPU_ChangeGraphicsCore(coreid);
 }
@@ -1865,7 +1865,7 @@ void Screen_Reset(void)
 		((u16*)GPU_screen)[i] = 0x7FFF;
 
 	disp_fifo.head = disp_fifo.tail = 0;
-	osd->clear();
+//	osd->clear();
 }
 
 void Screen_DeInit(void)
@@ -1876,7 +1876,7 @@ void Screen_DeInit(void)
 	if (GFXCore)
 		GFXCore->DeInit();
 
-	if (osd)  {delete osd; osd =NULL; }
+//	if (osd)  {delete osd; osd =NULL; }
 }
 
 /*****************************************************************************/
