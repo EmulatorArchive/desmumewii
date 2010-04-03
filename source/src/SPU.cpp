@@ -903,7 +903,7 @@ void SPU_Emulate_core()
 	samples -= spu_core_samples;
 
 	bool synchronize = (synchmode == ESynchMode_Synchronous);
-	bool mix = driver->AVI_IsRecording() || driver->WAV_IsRecording() || synchronize;
+	bool mix = /*driver->AVI_IsRecording() || driver->WAV_IsRecording() ||*/ synchronize;
 
 	SPU_MixAudio(mix,SPU_core,spu_core_samples);
 	if(synchronize)
@@ -934,7 +934,7 @@ void SPU_Emulate_user(bool mix)
 			samplesOutput = (SPU_MixAudio(mix,SPU_user,audiosize), audiosize);
 
 		SNDCore->UpdateAudio(SPU_user->outbuf, samplesOutput);
-		WAV_WavSoundUpdate(SPU_user->outbuf, samplesOutput, WAVMODE_USER);
+//		WAV_WavSoundUpdate(SPU_user->outbuf, samplesOutput, WAVMODE_USER);
 	}
 }
 
@@ -971,6 +971,7 @@ void SNDDummyUnMuteAudio() {}
 void SNDDummySetVolume(int volume) {}
 
 //---------wav writer------------
+/* We are not going to do this ???? scanff
 
 typedef struct {
 	char id[4];
@@ -1080,7 +1081,7 @@ bool WAV_Begin(const char* fname, WAVMode mode)
 		mode = WAVMODE_CORE;
 	wavWriter.mode = mode;
 
-	driver->USR_InfoMessage("WAV recording started.");
+//	driver->USR_InfoMessage("WAV recording started.");
 
 	return true;
 }
@@ -1097,7 +1098,7 @@ void WAV_WavSoundUpdate(void* soundData, int numSamples, WAVMode mode)
 	if(wavWriter.mode == mode || mode == WAVMODE_ANY)
 		wavWriter.update(soundData, numSamples);
 }
-
+*/
 
 
 //////////////////////////////////////////////////////////////////////////////

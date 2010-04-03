@@ -48,8 +48,8 @@
 PathInfo path;
 
 TCommonSettings CommonSettings;
-static BaseDriver _stub_driver;
-BaseDriver* driver = &_stub_driver;
+//static BaseDriver _stub_driver;
+//BaseDriver* driver = &_stub_driver;
 std::string InputDisplayString;
 
 static BOOL LidClosed = FALSE;
@@ -1526,9 +1526,9 @@ static FrameSkipper frameSkipper;
 
 
 void NDS_SkipNextFrame() {
-	if (!driver->AVI_IsRecording()) {
+//	if (!driver->AVI_IsRecording()) {
 		frameSkipper.RequestSkip();
-	}
+//	}
 }
 void NDS_OmitFrameSkip(int force) {
 	frameSkipper.OmitSkip(force > 0, force > 1);
@@ -1944,8 +1944,8 @@ static void execHardware_hblank()
 	//emulation housekeeping. for some reason we always do this at hblank,
 	//even though it sounds more reasonable to do it at hstart
 	SPU_Emulate_core();
-	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
-	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
+//	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
+//	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
 
 	//this logic was formerly at hblank time. it was moved to the beginning of the scanline on a whim
 	if(nds.VCount<192)
