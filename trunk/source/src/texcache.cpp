@@ -24,7 +24,6 @@
 #define INTx9(i) ((i<<3) + i)
 #define INTx10(i) ((i<<3) + (i<<1))
 
-
 using std::min;
 using std::max;
 
@@ -114,13 +113,13 @@ public:
 			int todo = min((int)item.len,size);
 			size -= todo;
 			done += todo;
-			int j = (todo >> 1) - 1;
-			do{
+			todo >>= 1;
+			for(int j = 0;j < todo; ++j)
+			{
 				u16 tmp = *src++;
 				tmp |= *(src++) << 8;
 				*bufptr++ = tmp;
-				--j;
-			}while(j >= 0);
+			}
 			if(size==0) return done;
 		}
 		return done;
@@ -268,7 +267,7 @@ public:
 		int palSize = palSizes[textureMode];
 		int texSize = (imageSize*texSizes[textureMode])>>2; //shifted because the texSizes multiplier is fixed point
 		MemSpan ms = MemSpan_TexMem((format&0xFFFF)<<3,texSize);
-		MemSpan mspal = MemSpan_TexPalette(paletteAddress,palSize*2);
+		MemSpan mspal = MemSpan_TexPalette(paletteAddress,palSize << 1);
 
 		//determine the location for 4x4 index data
 		u32 indexBase;
@@ -358,8 +357,8 @@ public:
 		newitem->texpal = texpal;
 		newitem->sizeX=sizeX;
 		newitem->sizeY=sizeY;
-		newitem->invSizeX=1.0f/((float)(s32(sizeX)));
-		newitem->invSizeY=1.0f/((float)(s32(sizeY)));
+		newitem->invSizeX=1.0f/((float)(sizeX));
+		newitem->invSizeY=1.0f/((float)(sizeY));
 		newitem->dump.textureSize = ms.dump(newitem->dump.texture,sizeof(newitem->dump.texture));
 		newitem->decode_len = sizeX*sizeY<<2;
 		newitem->mode = textureMode;
@@ -393,7 +392,7 @@ public:
 		{
 		case TEXMODE_A3I5:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
 					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
@@ -403,7 +402,7 @@ public:
 							*dwdst++ = RGB15TO6665(c,material_3bit_to_5bit[alpha]);
 						else
 							*dwdst++ = RGB15TO32(c,material_3bit_to_8bit[alpha]);
-						adr++;
+						++adr;
 					}
 				}
 				break;
@@ -411,7 +410,7 @@ public:
 
 		case TEXMODE_I2:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
 					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
@@ -441,7 +440,7 @@ public:
 			}
 		case TEXMODE_I4:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
 					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
@@ -460,16 +459,14 @@ public:
 			}
 		case TEXMODE_I8:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					int x = ms.items[j].len - 1;
-					
-					do{
+					for(u32 x = 0; x < ms.items[j].len; x++)
+					{
 						u16 c = pal[*adr];
 						*dwdst++ = CONVERT(c,(*adr == 0) ? palZeroTransparent : opaqueColor);
 						++adr;
-						--x;
-					}while(x >= 0);
+					}
 				}
 			}
 			break;
@@ -483,7 +480,7 @@ public:
 				//This check isn't necessary since the addressing is tied to the texture data which will also run out:
 				//if(msIndex.numItems != 1) PROGINFO("Your 4x4 texture index has overrun its slot.\n");
 
-	#define PAL4X4(offset) ( *(u16*)( MMU.texInfo.texPalSlot[((paletteAddress + (offset)*2)>>14)] + ((paletteAddress + (offset)*2)&0x3FFF) ) )
+	#define PAL4X4(offset) ( *(u16*)( MMU.texInfo.texPalSlot[((paletteAddress + ((offset) << 1))>>14)] + ((paletteAddress + ((offset) << 1))&0x3FFF) ) )
 
 				u16* slot1;
 				u32* map = (u32*)ms.items[0].ptr;
@@ -495,18 +492,18 @@ public:
 				else 
 					slot1=(u16*)&MMU.texInfo.textureSlotAddr[1][(format & 0x3FFF)<<2];
 
-				s32 yTmpSize = (sizeY>>2);
-				s32 xTmpSize = (sizeX>>2);
+				u32 yTmpSize = (sizeY>>2);
+				u32 xTmpSize = (sizeX>>2);
 
 				//This is flagged whenever a 4x4 overruns its slot.
 				//I am guessing we just generate black in that case
 				bool dead = false;
 
-				for (int y = 0; y < yTmpSize; ++y )
+				for (u16 y = 0; y < yTmpSize; ++y)
 				{
 					u32 tmpPos[4]={(y<<2)*sizeX,((y<<2)+1)*sizeX,
 						((y<<2)+2)*sizeX,((y<<2)+3)*sizeX};
-					for (int x = 0; x < xTmpSize; ++x , ++d)
+					for (u16 x = 0; x < xTmpSize; ++x, ++d)
 					{
 						if(d >= limit)
 							dead = true;
@@ -549,11 +546,11 @@ public:
 						case 3: 
 							{
 								u32 red1 = tmp_col[0] & 0xff;
-								u32 green1 = (tmp_col[0]>>8) & 0xff;
-								u32 blue1 = (tmp_col[0]>>16) & 0xff;
+								u32 green1 = (tmp_col[0] >> 8) & 0xff;
+								u32 blue1 = (tmp_col[0] >> 16) & 0xff;
 								u32 red2 = tmp_col[1] & 0xff;
-								u32 green2 = (tmp_col[1]>>8) & 0xff;
-								u32 blue2 = (tmp_col[1]>>16) & 0xff;
+								u32 green2 = (tmp_col[1] >> 8) & 0xff;
+								u32 blue2 = (tmp_col[1] >> 16) & 0xff;
 
 								//--DCN: Old...
 								/*
@@ -566,12 +563,12 @@ public:
 								//*/
 
 								//--New!
-								u16 tmp1 = u16(((INTx5(red1) + INTx3(red2)) >> 6)|
+								u32 tmp1 = (u16)((INTx5(red1) + INTx3(red2)) >> 6)|
 									(((INTx5(green1) + INTx3(green2)) >> 6) << 5)|
-									(((INTx5(blue1) + INTx3(blue2)) >> 6) << 10));
-								u16 tmp2 = u16(((INTx5(red2) + INTx5(red1)) >> 6)|
+									(((INTx5(blue1) + INTx3(blue2)) >> 6) << 10);
+								u32 tmp2 = (u16)((INTx5(red2) + INTx3(red1)) >> 6)|
 									(((INTx5(green2) + INTx3(green1)) >> 6) << 5)|
-									(((INTx5(blue2) + INTx3(blue1)) >> 6) << 10));
+									(((INTx5(blue2) + INTx3(blue1)) >> 6) << 10);
 
 								tmp_col[2]=RGB16TO32(tmp1,255);
 								tmp_col[3]=RGB16TO32(tmp2,255);
@@ -615,12 +612,10 @@ public:
 			}
 		case TEXMODE_A5I3:
 			{
-				for(int j=0;j<ms.numItems;j++) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					int x = ms.items[j].len - 1;
-					
-					do{
-
+					for(u32 x = 0; x < ms.items[j].len; x++)
+					{
 						u16 c = pal[*adr&0x07];
 						u8 alpha = (*adr>>3);
 						if(TEXFORMAT == TexFormat_15bpp)
@@ -628,14 +623,13 @@ public:
 						else
 							*dwdst++ = RGB15TO32(c,material_5bit_to_8bit[alpha]);
 						++adr;
-					}while(x >= 0);
+					}
 				}
 				break;
 			}
 		case TEXMODE_16BPP:
 			{
-				int msItemsLen = ms.numItems;
-				for(int j = 0; j < msItemsLen; ++j) {
+				for(int j = 0; j < ms.numItems; ++j) {
 					u16* map = (u16*)ms.items[j].ptr;
 					int len = ms.items[j].len>>1;
 					for(int x = 0; x < len; ++x)
