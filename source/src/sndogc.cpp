@@ -48,8 +48,8 @@ SNDOGCUnMuteAudio,
 SNDOGCSetVolume
 };
 
-static u16 *stereodata16[2] = {NULL, NULL};
-static u16 *tmpbuffer = NULL;
+static u8 *stereodata16[2] = {NULL, NULL};
+static u8 *tmpbuffer = NULL;
 static u8 whichab;
 static u32 soundpos;
 static u32 soundoffset;
@@ -110,9 +110,9 @@ int SNDOGCInit(int buffersize)
 	soundbufsize = buffersize;
 	soundpos = 0;
 
-	if ((stereodata16[0] = (u16 *)memalign(32, soundbufsize)) == NULL ||
-	    (stereodata16[1] = (u16 *)memalign(32, soundbufsize)) == NULL ||
-		(tmpbuffer       = (u16 *)malloc(soundbufsize)) == NULL)
+	if ((stereodata16[0] = (u8 *)memalign(8, soundbufsize)) == NULL ||
+	    (stereodata16[1] = (u8 *)memalign(8, soundbufsize)) == NULL ||
+		(tmpbuffer       = (u8 *)malloc(soundbufsize)) == NULL)
 		return -1;
 
 	memset(stereodata16[0], 0, soundbufsize);
