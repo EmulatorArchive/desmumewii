@@ -104,7 +104,12 @@ public:
 private:
 	class Adjustobuf
 	{
+		float rate, cursor;
+		int minLatency, targetLatency, maxLatency;
+		std::queue<s16> buffer;
+		s16 curr[2];
 	public:
+		int size;
 		Adjustobuf(int _minLatency, int _maxLatency)
 			: size(0)
 			, minLatency(_minLatency)
@@ -117,12 +122,6 @@ private:
 			curr[0] = curr[1] = 0;
 			kAverageSize = 80000;
 		}
-
-		float rate, cursor;
-		int minLatency, targetLatency, maxLatency;
-		std::queue<s16> buffer;
-		int size;
-		s16 curr[2];
 
 		std::queue<int> statsHistory;
 

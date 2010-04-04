@@ -1817,9 +1817,9 @@ void MMU_struct_new::write_dma(const int proc, const int size, const u32 _adr, c
 	const u32 chan = adr/12;
 	const u32 regnum = (adr - chan*12)>>2;
 
-	if(proc==1) {
+	/*if(proc==1) {
 		int zzz=9;
-	}
+	}*/
 
 	MMU_new.dma[proc][chan].regs[regnum]->write(size,adr,val);
 }
@@ -1837,10 +1837,10 @@ u32 MMU_struct_new::read_dma(const int proc, const int size, const u32 _adr)
 
 
 
-	if(temp == 0xAF00 && size == 16)
+	/*if(temp == 0xAF00 && size == 16)
 	{
 		int zzz=9;
-	}
+	}*/
  
 	return temp;
 }
@@ -1899,9 +1899,9 @@ void DmaController::write32(const u32 val)
 	}
 	//printf("dma %d,%d WRITE %08X\n",procnum,chan,val);
 	wordcount = val&0x1FFFFF;
-	if(wordcount==0x9FbFC || wordcount == 0x1FFFFC || wordcount == 0x1EFFFC || wordcount == 0x1FFFFF) {
+	/*if(wordcount==0x9FbFC || wordcount == 0x1FFFFC || wordcount == 0x1EFFFC || wordcount == 0x1FFFFF) {
 		int zzz=9;
-	}
+	}*/
 	u8 wasRepeatMode = repeatMode;
 	u8 wasEnable = enable;
 	u32 valhi = val>>16;
@@ -1914,10 +1914,10 @@ void DmaController::write32(const u32 val)
 	irq = BIT14(valhi);
 	enable = BIT15(valhi);
 
-	if(val==0x84400076 && saddr ==0x023BCEC4)
+	/*if(val==0x84400076 && saddr ==0x023BCEC4)
 	{
 		int zzz=9;
-	}
+	}*/
 
 	//if(irq) printf("!!!!!!!!!!!!IRQ!!!!!!!!!!!!!\n");
 
@@ -1926,13 +1926,13 @@ void DmaController::write32(const u32 val)
 		triggered = FALSE;
 
 	//printf("dma %d,%d set to startmode %d with wordcount set to: %08X\n",procnum,chan,_startmode,wordcount);
-	if(_startmode==0 && wordcount==1) {
+	/*if(_startmode==0 && wordcount==1) {
 		int zzz=9;
 	}
 	if(enable)
 	{
 		int zzz=9;
-	}
+	}*/
 
 	//analyze enabling and startmode.
 	//note that we only do this if the dma was freshly enabled.
@@ -2018,12 +2018,12 @@ start:
 		if(triggered)
 		{
 			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
-			if(saddr ==0x023BCCEC && wordcount==118) {
+			/*if(saddr ==0x023BCCEC && wordcount==118) {
 				int zzz=9;
 			}
 			if(startmode==0 && daddr == 0x4000400) {
 				int zzz=9;
-			}
+			}*/
 			running = TRUE;
 			paused = FALSE;
 			doCopy();
@@ -2046,7 +2046,7 @@ void DmaController::doCopy()
 	//determine how we're going to copy
 	bool bogarted = false;
 	u32 sz = (bitWidth==EDMABitWidth_16)?2:4;
-	u32 dstinc,srcinc;
+	u32 dstinc = 0,srcinc;
 	switch(dar) {
 		case EDMADestinationUpdate_Increment       :  dstinc =  sz; break;
 		case EDMADestinationUpdate_Decrement       :  dstinc = (u32)-(s32)sz; break;
@@ -2175,9 +2175,9 @@ u32 DmaController::read32()
 	ret |= dar<<21;
 	ret |= wordcount;
 	//printf("dma %d,%d READ  %08X\n",procnum,chan,ret);
-	if(ret == 0xAF000001) {
+	/*if(ret == 0xAF000001) {
 		int zzz=9;
-	}
+	}*/
 	return ret;
 }
 
@@ -2444,9 +2444,9 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 	if((adr >> 24) == 4)
 	{
 		if(MMU_new.is_dma(adr)) { 
-			if(val==0x02e9) {
+			/*if(val==0x02e9) {
 				int zzz=9;
-			}
+			}*/
 			MMU_new.write_dma(ARMCPU_ARM9,16,adr,val); 
 			return;
 		}
@@ -2893,10 +2893,10 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 		return;
 	}
 
-	if(adr>=0x05000000 && adr<0x06000000)
+	/*if(adr>=0x05000000 && adr<0x06000000)
 	{
 		int zzz=9;
-	}
+	}*/
 
 
 	bool unmapped;
@@ -2924,10 +2924,10 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 		return;
 	}
 
-	if((adr&0x0F000000)==0x05000000)
+	/*if((adr&0x0F000000)==0x05000000)
 	{
 		int zzz=9;
-	}
+	}*/
 
 	adr &= 0x0FFFFFFF;
 
@@ -3287,10 +3287,10 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
 		return;
 	}
-	if(adr>=0x05000000 && adr<0x06200000)
+	/*if(adr>=0x05000000 && adr<0x06200000)
 	{
 		int zzz=9;
-	}
+	}*/
 
 	bool unmapped;
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped);

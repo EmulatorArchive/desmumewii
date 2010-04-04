@@ -156,8 +156,7 @@ public:
 decode:
 			//printf("[%05d] gxf: decoding %08X\n",currFrameCounter,val);
 			
-			bool valid = true;
-			bool gimpyCommand = false;
+// 			bool gimpyCommand = false;
 			const u8 commands[] = { val&0xFF, (val>>8)&0xFF, (val>>16)&0xFF, (val>>24)&0xFF };
 			const u8 commandTypes[] = { gfx3d_commandTypes[commands[0]], gfx3d_commandTypes[commands[1]],gfx3d_commandTypes[commands[2]], gfx3d_commandTypes[commands[3]] };
 
@@ -390,7 +389,7 @@ static int shininessInd = 0;
 //these dont need to go into the savestate. they can be regenerated from HW registers
 //from polygonattr:
 static unsigned int cullingMask=0;
-static u8 colorAlpha=0;
+// static u8 colorAlpha=0;
 static u32 envMode=0;
 static u32 lightMask=0;
 //other things:
@@ -478,7 +477,7 @@ void gfx3d_init()
 {
 	gxf_hardware.reset();
 	//gxf_hardware.test();
-	int zzz=9;
+// 	int zzz=9;
 
 	//DWORD start = timeGetTime();
 	//for(int i=0;i<1000000000;i++)
