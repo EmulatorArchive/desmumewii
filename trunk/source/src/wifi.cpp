@@ -30,18 +30,18 @@
 #include "debug.h"
 #include "bits.h"
 
-
-//--DCN: Arr matey, this be taken from "ws2def.h" of me
-// Visual studio installation. Yar.
-typedef struct sockaddr {
-
-    unsigned short sa_family;           // Address family.
-    char sa_data[14];                   // Up to 14 bytes of direct address.
-} SOCKADDR, *PSOCKADDR, *LPSOCKADDR;
-
-//--DCN: End of me copyin'. Time fer some pillagin'!
-
-#ifdef WIN32
+#ifdef GEKKO
+#	include <network.h>
+#	define socket_t    int 
+#	define sockaddr_t  struct sockaddr
+#	define socket      net_socket
+#	define bind        net_bind
+#	define recvfrom	   net_recvfrom
+#	define select      net_select
+#	define sendto      net_sendto
+#	define closesocket net_close
+#	define setsockopt  net_setsockopt
+#elif WIN32
 	#include <winsock2.h> 	 
 	#include <ws2tcpip.h>
 	#define socket_t    SOCKET 	 
@@ -51,14 +51,12 @@ typedef struct sockaddr {
 	#include <unistd.h> 	 
 	#include <stdlib.h> 	 
 	#include <string.h> 	
-//--DCN: Avast! These next two files be not found. 
 	#include <arpa/inet.h> 	 
 	#include <sys/socket.h> 	 
 	#define socket_t    int 
-//--DCN: Arr, this be fer Windows only. Yar...	 
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
-#endif
+#endif	// GEKKO
 
 #ifndef INVALID_SOCKET 	 
 	#define INVALID_SOCKET  (socket_t)-1 	 
@@ -1741,7 +1739,7 @@ typedef struct _Adhoc_FrameHeader
 
 bool Adhoc_Init()
 {
-#if 0
+#if 1
 	int res;
 
 	wifiMac.Adhoc.usecCounter = 0;
@@ -1790,7 +1788,7 @@ bool Adhoc_Init()
 
 void Adhoc_DeInit()
 {
-#if 0
+#if 1
 	if (wifi_socket >= 0)
 		closesocket(wifi_socket);
 #endif
@@ -1798,14 +1796,14 @@ void Adhoc_DeInit()
 
 void Adhoc_Reset()
 {
-#if 0
+#if 1
 	wifiMac.Adhoc.usecCounter = 0;
 #endif
 }
 
 void Adhoc_SendPacket(u8* packet, u32 len)
 {
-#if 0
+#if 1
 	WIFI_LOG(2, "Ad-hoc: sending a packet of %i bytes, frame control: %04X\n", len, *(u16*)&packet[0]);
 
 	u32 frameLen = sizeof(Adhoc_FrameHeader) + len;
@@ -1832,7 +1830,7 @@ void Adhoc_SendPacket(u8* packet, u32 len)
 
 void Adhoc_usTrigger()
 {
-#if 0
+#if 1
 	wifiMac.Adhoc.usecCounter++;
 
 	// Check every millisecond if we received a packet
