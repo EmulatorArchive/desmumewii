@@ -141,27 +141,27 @@ int main(int argc, char **argv)
 
 	VIDEO_WaitVSync();
 	
-    bool device = PickDevice();
+	bool device = PickDevice();
   
 	VIDEO_WaitVSync();
 
-    if(!device){
-	fatUnmount("sd:/");
-    __io_wiisd.shutdown();
-    fatMountSimple("sd", &__io_wiisd);
-	sprintf(rom_filename, "sd:/DSROM");
+	if(!device){
+		fatUnmount("sd:/");
+		__io_wiisd.shutdown();
+		fatMountSimple("sd", &__io_wiisd);
+		sprintf(rom_filename, "sd:/DSROM");
 	}
-	else{
-	fatUnmount("usb:/");
-	for(int i = 0; i < 11; i++){
-	bool isMounted = fatMountSimple("usb", &__io_usbstorage);
-    if (isMounted) break;
-    sleep(1);
-	}
-	sprintf(rom_filename, "usb:/DSROM");
+	else {
+		fatUnmount("usb:/");
+		for(int i = 0; i < 11; i++) {
+			bool isMounted = fatMountSimple("usb", &__io_usbstorage);
+			if (isMounted) break;
+			sleep(1);
+		}
+		sprintf(rom_filename, "usb:/DSROM");
 	}
 
-	if(FileBrowser(rom_filename, device) != 0)
+	if(FileBrowser(rom_filename) != 0)
 		sdl_quit = 1;
 	
 	cflash_disk_image_file = NULL;
