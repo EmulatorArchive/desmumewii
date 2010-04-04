@@ -726,6 +726,28 @@ static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u
 	gpu->bgPixels[x] = 4;	
 }
 
+GPU::FinalBGColor_ptr GPU::FinalBGColor_lut [8] = {
+	&GPU::_master_setFinalBGColor<None,false>,
+	&GPU::_master_setFinalBGColor<Blend,false>,
+	&GPU::_master_setFinalBGColor<Increase,false>,
+	&GPU::_master_setFinalBGColor<Decrease,false>,
+	&GPU::_master_setFinalBGColor<None,true>,
+	&GPU::_master_setFinalBGColor<Blend,true>,
+	&GPU::_master_setFinalBGColor<Increase,true>,
+	&GPU::_master_setFinalBGColor<Decrease,true>
+};
+
+GPU::Final3dColor_ptr GPU::Final3dColor_lut [8] = {
+	&GPU::_master_setFinal3dColor<None,false>,
+	&GPU::_master_setFinal3dColor<Blend,false>,
+	&GPU::_master_setFinal3dColor<Increase,false>,
+	&GPU::_master_setFinal3dColor<Decrease,false>,
+	&GPU::_master_setFinal3dColor<None,true>,
+	&GPU::_master_setFinal3dColor<Blend,true>,
+	&GPU::_master_setFinal3dColor<Increase,true>,
+	&GPU::_master_setFinal3dColor<Decrease,true>
+};
+
 void (* OBJColor_lut[8])(GPU *, u8 *, u16, u8, u8, u16) = {
 	_master_setFinalOBJColor<None,false>,
 	_master_setFinalOBJColor<Blend,false>,
@@ -750,21 +772,9 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 	bool draw = false;
 
 	const int test = BACKDROP?FUNCNUM:setFinalColorBck_funcNum;
-#if 0
-	BGColor_lut[test](color, x, BACKDROP);
-#else
-	switch(test)
-	{
-		case 0: draw = _master_setFinalBGColor<None,false>(color, x, BACKDROP); break;
-		case 1: draw = _master_setFinalBGColor<Blend,false>(color,x, BACKDROP); break;
-		case 2: draw = _master_setFinalBGColor<Increase,false>(color,x, BACKDROP); break;
-		case 3: draw = _master_setFinalBGColor<Decrease,false>(color,x, BACKDROP); break;
-		case 4: draw = _master_setFinalBGColor<None,true>(color,x, BACKDROP); break;
-		case 5: draw = _master_setFinalBGColor<Blend,true>(color,x, BACKDROP); break;
-		case 6: draw = _master_setFinalBGColor<Increase,true>(color,x, BACKDROP); break;
-		case 7: draw = _master_setFinalBGColor<Decrease,true>(color,x, BACKDROP); break;
-	};
-#endif
+
+	draw = (this->*GPU::FinalBGColor_lut[test])(color, x, BACKDROP);
+
 	if(BACKDROP || draw) //backdrop must always be drawn
 	{
 		T2WriteWord(currDst, x<<1, color | 0x8000);
@@ -775,21 +785,7 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 {
-#if 0
-	FinalColor3d_lut[setFinalColor3d_funcNum](dstX,srcX);
-#else
-	switch(setFinalColor3d_funcNum)
-	{
-		case 0x0: _master_setFinal3dColor<None,false>(dstX,srcX); break;
-		case 0x1: _master_setFinal3dColor<Blend,false>(dstX,srcX); break;
-		case 0x2: _master_setFinal3dColor<Increase,false>(dstX,srcX); break;
-		case 0x3: _master_setFinal3dColor<Decrease,false>(dstX,srcX); break;
-		case 0x4: _master_setFinal3dColor<None,true>(dstX,srcX); break;
-		case 0x5: _master_setFinal3dColor<Blend,true>(dstX,srcX); break;
-		case 0x6: _master_setFinal3dColor<Increase,true>(dstX,srcX); break;
-		case 0x7: _master_setFinal3dColor<Decrease,true>(dstX,srcX); break;
-	};
-#endif
+	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(dstX,srcX);
 }
 
 FORCEINLINE void setFinalColorSpr(GPU* gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)

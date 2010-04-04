@@ -849,6 +849,11 @@ struct GPU
 		blendTable = (TBlendTable*)&gpuBlendTable555[BLDALPHA_EVA][BLDALPHA_EVB][0][0];
 	}
 	
+	typedef bool ( GPU::*FinalBGColor_ptr)(u16 &, u32, bool);
+	static FinalBGColor_ptr FinalBGColor_lut [8];
+	
+	typedef void ( GPU::*Final3dColor_ptr)(int, int);
+	static Final3dColor_ptr Final3dColor_lut [8];
 };
 #if 0
 // normally should have same addresses
