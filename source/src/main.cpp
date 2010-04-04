@@ -19,6 +19,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <sdcard/wiisd_io.h>
+#include <ogc/disc_io.h>
 #include <fat.h>
 #include <wiiuse/wpad.h>
 #include <sys/dir.h>
@@ -140,15 +142,24 @@ int main(int argc, char **argv)
 	VIDEO_WaitVSync();
 	
     bool device = PickDevice();
-
-	fatInitDefault();
   
 	VIDEO_WaitVSync();
 
-    if(!device)
+    if(!device){
+	fatUnmount("sd:/");
+    __io_wiisd.shutdown();
+    fatMountSimple("sd", &__io_wiisd);
 	sprintf(rom_filename, "sd:/DSROM");
-	else
+	}
+	else{
+	fatUnmount("usb:/");
+	for(int i = 0; i < 11; i++){
+	bool isMounted = fatMountSimple("usb", &__io_usbstorage);
+    if (isMounted) break;
+    sleep(1);
+	}
 	sprintf(rom_filename, "usb:/DSROM");
+	}
 
 	if(FileBrowser(rom_filename) != 0)
 		sdl_quit = 1;
@@ -581,6 +592,7 @@ bool PickDevice(){
 		 
 		 printf("\x1b[2J");
 		 printf("\x1b[2;0H");
+		 printf("Welcome to DeSmuME Wii!\n\n");
 		 printf("Select Device: ");
 		 if(!device)
 		 printf("SD");
