@@ -481,14 +481,11 @@ typedef union
 } COLOR;
 
 struct _COLOR32 { // ARGB
-	unsigned :3;
-	unsigned blue:5;
-	unsigned :3;
-	unsigned green:5;
-	unsigned :3;
-	unsigned red:5;
-	unsigned :7;
-	unsigned alpha:1;	// sometimes it is unused (pad)
+#ifdef WORDS_BIGENDIAN
+	u8 a, b, g, r;
+#else
+	u8 r, g, b, a;
+#endif
 };
 
 typedef union
@@ -776,8 +773,8 @@ struct GPU
 
 	u16 blend(u16 colA, u16 colB);
 
-	template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
-	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x);
+	template<BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x, bool);
 
 	template<BlendFunc FUNC, bool WINDOW>
 	FORCEINLINE FASTCALL void _master_setFinal3dColor(int dstX, int srcX);

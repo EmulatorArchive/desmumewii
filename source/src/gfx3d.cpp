@@ -1132,6 +1132,8 @@ static void gfx3d_glNormal(u32 v)
 
 		int vertexColor[3] = { emission[0], emission[1], emission[2] };
 
+		int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
+
 		for(i=0; i<4; i++)
 		{
 			if(!((lightMask>>i)&1)) continue;
@@ -1150,7 +1152,7 @@ static void gfx3d_glNormal(u32 v)
 			if(dsSpecular & 0x8000)
 			{
 				int shininessIndex = (int)(shininessLevel * 128);
-				if(shininessIndex >= (int)ARRAY_SIZE(shininessTable)) {
+				if(shininessIndex >= shininessTable_size) {
 					//we can't print this right now, because when a game triggers this it triggers it _A_LOT_
 					//so wait until we have per-frame diagnostics.
 					//this was tested using Princess Debut (US) after proceeding through the intro and getting the tiara.

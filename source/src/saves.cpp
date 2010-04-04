@@ -968,7 +968,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 	u32 len = os->ftell();
 
 	u32 comprlen = 0xFFFFFFFF;
-	u8* cbuf;
+	u8* cbuf = 0;
 
 	//compress the data
 	int error = Z_OK;
@@ -1006,7 +1006,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 bool savestate_save (const char *file_name)
 {
 	EMUFILE_MEMORY ms;
-	size_t elems_written;
+	int elems_written;
 #ifdef HAVE_LIBZ
 	if(!savestate_save(&ms, Z_DEFAULT_COMPRESSION))
 #else
@@ -1016,7 +1016,7 @@ bool savestate_save (const char *file_name)
 	FILE* file = fopen(file_name,"wb");
 	if(file)
 	{
-		elems_written = fwrite(ms.buf(),1,ms.size(),file);
+		elems_written = (int)fwrite(ms.buf(), 1, ms.size(), file);
 		fclose(file);
 		return (elems_written == ms.size());
 	} else return false;
