@@ -588,10 +588,19 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	int passing = dstX<<1;
 	u8* color = &_3dColorLine[srcX<<2];
 	u8* dst = currDst;
+
+#ifdef WORDS_BIGENDIAN
+	u32 red = color[3];
+	u32 green = color[2];
+	u32 blue = color[1];
+	u32 alpha = color[0];
+#else
 	u32 red = color[0];
 	u32 green = color[1];
 	u32 blue = color[2];
 	u32 alpha = color[3];
+#endif
+
 	u16 final;
 
 	bool windowEffect = true;
@@ -1018,12 +1027,14 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 	yoff = ((YBG&7)<<3);
 
 	xfin = 8 - (xoff&7);
+	u32 extPalMask = -dispCnt->ExBGxPalette_Enable;
 	for(x = 0; x < LG; xfin = std::min<u16>(x+8, LG))
 	{
 		tmp = (xoff & (lg-1))>>3;
 		mapinfo = map + ((tmp & 31) << 1);
 		if(tmp > 31) mapinfo += 32*32*2;
 		tileentry.val = T1ReadWord(MMU_gpu_map(mapinfo), 0);
+		u8 *tilePal = pal + ((tileentry.bits.Palette<<9) & extPalMask);
 
 		line = (u8*)MMU_gpu_map(tile + (tileentry.bits.TileNum*0x40) + ((tileentry.bits.VFlip) ? (7*8)-yoff : yoff));
 
@@ -1037,10 +1048,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 		}
 		for(; x < xfin; )
 		{
-			if(dispCnt->ExBGxPalette_Enable)
-				color = T1ReadWord(pal, ((*line) + (tileentry.bits.Palette<<8)) << 1);
-			else
-				color = T1ReadWord(pal, (*line) << 1);
+			color = T1ReadWord(tilePal, (*line) << 1);
 
 			gpu->__setFinalColorBck<MOSAIC,false>(color,x,*line);
 			
