@@ -161,7 +161,7 @@ int main(int argc, char **argv)
 	sprintf(rom_filename, "usb:/DSROM");
 	}
 
-	if(FileBrowser(rom_filename) != 0)
+	if(FileBrowser(rom_filename, device) != 0)
 		sdl_quit = 1;
 	
 	cflash_disk_image_file = NULL;
