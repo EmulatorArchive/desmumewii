@@ -106,6 +106,19 @@ extern "C"
 
 void Execute();
 
+
+//needed for some games
+void create_dummy_firmware()
+{
+		
+	// Create the dummy firmware
+	NDS_fw_config_data dummy;
+	
+	NDS_FillDefaultFirmwareConfigData(&dummy);
+
+	NDS_CreateDummyFirmware( &dummy);
+}
+
 int main(int argc, char **argv)
 {
 //	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
@@ -146,6 +159,7 @@ int main(int argc, char **argv)
 
 	// Initialize the DS!
 	NDS_Init();
+	create_dummy_firmware(); // Must do for some games!
 	NDS_3D_ChangeCore(1);
 	printf("Initialization successful!\n");
 
