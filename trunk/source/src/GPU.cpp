@@ -58,7 +58,7 @@ CACHE_ALIGN u8 GPU_screen[4*256*192];
 CACHE_ALIGN u8 sprWin[256];
 
 
-u16			gpu_angle = 0;
+u16 gpu_angle = 0;
 
 const size sprSizeTab[4][4] = 
 {
@@ -87,9 +87,9 @@ const BGType GPU_mode2type[8][4] =
 const short sizeTab[8][4][2] =
 {
 	{{0, 0}, {0, 0}, {0, 0}, {0, 0}}, //Invalid
-    {{256,256}, {512,256}, {256,512}, {512,512}}, //text
-    {{128,128}, {256,256}, {512,512}, {1024,1024}}, //affine
-    {{512,1024}, {1024,512}, {0,0}, {0,0}}, //large 8bpp
+	{{256,256}, {512,256}, {256,512}, {512,512}}, //text
+	{{128,128}, {256,256}, {512,512}, {1024,1024}}, //affine
+	{{512,1024}, {1024,512}, {0,0}, {0,0}}, //large 8bpp
 	{{0, 0}, {0, 0}, {0, 0}, {0, 0}}, //affine ext (to be elaborated with another value)
 	{{128,128}, {256,256}, {512,512}, {1024,1024}}, //affine ext 256x16
 	{{128,128}, {256,256}, {512,256}, {512,512}}, //affine ext 256x1
@@ -584,22 +584,12 @@ FORCEINLINE void GPU::renderline_checkWindows(u16 x, bool &draw, bool &effect) c
 template<BlendFunc FUNC, bool WINDOW>
 FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 {
-	int x = dstX;
 	int passing = dstX<<1;
-	u8* color = &_3dColorLine[srcX<<2];
 	u8* dst = currDst;
 
-#ifdef WORDS_BIGENDIAN
-	u32 red = color[3];
-	u32 green = color[2];
-	u32 blue = color[1];
-	u32 alpha = color[0];
-#else
-	u32 red = color[0];
-	u32 green = color[1];
-	u32 blue = color[2];
-	u32 alpha = color[3];
-#endif
+	COLOR32 color;
+
+	color.val = (*(u32 *)&_3dColorLine[srcX<<2]);
 
 	u16 final;
 
@@ -617,25 +607,25 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	int bg_under = bgPixels[dstX];
 	if(blend2[bg_under])
 	{
-		++alpha;
-		if(alpha<32)
+		++color.bits.a;
+		if(color.bits.a < 32)
 		{
 			//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
 			COLOR c2, cfinal;
 
 			c2.val = T2ReadWord(dst, passing);
 
-			cfinal.bits.red = ((red * alpha) + ((c2.bits.red<<1) * (32 - alpha)))>>6;
-			cfinal.bits.green = ((green * alpha) + ((c2.bits.green<<1) * (32 - alpha)))>>6;
-			cfinal.bits.blue = ((blue * alpha) + ((c2.bits.blue<<1) * (32 - alpha)))>>6;
+			cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * (32 - color.bits.a))) >> 6;
+			cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * (32 - color.bits.a))) >> 6;
+			cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * (32 - color.bits.a))) >> 6;
 
 			final = cfinal.val;
 		}
-		else final = R6G6B6TORGB15(red,green,blue);
+		else final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 	}
 	else 
 	{
-		final = R6G6B6TORGB15(red,green,blue);
+		final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 		//perform the special effect
 		if(windowEffect)
 			switch(FUNC) {
@@ -648,12 +638,12 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	}
 
 	T2WriteWord(dst, passing, (final | 0x8000));
-	bgPixels[x] = 0;
+	bgPixels[dstX] = 0;
 }
 
 
-template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
-FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x)
+template<BlendFunc FUNC, bool WINDOW>
+FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x, bool BACKDROP)
 {
 	//no further analysis for no special effects. on backdrops. just draw it.
 	//Blend backdrop with what? This doesn't make sense
@@ -736,6 +726,17 @@ static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u
 	gpu->bgPixels[x] = 4;	
 }
 
+void (* OBJColor_lut[8])(GPU *, u8 *, u16, u8, u8, u16) = {
+	_master_setFinalOBJColor<None,false>,
+	_master_setFinalOBJColor<Blend,false>,
+	_master_setFinalOBJColor<Increase,false>,
+	_master_setFinalOBJColor<Decrease,false>,
+	_master_setFinalOBJColor<None,true>,
+	_master_setFinalOBJColor<Blend,true>,
+	_master_setFinalOBJColor<Increase,true>,
+	_master_setFinalOBJColor<Decrease,true>
+};
+
 //FUNCNUM is only set for backdrop, for an optimization of looking it up early
 template<bool BACKDROP, int FUNCNUM> 
 FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
@@ -749,18 +750,21 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 	bool draw = false;
 
 	const int test = BACKDROP?FUNCNUM:setFinalColorBck_funcNum;
+#if 0
+	BGColor_lut[test](color, x, BACKDROP);
+#else
 	switch(test)
 	{
-		case 0: draw = _master_setFinalBGColor<BACKDROP,None,false>(color,x); break;
-		case 1: draw = _master_setFinalBGColor<BACKDROP,Blend,false>(color,x); break;
-		case 2: draw = _master_setFinalBGColor<BACKDROP,Increase,false>(color,x); break;
-		case 3: draw = _master_setFinalBGColor<BACKDROP,Decrease,false>(color,x); break;
-		case 4: draw = _master_setFinalBGColor<BACKDROP,None,true>(color,x); break;
-		case 5: draw = _master_setFinalBGColor<BACKDROP,Blend,true>(color,x); break;
-		case 6: draw = _master_setFinalBGColor<BACKDROP,Increase,true>(color,x); break;
-		case 7: draw = _master_setFinalBGColor<BACKDROP,Decrease,true>(color,x); break;
+		case 0: draw = _master_setFinalBGColor<None,false>(color, x, BACKDROP); break;
+		case 1: draw = _master_setFinalBGColor<Blend,false>(color,x, BACKDROP); break;
+		case 2: draw = _master_setFinalBGColor<Increase,false>(color,x, BACKDROP); break;
+		case 3: draw = _master_setFinalBGColor<Decrease,false>(color,x, BACKDROP); break;
+		case 4: draw = _master_setFinalBGColor<None,true>(color,x, BACKDROP); break;
+		case 5: draw = _master_setFinalBGColor<Blend,true>(color,x, BACKDROP); break;
+		case 6: draw = _master_setFinalBGColor<Increase,true>(color,x, BACKDROP); break;
+		case 7: draw = _master_setFinalBGColor<Decrease,true>(color,x, BACKDROP); break;
 	};
-
+#endif
 	if(BACKDROP || draw) //backdrop must always be drawn
 	{
 		T2WriteWord(currDst, x<<1, color | 0x8000);
@@ -771,32 +775,26 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 {
+#if 0
+	FinalColor3d_lut[setFinalColor3d_funcNum](dstX,srcX);
+#else
 	switch(setFinalColor3d_funcNum)
 	{
-	case 0x0: _master_setFinal3dColor<None,false>(dstX,srcX); break;
-	case 0x1: _master_setFinal3dColor<Blend,false>(dstX,srcX); break;
-	case 0x2: _master_setFinal3dColor<Increase,false>(dstX,srcX); break;
-	case 0x3: _master_setFinal3dColor<Decrease,false>(dstX,srcX); break;
-	case 0x4: _master_setFinal3dColor<None,true>(dstX,srcX); break;
-	case 0x5: _master_setFinal3dColor<Blend,true>(dstX,srcX); break;
-	case 0x6: _master_setFinal3dColor<Increase,true>(dstX,srcX); break;
-	case 0x7: _master_setFinal3dColor<Decrease,true>(dstX,srcX); break;
+		case 0x0: _master_setFinal3dColor<None,false>(dstX,srcX); break;
+		case 0x1: _master_setFinal3dColor<Blend,false>(dstX,srcX); break;
+		case 0x2: _master_setFinal3dColor<Increase,false>(dstX,srcX); break;
+		case 0x3: _master_setFinal3dColor<Decrease,false>(dstX,srcX); break;
+		case 0x4: _master_setFinal3dColor<None,true>(dstX,srcX); break;
+		case 0x5: _master_setFinal3dColor<Blend,true>(dstX,srcX); break;
+		case 0x6: _master_setFinal3dColor<Increase,true>(dstX,srcX); break;
+		case 0x7: _master_setFinal3dColor<Decrease,true>(dstX,srcX); break;
 	};
+#endif
 }
 
 FORCEINLINE void setFinalColorSpr(GPU* gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)
 {
-	switch(gpu->setFinalColorSpr_funcNum)
-	{
-	case 0x0: _master_setFinalOBJColor<None,false>(gpu, dst, color, alpha, type, x); break;
-	case 0x1: _master_setFinalOBJColor<Blend,false>(gpu, dst, color, alpha, type, x); break;
-	case 0x2: _master_setFinalOBJColor<Increase,false>(gpu, dst, color, alpha, type, x); break;
-	case 0x3: _master_setFinalOBJColor<Decrease,false>(gpu, dst, color, alpha, type, x); break;
-	case 0x4: _master_setFinalOBJColor<None,true>(gpu, dst, color, alpha, type, x); break;
-	case 0x5: _master_setFinalOBJColor<Blend,true>(gpu, dst, color, alpha, type, x); break;
-	case 0x6: _master_setFinalOBJColor<Increase,true>(gpu, dst, color, alpha, type, x); break;
-	case 0x7: _master_setFinalOBJColor<Decrease,true>(gpu, dst, color, alpha, type, x); break;
-	};
+	OBJColor_lut[gpu->setFinalColorSpr_funcNum](gpu, dst, color, alpha, type, x);
 }
 
 template<bool MOSAIC, bool BACKDROP>
@@ -825,8 +823,10 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 		return;
 	}
 
-	if(!opaque) color = 0xFFFF;
-	else color &= 0x7FFF;
+	if(!opaque)
+		color = 0xFFFF;
+	else 
+		color &= 0x7FFF;
 
 	//due to the early out, enabled must always be true
 	//x_int = enabled ? GPU::mosaicLookup.width[x].trunc : x;
