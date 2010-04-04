@@ -45,6 +45,8 @@ static u32 Held(u32 GC)
 }
 #endif	//HW_RVL
 
+#define TYPE_FILTER(x)	(strstr(x, ".nds") || strstr(x, ".NDS"))
+
 typedef enum {
 	BROWSER_FILE_NOT_FOUND	= -1,
 	BROWSER_FILE_SELECTED	= 0,
@@ -99,7 +101,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 	dir_ent* dir = (dir_ent*) malloc( num_entries * sizeof(dir_ent) );
 	// Read each entry of the directory
 	while( dirnext(dp, filename, &fstat) == 0 ){
-		if( strcmp(filename, ".") != 0 )
+		if((strcmp(filename, ".") != 0 && (fstat.st_mode & S_IFDIR)) || TYPE_FILTER(filename))
 		{
 			// Make sure we have room for this one
 			if(i == num_entries){
