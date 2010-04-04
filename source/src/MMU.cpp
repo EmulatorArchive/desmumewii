@@ -1018,13 +1018,13 @@ u32 rom_mask = 0;
 
 void MMU_Reset()
 {
-	memset(MMU.ARM9_DTCM, 0, sizeof(*MMU.ARM9_DTCM));
-	memset(MMU.ARM9_ITCM, 0, sizeof(*MMU.ARM9_ITCM));
-	memset(MMU.ARM9_LCD,  0, sizeof(*MMU.ARM9_LCD));
-	memset(MMU.ARM9_OAM,  0, sizeof(*MMU.ARM9_OAM));
-	memset(MMU.ARM9_REG,  0, sizeof(*MMU.ARM9_REG));
-	memset(MMU.ARM9_VMEM, 0, sizeof(*MMU.ARM9_VMEM));
-	memset(MMU.MAIN_MEM,  0, sizeof(*MMU.MAIN_MEM));
+	memset(MMU.ARM9_DTCM, 0, 0x4000);
+	memset(MMU.ARM9_ITCM, 0, 0x8000);
+	memset(MMU.ARM9_LCD,  0, sizeof(MMU.ARM9_LCD));
+	memset(MMU.ARM9_OAM,  0, sizeof(MMU.ARM9_OAM));
+	memset(MMU.ARM9_REG,  0, 0x40000);
+	memset(MMU.ARM9_VMEM, 0, 0x800);
+	memset(MMU.MAIN_MEM,  0, 0x400000);
 
 	memset(MMU.blank_memory,  0, sizeof(MMU.blank_memory));
 	

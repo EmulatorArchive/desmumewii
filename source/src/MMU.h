@@ -463,7 +463,7 @@ struct MMU_struct
 		//ARM9 mem
 		ARM9_ITCM = ARM9_DTCM = MAIN_MEM = ARM9_REG = ARM9_BIOS = ARM9_BIOS = ARM9_VMEM = 0;
 
-		ARM9_ITCM = (u8*)memalign(8,0x8000);
+		ARM9_ITCM = new u8[0x8000];
 		
 		if (!ARM9_ITCM)
 		{
@@ -471,7 +471,7 @@ struct MMU_struct
 			return -1;
 		}
     
-		ARM9_DTCM = (u8*)memalign(8,0x4000);
+		ARM9_DTCM = new u8[0x4000];
 
 		if (!ARM9_DTCM)
 		{
@@ -484,7 +484,7 @@ struct MMU_struct
 			-- nope sorry this is Wii you only get 4MB - Scanff
 			
 		*/
-		MAIN_MEM = (u8*)memalign(8,0x400000); 
+		MAIN_MEM = new u8[0x400000]; 
 
 		if (!MAIN_MEM)
 		{
@@ -492,7 +492,7 @@ struct MMU_struct
 			return -3;
 		}
 		// 400k
-		ARM9_REG = (u8*)memalign(8,0x40000);
+		ARM9_REG = new u8[0x40000];
 
 		if (!ARM9_REG)
 		{
@@ -500,7 +500,7 @@ struct MMU_struct
 			return -4;
 		}
 
-		ARM9_BIOS = (u8*)memalign(8,0x8000);
+		ARM9_BIOS = new u8[0x8000];
 
 		if (!ARM9_BIOS)
 		{
@@ -508,7 +508,7 @@ struct MMU_struct
 			return -5;
 		}
 
-		ARM9_VMEM = (u8*)memalign(8,0x800);
+		ARM9_VMEM = new u8[0x800];
 
 		if (!ARM9_VMEM)
 		{
@@ -526,38 +526,38 @@ struct MMU_struct
 		
 		if (ARM9_ITCM)
 		{
-			free(ARM9_ITCM);
+			delete [] ARM9_ITCM;
 			ARM9_ITCM = 0;
 		}
     
 		if (ARM9_DTCM)
 		{
-			free(ARM9_DTCM);
+			delete [] ARM9_DTCM;
 			ARM9_DTCM = 0;
 		}
 
 		
 		if (MAIN_MEM)
 		{
-			free(MAIN_MEM);
+			delete [] MAIN_MEM;
 			MAIN_MEM = 0;
 		}
 
 		if (ARM9_REG)
 		{
-			free(ARM9_REG);
+			delete [] ARM9_REG;
 			ARM9_REG = 0;
 		}
 
 		if (ARM9_BIOS)
 		{
-			free(ARM9_BIOS);
+			delete [] ARM9_BIOS;
 			ARM9_BIOS = 0;
 		}
 
 		if (ARM9_VMEM)
 		{
-			free(ARM9_VMEM);
+			delete [] ARM9_VMEM;
 			ARM9_VMEM = 0;
 		}
 	};
