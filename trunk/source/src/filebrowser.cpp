@@ -86,7 +86,7 @@ static void browse_back(char *str){
 	}
 }
 
-static ret_action textFileBrowser(file_browser_st *file_struct){
+static ret_action textFileBrowser(file_browser_st *file_struct, bool noslash){
 	// Set everything up to read
 	DIR_ITER* dp = diropen(file_struct->path);
 
@@ -160,8 +160,12 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 			if(index == 0 && strcmp(dir[index].name, "..") == 0) {
 				browse_back(file_struct->path);
 			}
-			else 
+			else {
+                if(!noslash) 
 				sprintf(file_struct->path, "%s/%s", file_struct->path, dir[index].name);
+				if(noslash)
+				sprintf(file_struct->path, "%s%s", file_struct->path, dir[index].name);
+				}
 
 			BOOL is_dir = (dir[index].attr & S_IFDIR);
 			free(dir);
@@ -207,7 +211,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 	}
 }
 
-int FileBrowser( char *dir ) {
+int FileBrowser( char *dir, bool device ) {
 	int ret = 0;
 
 	file_browser_st game_filename;
@@ -215,15 +219,35 @@ int FileBrowser( char *dir ) {
 
 	sprintf(game_filename.path, "%s", dir);
 
-	ret = textFileBrowser(&game_filename);
-
-	while(ret == BROWSER_CHANGE_FOLDER)
-	{
-		ret = textFileBrowser(&game_filename);
+	ret = textFileBrowser(&game_filename, false);
+	
+	while(ret == BROWSER_CHANGE_FOLDER) {
+		ret = textFileBrowser(&game_filename, false);
 	}
+	
 	if (ret == BROWSER_FILE_SELECTED) {
 		strcpy(dir, game_filename.path);
 	}
+	
+	/*Jump to the root of the device to select a rom if root:/DSROM/ is not found*/
+	if(ret != BROWSER_CHANGE_FOLDER && ret != BROWSER_FILE_SELECTED){
+	file_browser_st game_filename2;
+	strcpy(game_filename2.title, "Welcome to DeSmuME Wii!\n\nWARNING! If you paid for this software, you have been scammed!");
+	if(!device)
+	dir = "sd:/";
+	if(device)
+	dir = "usb:/";
+	sprintf(game_filename2.path, "%s", dir);
+	ret = textFileBrowser(&game_filename2, true);
+    while(ret == BROWSER_CHANGE_FOLDER) {
+		ret = textFileBrowser(&game_filename2, false);
+	}
+	
+	if (ret == BROWSER_FILE_SELECTED) {
+		strcpy(dir, game_filename2.path);
+	}
+	}
+
 	clear_console();
 	return ret;
 }
