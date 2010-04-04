@@ -99,7 +99,7 @@ enum {
 };
 
 const struct {
-	char *szExt;
+	const char *szExt;
 	int nExtId;
 } stExtentions[] = {
 	{"nds",EXT_NDS},

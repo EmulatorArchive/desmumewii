@@ -314,7 +314,7 @@ static bool cflash_build_fat( void) {
 	//sRomPath = pathToROM;
 	
 	//--DCN: Quick fix:
-	sRomPath = "SD:/";
+	strcpy(sRomPath, "SD:/desmumewii/save/");
 	
 	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));

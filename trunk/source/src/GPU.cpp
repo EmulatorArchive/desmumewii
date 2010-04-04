@@ -2150,10 +2150,10 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 					//useful for debugging individual layers
 					//if(gpu->core == 1 || i16 != 2) continue;
 
-					if(gpu->core == 0 || i16 == 2)
+					/*if(gpu->core == 0 || i16 == 2)
 					{
 						int zzz=9;
-					}
+					}*/
 
 #ifndef DISABLE_MOSAIC
 					if(gpu->curr_mosaic_enabled)

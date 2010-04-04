@@ -757,8 +757,8 @@ static void FCEUMOV_AddCommand(int cmd)
 }
 
 //little endian 4-byte cookies
-static const int kMOVI = 0x49564F4D;
-static const int kNOMO = 0x4F4D4F4E;
+static const u32 kMOVI = 0x49564F4D;
+static const u32 kNOMO = 0x4F4D4F4E;
 
 void mov_savestate(EMUFILE* fp)
 {
@@ -813,7 +813,7 @@ bool mov_loadstate(EMUFILE* fp, int size)
 //	}
 
 	MovieData tempMovieData = MovieData();
-	int curr = fp->ftell();
+// 	int curr = fp->ftell();
 	if(!LoadFM2(tempMovieData, fp, size, false)) {
 		
 	//	is->seekg((uint32)curr+size);
