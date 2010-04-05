@@ -37,10 +37,10 @@
 #define JOY_AXIS_(k)    (((k)+1) << 8)
 
 enum ds_keys {
-	KEY_NONE = 0
+	KEY_NONE = 0,
 	KEY_A,
 	KEY_B,
-	KEY_SELECT.
+	KEY_SELECT,
 	KEY_START,
 	KEY_RIGHT,
 	KEY_LEFT,

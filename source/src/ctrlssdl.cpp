@@ -437,15 +437,13 @@ process_ctrls_event( SDL_Event& event, u16 *keypad,
                       float nds_screen_size_ratio)*/
 void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 {
-	u16 key;
-
 	u32 wpad_h = WPAD_ButtonsHeld(0);
 	u32 pad_h = PAD_ButtonsHeld(0);
 
-	u32 pad_stickx = PAD_StickX(0);
-	u32 pad_sticky = PAD_StickY(0);
-	u32 pad_substickx = PAD_SubStickX(0);
-	u32 pad_substicky = PAD_SubStickY(0);
+	s32 pad_stickx = PAD_StickX(0);
+	s32 pad_sticky = PAD_StickY(0);
+	s32 pad_substickx = PAD_SubStickX(0);
+	s32 pad_substicky = PAD_SubStickY(0);
 
 	int i;
 	for(i = KEY_NONE; i < LAST_INPUT_BUTTON; i++) {
@@ -493,7 +491,7 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 		++mouse.y;
 	} 
 		
-	if ((wpad_h & WPAD_BUTTON_UP) || (pad_substicy > 20)){
+	if ((wpad_h & WPAD_BUTTON_UP) || (pad_substicky > 20)){
 		--mouse.y;
 	}
 
