@@ -454,7 +454,7 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	s32 pad_substicky = PAD_SubStickY(0);
 
 	int i;
-	for(i = FIRST_KEY; i < LAST_KEY; i++) {
+	for(i = FIRST_KEY; i <= LAST_KEY; i++) {
 		CHECK_KEY(i, wpad_h & default_wiimote_cfg[i], pad_h & default_gamecube_cfg[i]);
 	}
 
