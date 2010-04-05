@@ -435,6 +435,14 @@ u16 shift_pressed;
 /*void
 process_ctrls_event( SDL_Event& event, u16 *keypad,
                       float nds_screen_size_ratio)*/
+
+#define CHECK_KEY(key, exp1, exp2) { \
+	if(exp1 || exp2) \
+		ADD_KEY( *keypad, KEYMASK_(key)); \
+	else \
+		RM_KEY( *keypad, KEYMASK_(key)); \
+}
+
 void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 {
 	u32 wpad_h = WPAD_ButtonsHeld(0);
@@ -446,33 +454,15 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	s32 pad_substicky = PAD_SubStickY(0);
 
 	int i;
-	for(i = KEY_NONE; i < LAST_INPUT_BUTTON; i++) {
-		if ((wpad_h & default_wiimote_cfg[i]) || (pad_h & default_gamecube_cfg[i]))
-			ADD_KEY( *keypad, KEYMASK_(i));
-		else
-			RM_KEY( *keypad, KEYMASK_(i));
+	for(i = FIRST_KEY; i < LAST_KEY; i++) {
+		CHECK_KEY(i, wpad_h & default_wiimote_cfg[i], pad_h & default_gamecube_cfg[i]);
 	}
-	  
-	if((pad_stickx > 20) || (wpad_h & WPAD_CLASSIC_BUTTON_RIGHT))
-		ADD_KEY( *keypad, KEYMASK_(KEY_RIGHT));
-	else
-		RM_KEY( *keypad, KEYMASK_(KEY_RIGHT));
 
-	if((pad_stickx < -20) || (wpad_h & WPAD_CLASSIC_BUTTON_LEFT))
-		ADD_KEY( *keypad, KEYMASK_(KEY_LEFT));
-		else
-		RM_KEY( *keypad, KEYMASK_(KEY_LEFT));
+	CHECK_KEY(KEY_RIGHT, (pad_stickx > 20),  wpad_h & WPAD_CLASSIC_BUTTON_RIGHT);
+	CHECK_KEY(KEY_LEFT,  (pad_stickx < -20), wpad_h & WPAD_CLASSIC_BUTTON_LEFT);
+	CHECK_KEY(KEY_UP,    (pad_sticky > 20),  wpad_h & WPAD_CLASSIC_BUTTON_UP);
+	CHECK_KEY(KEY_DOWN,  (pad_sticky < -20), wpad_h & WPAD_CLASSIC_BUTTON_DOWN);
 
-	if((pad_sticky > 20) || (wpad_h & WPAD_CLASSIC_BUTTON_UP))
-		ADD_KEY( *keypad, KEYMASK_(KEY_UP));
-	else
-		RM_KEY( *keypad, KEYMASK_(KEY_UP));
-
-	if((pad_sticky < -20) || (wpad_h & WPAD_CLASSIC_BUTTON_DOWN))
-		ADD_KEY( *keypad, KEYMASK_(KEY_DOWN));
-	else
-		RM_KEY( *keypad, KEYMASK_(KEY_DOWN));
-	
 	if ((wpad_h & WPAD_BUTTON_A) || (pad_h & PAD_TRIGGER_Z))
 		mouse.down = TRUE;
 	  
