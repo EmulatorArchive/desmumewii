@@ -37,8 +37,8 @@
 #define JOY_AXIS_(k)    (((k)+1) << 8)
 
 enum ds_keys {
-	KEY_NONE = 0,
-	KEY_A,
+	KEY_A = 0,
+	FIRST_KEY = KEY_A,
 	KEY_B,
 	KEY_SELECT,
 	KEY_START,
@@ -50,10 +50,10 @@ enum ds_keys {
 	KEY_L,
 	KEY_X,
 	KEY_Y,
-	LAST_INPUT_BUTTON = KEY_Y,
+	LAST_KEY = KEY_Y,
 	KEY_DEBUG,
 	KEY_BOOST,
-	NB_KEYS = KEY_BOOST
+	NB_KEYS
 };
 
 #ifdef HW_RVL

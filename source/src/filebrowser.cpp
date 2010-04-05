@@ -110,7 +110,8 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 #ifdef HW_RVL
 		WPAD_ScanPads();
 #endif
-		if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) exit(0);
+		if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) 
+			return BROWSER_CANCELED;
 
 		if(GetHeld(UP, UP, UP))
 		{
