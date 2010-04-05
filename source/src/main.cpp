@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 	log_console_enable_video(false);
 	
 	Execute();
-	return 0;
+	exit(0);
 }
 
 void Execute() {
@@ -234,7 +234,7 @@ void Execute() {
 	VIDEO_WaitVSync();
 	VIDEO_SetBlack(true);
 
-	exit(0);
+	return;
 }
 
 
@@ -259,41 +259,21 @@ void init(){
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode(NULL);
 
-	int videowidth = VI_MAX_WIDTH_NTSC;
-	int videoheight = VI_MAX_HEIGHT_NTSC;
-
-	if ((rmode->viTVMode >> 2) == VI_PAL)
+	switch (rmode->viTVMode >> 2)
 	{
-		videowidth = VI_MAX_WIDTH_PAL;
-		videoheight = VI_MAX_HEIGHT_PAL;
+		case VI_PAL: // 576 lines (PAL 50hz)
+			rmode = &TVPal574IntDfScale;
+			rmode->xfbHeight = 480;
+			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
+			rmode->viHeight = 480;
+			break;
+
+		case VI_NTSC: // 480 lines (NTSC 60hz)
+			break;
+
+		default: // 480 lines (PAL 60Hz)
+			break;
 	}
-
-	rmode->viHeight = ceil((float)(videoheight * 0.95) / 8) * 8;
-
-	rmode->xfbHeight = rmode->viHeight;
-	rmode->efbHeight = max(rmode->xfbHeight, 528);
-#ifdef HW_RVL
-	if (CONF_GetAspectRatio() == CONF_ASPECT_16_9)
-	{
-		rmode->viWidth = videowidth * 0.95;
-	}
-	else
-#endif
-	{
-		rmode->viWidth = videowidth * 0.93;
-	}
-
-	rmode->viWidth = ceil((float)rmode->viWidth / 16) * 16;
-
-	rmode->viXOrigin = (videowidth - rmode->viWidth) / 2;
-	rmode->viYOrigin = (videoheight - rmode->viHeight) / 2;
-
-#ifdef HW_RVL
-	s8 hor_offset = 0;
-
-	if (CONF_GetDisplayOffsetH(&hor_offset) > 0)
-		rmode->viXOrigin += hor_offset;
-#endif
 
 	VIDEO_Configure(rmode);
 
@@ -302,17 +282,14 @@ void init(){
 
 	VIDEO_ClearFrameBuffer(rmode, xfb[0], COLOR_BLACK);
 	VIDEO_ClearFrameBuffer(rmode, xfb[1], COLOR_BLACK);
+	VIDEO_SetNextFramebuffer (xfb[0]);
 
-	VIDEO_SetNextFramebuffer(xfb[0]);
 	VIDEO_SetBlack(FALSE);
+
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
-
-	if (rmode->viTVMode & VI_NON_INTERLACE)
-		VIDEO_WaitVSync();
-	else
-	    while (VIDEO_GetNextField())
-	    	VIDEO_WaitVSync();
+	if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
+	else while (VIDEO_GetNextField()) VIDEO_WaitVSync();
 
 	memset(gp_fifo, 0, DEFAULT_FIFO_SIZE);
 	GX_Init(gp_fifo, DEFAULT_FIFO_SIZE);
@@ -529,15 +506,15 @@ void DSExec(){
 	
 	process_ctrls_event(&keypad, nds_screen_size_ratio);
 	
-    // Update mouse position and click
-    if(mouse.down) {
+	// Update mouse position and click
+	if(mouse.down) {
 		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
 	}
 	
-    if(!mouse.down){ 
-        NDS_releaseTouch();
-        mouse.click = FALSE;
-    }
+	if(mouse.click){ 
+		NDS_releaseTouch();
+		mouse.click = FALSE;
+	}
 
 	update_keypad(keypad);     /* Update keypad */
 
@@ -552,12 +529,9 @@ void DSExec(){
 		vertical = !vertical;
 	}
 
-
 	if((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) || ((PAD_ButtonsHeld(0) & PAD_TRIGGER_Z) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_R) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_L)))
 		sdl_quit = true;
-	
-	
-	
+
 	int nb = 0;
     
 	NDS_exec<TRUE>(nb);
@@ -566,9 +540,8 @@ void DSExec(){
 	
 	showfps = 0;
 
-    if(showfps)
+	if(showfps)
 		ShowFPS();
-
 }
 
 void Pause(){
