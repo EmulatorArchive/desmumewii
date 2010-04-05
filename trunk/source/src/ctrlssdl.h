@@ -36,22 +36,55 @@
 #define KEYMASK_(k)	(1 << (k))
 #define JOY_AXIS_(k)    (((k)+1) << 8)
 
-#define NB_KEYS		14
-#define KEY_NONE		0
-#define KEY_A			1
-#define KEY_B			2
-#define KEY_SELECT		3
-#define KEY_START		4
-#define KEY_RIGHT		5
-#define KEY_LEFT		6
-#define KEY_UP			7
-#define KEY_DOWN		8
-#define KEY_R			9
-#define KEY_L			10
-#define KEY_X			11
-#define KEY_Y			12
-#define KEY_DEBUG		13
-#define KEY_BOOST		14
+enum ds_keys {
+	KEY_NONE = 0
+	KEY_A,
+	KEY_B,
+	KEY_SELECT.
+	KEY_START,
+	KEY_RIGHT,
+	KEY_LEFT,
+	KEY_UP,
+	KEY_DOWN,
+	KEY_R,
+	KEY_L,
+	KEY_X,
+	KEY_Y,
+	LAST_INPUT_BUTTON = KEY_Y,
+	KEY_DEBUG,
+	KEY_BOOST,
+	NB_KEYS = KEY_BOOST
+};
+
+#ifdef HW_RVL
+
+#define GetInput( Wiimote, GC, Classic ) \
+	Input(WPAD_BUTTON_##Wiimote, PAD_BUTTON_##GC, WPAD_CLASSIC_BUTTON_##Classic)
+
+#define Input( Wiimote, GC, Classic ) \
+	((WPAD_ButtonsDown(0) & Wiimote) || (PAD_ButtonsDown(0) & GC) || (WPAD_ButtonsDown(0) & Classic))
+
+#define GetHeld( Wiimote, GC, Classic ) \
+	Held(WPAD_BUTTON_##Wiimote, PAD_BUTTON_##GC, WPAD_CLASSIC_BUTTON_##Classic)
+
+#define Held( Wiimote, GC, Classic ) \
+	((WPAD_ButtonsHeld(0) & Wiimote) || (PAD_ButtonsHeld(0) & GC) || (WPAD_ButtonsHeld(0) & Classic))
+
+#else	//!HW_RVL
+
+#define GetInput(Wiimote, GC, Classic) \
+		Input(PAD_BUTTON_##GC)
+
+#define Input(GC) \
+	(PAD_ButtonsDown(0) & GC)
+
+#define GetHeld(Wiimote, GC, Classic) \
+		Held(PAD_BUTTON_##GC)
+
+#define Held(GC) \
+	(PAD_ButtonsHeld(0) & GC)
+
+#endif	//HW_RVL
 
 /* Keypad key names */
 extern const char *key_names[NB_KEYS];

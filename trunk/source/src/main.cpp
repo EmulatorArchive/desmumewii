@@ -56,7 +56,7 @@ static float nds_screen_size_ratio = 1.0f;
 
 GXRModeObj *rmode = NULL;
 
-static int sdl_quit = 0;
+static bool sdl_quit = false;
 static u16 keypad;
 
 static unsigned int *xfb[2];
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 	}
 
 	if(FileBrowser(rom_filename) != 0)
-		sdl_quit = 1;
+		sdl_quit = true;
 	
 	cflash_disk_image_file = NULL;
 
@@ -554,7 +554,7 @@ void DSExec(){
 
 
 	if((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) || ((PAD_ButtonsHeld(0) & PAD_TRIGGER_Z) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_R) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_L)))
-        exit(0); // meh .. do this for now
+		sdl_quit = true;
 	
 	
 	
@@ -582,38 +582,27 @@ void Pause(){
 }
 
 bool PickDevice(){
-
-    bool device = false;
+	bool device = false;
 
 	while(true){
-	
-	     PAD_ScanPads();
-		 WPAD_ScanPads();
+		PAD_ScanPads();
+		WPAD_ScanPads();
 		 
-		 printf("\x1b[2J");
-		 printf("\x1b[2;0H");
-		 printf("Welcome to DeSmuME Wii!\n\n");
-		 printf("Select Device: ");
-		 if(!device)
-		 printf("SD");
-		 if(device)
-		 printf("USB");
-		 
-		 if(PAD_ButtonsDown(0)&PAD_BUTTON_LEFT || PAD_ButtonsDown(0)&PAD_BUTTON_RIGHT || WPAD_ButtonsDown(0)&WPAD_BUTTON_LEFT ||
-		    WPAD_ButtonsDown(0)&WPAD_BUTTON_RIGHT || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_LEFT || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_RIGHT){
-			if(device)
-			device = false;
-			else
-			device = true;
-			}
-		
-		 if(PAD_ButtonsDown(0)&PAD_BUTTON_A || WPAD_ButtonsDown(0)&WPAD_BUTTON_A || WPAD_ButtonsDown(0)&WPAD_CLASSIC_BUTTON_A)
-		    break;
+		printf("\x1b[2J");
+		printf("\x1b[2;0H");
+		printf("Welcome to DeSmuME Wii!\n\n");
+		printf("Select Device: ");
+		printf("%s", device ? "USB" : "SD");
+
+		if(GetInput(LEFT, LEFT, LEFT) || GetInput(RIGHT, RIGHT, RIGHT)) {
+			device = !device;
+		}
+
+		if(GetInput(A, A, A))
+			break;
 			
 		VIDEO_WaitVSync();
-			
 	}
-	
+
 	return device;
-	
 }

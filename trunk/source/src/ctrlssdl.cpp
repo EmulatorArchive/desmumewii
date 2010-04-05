@@ -80,20 +80,20 @@ const u16 default_joypad_cfg[NB_KEYS] =
 
 const u32 default_wiimote_cfg[NB_KEYS] =
 {
-    WPAD_CLASSIC_BUTTON_A,             // A
-    WPAD_CLASSIC_BUTTON_B,             // B
-    WPAD_CLASSIC_BUTTON_MINUS,         // select
-    WPAD_CLASSIC_BUTTON_PLUS,          // start
-    WPAD_CLASSIC_BUTTON_RIGHT,         // Right
-    WPAD_CLASSIC_BUTTON_LEFT,          // Left
-    WPAD_CLASSIC_BUTTON_UP,            // Up
-    WPAD_CLASSIC_BUTTON_DOWN,          // Down
-    WPAD_CLASSIC_BUTTON_FULL_R,        // R
-    WPAD_CLASSIC_BUTTON_FULL_L,        // L
-    WPAD_CLASSIC_BUTTON_X,             // X
-    WPAD_CLASSIC_BUTTON_Y,             // Y
-    WPAD_CLASSIC_BUTTON_ZL,            // DEBUG
-    WPAD_CLASSIC_BUTTON_ZR             // BOOST
+	WPAD_CLASSIC_BUTTON_A,             // A
+	WPAD_CLASSIC_BUTTON_B,             // B
+	WPAD_CLASSIC_BUTTON_MINUS,         // select
+	WPAD_CLASSIC_BUTTON_PLUS,          // start
+	WPAD_CLASSIC_BUTTON_RIGHT,         // Right
+	WPAD_CLASSIC_BUTTON_LEFT,          // Left
+	WPAD_CLASSIC_BUTTON_UP,            // Up
+	WPAD_CLASSIC_BUTTON_DOWN,          // Down
+	WPAD_CLASSIC_BUTTON_FULL_R,        // R
+	WPAD_CLASSIC_BUTTON_FULL_L,        // L
+	WPAD_CLASSIC_BUTTON_X,             // X
+	WPAD_CLASSIC_BUTTON_Y,             // Y
+	WPAD_CLASSIC_BUTTON_ZL,            // DEBUG
+	WPAD_CLASSIC_BUTTON_ZR             // BOOST
 };
 
 const u32 default_gamecube_cfg[NB_KEYS] =
@@ -437,62 +437,67 @@ process_ctrls_event( SDL_Event& event, u16 *keypad,
                       float nds_screen_size_ratio)*/
 void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 {
-  u16 key;
-  
-  	  int i;
-	  for(i=0;i<12;i++) {
-	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&default_wiimote_cfg[i]) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&default_wiimote_cfg[i])||
-	       (PAD_ButtonsDown(0)&default_gamecube_cfg[i]) || (PAD_ButtonsHeld(0)&default_gamecube_cfg[i]))
-	  		ADD_KEY( *keypad, KEYMASK_(i));
+	u16 key;
+
+	u32 wpad_h = WPAD_ButtonsHeld(0);
+	u32 pad_h = PAD_ButtonsHeld(0);
+
+	u32 pad_stickx = PAD_StickX(0);
+	u32 pad_sticky = PAD_StickY(0);
+	u32 pad_substickx = PAD_SubStickX(0);
+	u32 pad_substicky = PAD_SubStickY(0);
+
+	int i;
+	for(i = KEY_NONE; i < LAST_INPUT_BUTTON; i++) {
+		if ((wpad_h & default_wiimote_cfg[i]) || (pad_h & default_gamecube_cfg[i]))
+			ADD_KEY( *keypad, KEYMASK_(i));
 		else
 			RM_KEY( *keypad, KEYMASK_(i));
-	  }
+	}
 	  
-	  if((PAD_StickX(0) > 20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_RIGHT))
-	  		ADD_KEY( *keypad, KEYMASK_(4));
+	if((pad_stickx > 20) || (wpad_h & WPAD_CLASSIC_BUTTON_RIGHT))
+		ADD_KEY( *keypad, KEYMASK_(KEY_RIGHT));
+	else
+		RM_KEY( *keypad, KEYMASK_(KEY_RIGHT));
+
+	if((pad_stickx < -20) || (wpad_h & WPAD_CLASSIC_BUTTON_LEFT))
+		ADD_KEY( *keypad, KEYMASK_(KEY_LEFT));
 		else
-			RM_KEY( *keypad, KEYMASK_(4));
-			
-	  if((PAD_StickX(0) < -20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_LEFT))
-	  		ADD_KEY( *keypad, KEYMASK_(5));
-		else
-			RM_KEY( *keypad, KEYMASK_(5));
-			
-	  if((PAD_StickY(0) > 20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_UP))
-	  		ADD_KEY( *keypad, KEYMASK_(6));
-		else
-			RM_KEY( *keypad, KEYMASK_(6));
-			
-	  if((PAD_StickY(0) < -20) || (WPAD_ButtonsHeld(0)&WPAD_CLASSIC_BUTTON_DOWN))
-	  		ADD_KEY( *keypad, KEYMASK_(7));
-		else
-			RM_KEY( *keypad, KEYMASK_(7));
-			
+		RM_KEY( *keypad, KEYMASK_(KEY_LEFT));
+
+	if((pad_sticky > 20) || (wpad_h & WPAD_CLASSIC_BUTTON_UP))
+		ADD_KEY( *keypad, KEYMASK_(KEY_UP));
+	else
+		RM_KEY( *keypad, KEYMASK_(KEY_UP));
+
+	if((pad_sticky < -20) || (wpad_h & WPAD_CLASSIC_BUTTON_DOWN))
+		ADD_KEY( *keypad, KEYMASK_(KEY_DOWN));
+	else
+		RM_KEY( *keypad, KEYMASK_(KEY_DOWN));
 	
-	  if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) || (PAD_ButtonsDown(0)&PAD_TRIGGER_Z) || (WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A) || (PAD_ButtonsHeld(0)&PAD_TRIGGER_Z))
-	      mouse.down = TRUE;
+	if ((wpad_h & WPAD_BUTTON_A) || (pad_h & PAD_TRIGGER_Z))
+		mouse.down = TRUE;
 	  
-	  if (!(WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_A) && !(PAD_ButtonsDown(0)&PAD_TRIGGER_Z) && !(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A) && !(PAD_ButtonsHeld(0)&PAD_TRIGGER_Z))
-	      mouse.down = FALSE;
+	if (!(wpad_h & WPAD_BUTTON_A) && !(pad_h & PAD_TRIGGER_Z))
+		mouse.down = FALSE;
 
-      if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_LEFT) || (PAD_SubStickX(0) < -20)){
-			--mouse.x;
-		  } 
-			
-	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_RIGHT) || (PAD_SubStickX(0) > 20)){
-			++mouse.x;
-		  } 
-		  
-	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_DOWN) || (PAD_SubStickY(0) < -20)) {
-			++mouse.y;
-		  } 
+	if ((wpad_h & WPAD_BUTTON_LEFT) || (pad_substickx < -20)){
+		--mouse.x;
+	} 
+
+	if ((wpad_h & WPAD_BUTTON_RIGHT) || (pad_substickx > 20)){
+		++mouse.x;
+	} 
+
+	if ((wpad_h & WPAD_BUTTON_DOWN) || (pad_substicky < -20)) {
+		++mouse.y;
+	} 
 		
-	  if ((WPAD_ButtonsHeld(WPAD_CHAN_0)&WPAD_BUTTON_UP) || (PAD_SubStickY(0) > 20)){
-			--mouse.y;
-		  }
+	if ((wpad_h & WPAD_BUTTON_UP) || (pad_substicy > 20)){
+		--mouse.y;
+	}
 
-	  set_mouse_coord( mouse.x, mouse.y );
-
+	set_mouse_coord( mouse.x, mouse.y );
 
 		  
 		  /*

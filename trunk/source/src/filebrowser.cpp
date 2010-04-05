@@ -1,4 +1,21 @@
-
+/* this file is part of DeSmuMEWii
+ *
+ * Copyright (C) 2010 DeSmuMEWii Team
+ * This file is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This file is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ */
 
 #include "filebrowser.h"
 #include <sys/dir.h>
@@ -7,43 +24,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <wiiuse/wpad.h>
-
-#ifdef HW_RVL
-
-#define GetInput(Wiimote, GC, Classic) \
-		Input(WPAD_BUTTON_##Wiimote, PAD_BUTTON_##GC, WPAD_CLASSIC_BUTTON_##Classic)
-		
-static u32 Input(u32 Wiimote, u32 GC, u32 Classic)
-{
-	return ((WPAD_ButtonsDown(0) & Wiimote) || (PAD_ButtonsDown(0) & GC) || (WPAD_ButtonsDown(0) & Classic));
-}
-
-#define GetHeld(Wiimote, GC, Classic) \
-		Held(WPAD_BUTTON_##Wiimote, PAD_BUTTON_##GC, WPAD_CLASSIC_BUTTON_##Classic)
-		
-static u32 Held(u32 Wiimote, u32 GC, u32 Classic)
-{
-	return ((WPAD_ButtonsHeld(0) & Wiimote) || (PAD_ButtonsHeld(0) & GC) || (WPAD_ButtonsHeld(0) & Classic));
-}
-
-#else	//!HW_RVL
-
-#define GetInput(Wiimote, GC, Classic) \
-		Input(PAD_BUTTON_##GC)
-
-static u32 Input(u32 GC)
-{
-	return (PAD_ButtonsDown(0) & GC);
-}
-
-#define GetHeld(Wiimote, GC, Classic) \
-		Held(PAD_BUTTON_##GC)
-
-static u32 Held(u32 GC)
-{
-	return (PAD_ButtonsHeld(0) & GC);
-}
-#endif	//HW_RVL
+#include "ctrlssdl.h"
 
 #define TYPE_FILTER(x)	(strstr(x, ".nds") || strstr(x, ".NDS"))
 
