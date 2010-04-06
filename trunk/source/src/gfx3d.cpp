@@ -468,7 +468,7 @@ static void makeTables() {
 	const float o12 = 1.0f / (float)(1<<12);
 
 // it's realy necessary
-#define fix2float_o12(v) (((float)((s32)((s16)v))) * o12)
+#define fix2float_o12(v) (((float)((s16)v)) * o12)
 	for (s32 i = 0; i < 65536; i += 8) {
 		float16table[i] = fix2float_o12(i);
 		float16table[(i+1)] = fix2float_o12(i+1);
@@ -491,8 +491,8 @@ static void makeTables() {
 	}
 
 	for(int r=0;r<=31;r++) {
-		for(int oldr=0;oldr<=31;oldr++) {
-			for(int a=0;a<=31;a++) {
+		for(int a=0;a<=31;a++) {
+			for(int oldr=0;oldr<=31;oldr++) {
 				int temp = (r*a + oldr*(31-a)) / 31;
 				mixTable555[a][r][oldr] = temp;
 			}
