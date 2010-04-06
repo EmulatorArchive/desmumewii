@@ -67,6 +67,15 @@ static u8 gp_fifo[DEFAULT_FIFO_SIZE] __attribute__((aligned(32)));
 static u16 TopScreen[256*192] __attribute__((aligned(32)));
 static GXTexObj BottomTex;
 static u16 BottomScreen[256*192] __attribute__((aligned(32)));
+static GXTexObj CursorTex;
+// TODO: Make this fancier
+static u8 CursorData[16] __attribute__((aligned(32))) = {
+0xFF, 0xFF, 0xFF, 0xFF,
+0xFF, 0xFF, 0xFF, 0xFF,
+0xFF, 0xFF, 0xFF, 0xFF,
+0xFF, 0xFF, 0xFF, 0xFF
+};
+static int drawcursor = 1;
 static lwp_t vidthread = LWP_THREAD_NULL;
 static mutex_t vidmutex = LWP_MUTEX_NULL;
 static u8 abort_thread = 0;
@@ -347,6 +356,7 @@ void init(){
 
 	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_InitTexObj(&CursorTex, CursorData, 4, 4, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
 
 	memset(TopScreen, 0, 256*192*sizeof(*TopScreen));
 	memset(BottomScreen, 0, 256*192*sizeof(*BottomScreen));
@@ -443,6 +453,22 @@ static void *draw_thread(void*)
 			GX_TexCoord2f32(1, 0);
 		GX_End();
 
+		// CURSOR
+		if (drawcursor)
+		{
+			GX_LoadTexObj(&CursorTex, GX_TEXMAP0);
+			GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+				GX_Position2f32(bottomX+mouse.x-5, bottomY+mouse.y-5);
+				GX_TexCoord2f32(0, 0);
+				GX_Position2f32(bottomX+mouse.x-5, bottomY+mouse.y+5);
+				GX_TexCoord2f32(0, 1);
+				GX_Position2f32(bottomX+mouse.x+5, bottomY+mouse.y+5);
+				GX_TexCoord2f32(1, 1);
+				GX_Position2f32(bottomX+mouse.x+5, bottomY+mouse.y-5);
+				GX_TexCoord2f32(1, 0);
+			GX_End();
+		}
+
 		GX_DrawDone();
 
 		currfb ^= 1;
@@ -527,6 +553,11 @@ void DSExec(){
 	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2) || (PAD_ButtonsDown(0) & PAD_BUTTON_UP))
 	{
 		vertical = !vertical;
+	}
+	
+	if ((PAD_ButtonsDown(0) & PAD_BUTTON_RIGHT)) // TODO: Which button combo are we gonna use for Wiimote/Classic controller?
+	{
+		drawcursor ^= 1;
 	}
 
 	if((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) || ((PAD_ButtonsHeld(0) & PAD_TRIGGER_Z) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_R) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_L)))
