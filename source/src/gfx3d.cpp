@@ -108,19 +108,20 @@ public:
 	}
 	//todo - things in here other than the very first thing involving GFX3D_NOP_NOARG_HACK I am not too sure about.
 	void receive(u32 val) {
+
+		u32 frontCommand = front().command;
 		bool hack = false;
+
 		if(size()>0 && val != 0 && 
-			(front().command == 0x15 || front().command == 0x11 || front().command == 0x41
-			|| front().command == GFX3D_NOP_NOARG_HACK  //nintendogs dalmatian sends these I think.
+			(frontCommand == 0x15 || frontCommand == 0x11 || frontCommand == 0x41
+			|| frontCommand == GFX3D_NOP_NOARG_HACK  //nintendogs dalmatian sends these I think.
 			))
 		{
 			//apparently a zero is swallowed in this case but if another value is sent 
 			//processing will continue
-			if(front().command == GFX3D_NOP_NOARG_HACK) { }
-			else
-			{
+			if(frontCommand != GFX3D_NOP_NOARG_HACK){
 				//printf("gxf: sending hack %02X: (dummy=0)\n", front().command);
-				GFX_FIFOsend(front().command,0);
+				GFX_FIFOsend(u8(frontCommand),0);
 			}
 			hack = true;
 			goto hackTrigger;
@@ -131,22 +132,22 @@ public:
 			//if(commandsPending.front() == GFX3D_NOP_NOARG_HACK)
 			//{}
 			//else 
-				GFX_FIFOsend(front().command,val);
-			hackTrigger:
-			countdown--;
+				GFX_FIFOsend(u8(frontCommand),val);
+hackTrigger:
+			--countdown;
 			while(countdown==0) {
 				dequeue();
-			trigger:
-				//dont set hack to false if you jumped from below! it needs to be true for when you jump down from above.
+trigger:
+				//Don't set hack to false if you jumped from below! It needs to be true for when you jump down from above.
 				//oh my what a mess.
 				if(size()==0) break;
 				countdown = front().countdown;
 				if(!countdown) {
-					if(front().command != INVALID_COMMAND 
-						&& front().command != GFX3D_NOP_NOARG_HACK //g.i. joe sends these in the form of 0xFF commands 
+					if(frontCommand != INVALID_COMMAND 
+						&& frontCommand != GFX3D_NOP_NOARG_HACK //g.i. joe sends these in the form of 0xFF commands 
 						){
 						//printf("[%06d]gxf: sending %02X: (dummy=0)\n", currFrameCounter,front().command);
-						GFX_FIFOsend(front().command,0);
+						GFX_FIFOsend(u8(frontCommand),0);
 					}
 				}
 			}
@@ -344,7 +345,7 @@ static u8 MM3x3ind = 0;
 static CACHE_ALIGN u16		u16coord[4] = {0, 0, 0, 0};
 static char		coordind = 0;
 static u32 vtxFormat = 0;
-static BOOL inBegin = FALSE;
+static bool inBegin = false;
 
 // Data for basic transforms
 static CACHE_ALIGN float	trans[4] = {0.0, 0.0, 0.0, 0.0};
@@ -360,7 +361,7 @@ static u32 clCmd = 0;
 static u32 clInd = 0;
 
 static u32 clInd2 = 0;
-BOOL isSwapBuffers = FALSE;
+bool isSwapBuffers = false;
 
 static u32 BTind = 0;
 static u32 PTind = 0;
@@ -419,12 +420,12 @@ struct tmpVertInfo {
 	//indices to the main vert list
 	int map[4];
 	//indicates that the first poly in a list has been completed
-	BOOL first;
+	bool first;
 } tempVertInfo;
 
 
 static void twiddleLists() {
-	listTwiddle++;
+	++listTwiddle;
 	listTwiddle &= 1;
 	polylist = &polylists[listTwiddle];
 	vertlist = &vertlists[listTwiddle];
@@ -432,8 +433,8 @@ static void twiddleLists() {
 	vertlist->count = 0;
 }
 
-static BOOL flushPending = FALSE;
-static BOOL drawPending = FALSE;
+static bool flushPending = false;
+static bool drawPending = false;
 //------------------------------------------------------------
 
 static void makeTables() {
@@ -441,36 +442,54 @@ static void makeTables() {
 	//produce the color bits of a 24bpp color from a DS RGB15 using bit logic (internal use only)
 	#define RGB15TO24_BITLOGIC(col) ( (material_5bit_to_8bit[((col)>>10)&0x1F]<<16) | (material_5bit_to_8bit[((col)>>5)&0x1F]<<8) | material_5bit_to_8bit[(col)&0x1F] )
 
-	for(int i=0;i<32768;i++)
-		color_15bit_to_24bit[i] = RGB15TO24_BITLOGIC((u16)i);
+	for(int i = 0; i < 32768; i += 4){
+		color_15bit_to_24bit[i] = RGB15TO24_BITLOGIC(i);
+		color_15bit_to_24bit[i+1] = RGB15TO24_BITLOGIC((i+1));
+		color_15bit_to_24bit[i+2] = RGB15TO24_BITLOGIC((i+2));
+		color_15bit_to_24bit[i+3] = RGB15TO24_BITLOGIC((i+3));
 
+	}
+	
 	//produce the color bits of a 24bpp color from a DS RGB15 using bit logic (internal use only). RGB are reverse of usual
 	#define RGB15TO24_BITLOGIC_REVERSE(col) ( (material_5bit_to_8bit[(col)&0x1F]<<16) | (material_5bit_to_8bit[((col)>>5)&0x1F]<<8) | material_5bit_to_8bit[((col)>>10)&0x1F] )
 
-	for(int i=0;i<32768;i++)
-	{
-		color_15bit_to_24bit_reverse[i] = RGB15TO24_BITLOGIC_REVERSE((u16)i);
+	for(int i = 0; i < 32768; i+=2){
+		color_15bit_to_24bit_reverse[i] = RGB15TO24_BITLOGIC_REVERSE(i);
+		color_15bit_to_24bit_reverse[i+1] = RGB15TO24_BITLOGIC_REVERSE((i+1));
 		color_15bit_to_16bit_reverse[i] = (((i & 0x001F) << 11) | (material_5bit_to_6bit[(i & 0x03E0) >> 5] << 5) | ((i & 0x7C00) >> 10));
+		color_15bit_to_16bit_reverse[i+1] = ((((i+1) & 0x001F) << 11) | (material_5bit_to_6bit[((i+1) & 0x03E0) >> 5] << 5) | (((i+1) & 0x7C00) >> 10));
 	}
 
-	for (int i = 0; i < 65536; i++)
-		float16table[i] = fix2float((signed short)i);
+	float o12 = 1.0f / (float)(1<<12);
+				
+	for (int i = 0; i < 65536; i += 8){
+		float16table[i] = i * o12; 
+		float16table[(i+1)] = (i+1) * o12; 
+		float16table[(i+2)] = (i+2) * o12; 
+		float16table[(i+3)] = (i+3) * o12; 
+		float16table[(i+4)] = (i+4) * o12; 
+		float16table[(i+5)] = (i+5) * o12; 
+		float16table[(i+6)] = (i+6) * o12; 
+		float16table[(i+7)] = (i+7) * o12; 
+	}
+	
+	float o15 = 1.0f / (float)(1<<15);
+	float o18 = 1.0f / (float)(1<<18);
 
-	for (int i = 0; i < 1024; i++)
-		float10Table[i] = ((signed short)(i<<6)) / (float)(1<<12);
-
-	for (int i = 0; i < 1024; i++)
-		float10RelTable[i] = ((signed short)(i<<6)) / (float)(1<<18);
-
-	for (int i = 0; i < 1024; i++)
-		normalTable[i] = ((signed short)(i<<6)) / (float)(1<<15);
-
-	for(int r=0;r<=31;r++) 
-		for(int oldr=0;oldr<=31;oldr++) 
-			for(int a=0;a<=31;a++)  {
+	for (int i = 0; i < 1024; i++){		
+		signed short i6 = (signed short)(i<<6);
+		float10Table[i] = (i6) * o12;
+		float10RelTable[i] = (i6) * o18;
+		normalTable[i] = (i6) * o15;
+	}
+	for(int r=0;r<=31;r++) {
+		for(int a=0;a<=31;a++) {
+			for(int oldr=0;oldr<=31;oldr++) {
 				int temp = (r*a + oldr*(31-a)) / 31;
 				mixTable555[a][r][oldr] = temp;
 			}
+		}
+	}
 }
 
 void gfx3d_init()
@@ -508,8 +527,8 @@ void gfx3d_reset()
 	gxf_hardware.reset();
 
 	control = 0;
-	drawPending = FALSE;
-	flushPending = FALSE;
+	drawPending = false;
+	flushPending = false;
 	memset(polylists, 0, sizeof(polylists));
 	memset(vertlists, 0, sizeof(vertlists));
 	listTwiddle = 1;
@@ -569,7 +588,7 @@ void gfx3d_reset()
 	gfx3d.clearDepth = gfx3d_extendDepth_15_to_24(0x7FFF);
 	
 	clInd2 = 0;
-	isSwapBuffers = FALSE;
+	isSwapBuffers = false;
 
 	GFX_PIPEclear();
 	GFX_FIFOclear();
@@ -621,9 +640,8 @@ static void SetVertex()
 	//TODO - viewport transform?
 
 	int continuation = 0;
-	if(vtxFormat==2 && !tempVertInfo.first)
-		continuation = 2;
-	else if(vtxFormat==3 && !tempVertInfo.first)
+
+	if(!tempVertInfo.first && (vtxFormat == 2 || vtxFormat == 3))
 		continuation = 2;
 
 	//record the vertex
@@ -701,11 +719,10 @@ static void SetVertex()
 				else
 					tempVertInfo.map[0] = vertlist->count+2-continuation;
 				
+				++vertlist->count;
 				if(tempVertInfo.first)
-					vertlist->count+=3;
-				else
-					vertlist->count+=1;
-
+					vertlist->count+=2;
+					
 				triStripToggle ^= 1;
 				tempVertInfo.first = false;
 				tempVertInfo.count = 2;
@@ -721,9 +738,11 @@ static void SetVertex()
 				polylist->list[polylist->count].type = 4;
 				tempVertInfo.map[0] = vertlist->count+2-continuation;
 				tempVertInfo.map[1] = vertlist->count+3-continuation;
+				
+				vertlist->count+=2;
 				if(tempVertInfo.first)
-					vertlist->count+=4;
-				else vertlist->count+=2;
+					vertlist->count+=2;
+
 				tempVertInfo.first = false;
 				tempVertInfo.count = 2;
 				break;
@@ -739,7 +758,7 @@ static void SetVertex()
 			poly.texParam = textureFormat;
 			poly.texPalette = texturePalette;
 			poly.viewport = viewport;
-			polylist->count++;
+			++polylist->count;
 		}
 	}
 }
@@ -775,11 +794,11 @@ static void gfx3d_glLightDirection_cache(int index)
 	MatrixMultVec3x3(mtxCurrent[2], cacheLightDirection[index]);
 
 	/* Calculate the half vector */
-	float lineOfSight[4] = {0.0f, 0.0f, -1.0f, 0.0f};
-	for(int i = 0; i < 4; i++)
-	{
-		cacheHalfVector[index][i] = ((cacheLightDirection[index][i] + lineOfSight[i]) / 2.0f);
-	}
+	cacheHalfVector[index][0] = ((cacheLightDirection[index][0]) / 2.0f);
+	cacheHalfVector[index][1] = ((cacheLightDirection[index][1]) / 2.0f);
+	cacheHalfVector[index][2] = ((cacheLightDirection[index][2] - 1.0f) / 2.0f);
+	cacheHalfVector[index][3] = ((cacheLightDirection[index][3]) / 2.0f);
+	
 }
 
 //===============================================================================
@@ -818,7 +837,7 @@ static void gfx3d_glPushMatrix()
 static void gfx3d_glPopMatrix(s32 i)
 {
 	//this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
-	short mymode = (mode==1?2:mode);
+	u32 mymode = (mode==1?2:mode);
 
 	//6 bits, sign extended
 	//this was necessary to fix sims apartment pets
@@ -846,15 +865,15 @@ static void gfx3d_glPopMatrix(s32 i)
 
 static void gfx3d_glStoreMatrix(u32 v)
 {
+	if (v > 31) return;
+
 	//this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
-	short mymode = (mode==1?2:mode);
+	u32 mymode = (mode==1?2:mode);
 
 	//limit height of these stacks.
 	//without the mymode==3 namco classics galaxian will try to use pos=1 and overrun the stack, corrupting emu
 	if(mymode==0 || mymode==3)
 		v = 0;
-
-	if (v > 31) return;
 
 	MatrixStackLoadMatrix (&mtxStack[mymode], v, mtxCurrent[mymode]);
 
@@ -866,15 +885,15 @@ static void gfx3d_glStoreMatrix(u32 v)
 
 static void gfx3d_glRestoreMatrix(u32 v)
 {
+	if (v > 31) return;
+	
 	//this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
-	short mymode = (mode==1?2:mode);
+	u32 mymode = (mode==1?2:mode);
 
 	//limit height of these stacks
 	//without the mymode==3 namco classics galaxian will try to use pos=1 and overrun the stack, corrupting emu
 	if(mymode==0 || mymode==3)
 		v = 0;
-
-	if (v > 31) return;
 
 	MatrixCopy (mtxCurrent[mymode], MatrixStackGetPos(&mtxStack[mymode], v));
 
@@ -899,12 +918,12 @@ static void gfx3d_glLoadIdentity()
 	//printf("identity: %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
 }
 
-static BOOL gfx3d_glLoadMatrix4x4(s32 v)
+static bool gfx3d_glLoadMatrix4x4(s32 v)
 {
 	mtxCurrent[mode][ML4x4ind] = (float)v;
 
 	++ML4x4ind;
-	if(ML4x4ind<16) return FALSE;
+	if(ML4x4ind<16) return false;
 	ML4x4ind = 0;
 
 	GFX_DELAY(19);
@@ -915,16 +934,16 @@ static BOOL gfx3d_glLoadMatrix4x4(s32 v)
 		MatrixCopy (mtxCurrent[1], mtxCurrent[2]);
 
 	//printf("load4x4: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glLoadMatrix4x3(s32 v)
+static bool gfx3d_glLoadMatrix4x3(s32 v)
 {
 	mtxCurrent[mode][ML4x3ind] = (float)v;
 
-	ML4x3ind++;
-	if((ML4x3ind & 0x03) == 3) ML4x3ind++;
-	if(ML4x3ind<16) return FALSE;
+	++ML4x3ind;
+	if((ML4x3ind & 0x03) == 3) ++ML4x3ind;
+	if(ML4x3ind<16) return false;
 	ML4x3ind = 0;
 
 	vector_fix2float<4>(mtxCurrent[mode], 4096.f);
@@ -938,15 +957,15 @@ static BOOL gfx3d_glLoadMatrix4x3(s32 v)
 	if (mode == 2)
 		MatrixCopy (mtxCurrent[1], mtxCurrent[2]);
 	//printf("load4x3: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glMultMatrix4x4(s32 v)
+static bool gfx3d_glMultMatrix4x4(s32 v)
 {
 	mtxTemporal[MM4x4ind] = (float)v;
 
-	MM4x4ind++;
-	if(MM4x4ind<16) return FALSE;
+	++MM4x4ind;
+	if(MM4x4ind<16) return false;
 	MM4x4ind = 0;
 
 	GFX_DELAY(35);
@@ -964,16 +983,16 @@ static BOOL gfx3d_glMultMatrix4x4(s32 v)
 	//printf("mult4x4: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
 
 	MatrixIdentity (mtxTemporal);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glMultMatrix4x3(s32 v)
+static bool gfx3d_glMultMatrix4x3(s32 v)
 {
 	mtxTemporal[MM4x3ind] = (float)v;
 
-	MM4x3ind++;
+	++MM4x3ind;
 	if((MM4x3ind & 0x03) == 3) MM4x3ind++;
-	if(MM4x3ind<16) return FALSE;
+	if(MM4x3ind<16) return false;
 	MM4x3ind = 0;
 
 	GFX_DELAY(31);
@@ -996,17 +1015,17 @@ static BOOL gfx3d_glMultMatrix4x3(s32 v)
 
 	//does this really need to be done?
 	MatrixIdentity (mtxTemporal);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glMultMatrix3x3(s32 v)
+static bool gfx3d_glMultMatrix3x3(s32 v)
 {
 	mtxTemporal[MM3x3ind] = (float)v;
 
 
-	MM3x3ind++;
-	if((MM3x3ind & 0x03) == 3) MM3x3ind++;
-	if(MM3x3ind<12) return FALSE;
+	++MM3x3ind;
+	if((MM3x3ind & 0x03) == 3) ++MM3x3ind;
+	if(MM3x3ind<12) return false;
 	MM3x3ind = 0;
 
 	GFX_DELAY(28);
@@ -1031,16 +1050,16 @@ static BOOL gfx3d_glMultMatrix3x3(s32 v)
 
 	//does this really need to be done?
 	MatrixIdentity (mtxTemporal);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glScale(s32 v)
+static bool gfx3d_glScale(s32 v)
 {
 	scale[scaleind] = fix2float(v);
 
 	++scaleind;
 
-	if(scaleind<3) return FALSE;
+	if(scaleind<3) return false;
 	scaleind = 0;
 
 	MatrixScale (mtxCurrent[(mode==2?1:mode)], scale);
@@ -1053,16 +1072,16 @@ static BOOL gfx3d_glScale(s32 v)
 	//so, I am leaving this commented out as an example of what not to do.
 	//if (mode == 2)
 	//	MatrixScale (mtxCurrent[1], scale);
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glTranslate(s32 v)
+static bool gfx3d_glTranslate(s32 v)
 {
 	trans[transind] = fix2float(v);
 
 	++transind;
 
-	if(transind<3) return FALSE;
+	if(transind<3) return false;
 	transind = 0;
 
 	MatrixTranslate (mtxCurrent[mode], trans);
@@ -1077,7 +1096,7 @@ static BOOL gfx3d_glTranslate(s32 v)
 
 	//printf("translate: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
 
-	return TRUE;
+	return true;
 }
 
 static void gfx3d_glColor3b(u32 v)
@@ -1090,7 +1109,7 @@ static void gfx3d_glColor3b(u32 v)
 
 static void gfx3d_glNormal(u32 v)
 {
-	int i,c;
+	int c;
 	ALIGN(16) float normal[4] = { normalTable[v&1023],
 						normalTable[(v>>10)&1023],
 						normalTable[(v>>20)&1023],
@@ -1133,7 +1152,7 @@ static void gfx3d_glNormal(u32 v)
 
 		int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
 
-		for(i=0; i<4; i++)
+		for(int i = 0; i < 4; i++)
 		{
 			if(!((lightMask>>i)&1)) continue;
 
@@ -1174,8 +1193,9 @@ static void gfx3d_glNormal(u32 v)
 			}
 		}
 
-		for(c=0;c<3;c++)
-			colorRGB[c] = std::min(31,vertexColor[c]);
+		colorRGB[0] = std::min(31,vertexColor[0]);
+		colorRGB[1] = std::min(31,vertexColor[1]);
+		colorRGB[2] = std::min(31,vertexColor[2]);
 	}
 
 	GFX_DELAY(9);
@@ -1187,28 +1207,23 @@ static void gfx3d_glNormal(u32 v)
 
 static void gfx3d_glTexCoord(u32 val)
 {
-	_t = (s16)(val>>16);
-	_s = (s16)(val&0xFFFF);
+	_t = (s16)(val>>16) / 16.0f;
+	_s = (s16)(val&0xFFFF) / 16.0f;
 
-	_s /= 16.0f;
-	_t /= 16.0f;
-
-	if (texCoordinateTransform == 1)
-	{
+	if (texCoordinateTransform == 1){
 		last_s =_s*mtxCurrent[3][0] + _t*mtxCurrent[3][4] +
 				0.0625f*mtxCurrent[3][8] + 0.0625f*mtxCurrent[3][12];
 		last_t =_s*mtxCurrent[3][1] + _t*mtxCurrent[3][5] +
 				0.0625f*mtxCurrent[3][9] + 0.0625f*mtxCurrent[3][13];
 	}
-	else
-	{
+	else{
 		last_s=_s;
 		last_t=_t;
 	}
 	GFX_DELAY(1);
 }
 
-static BOOL gfx3d_glVertex16b(unsigned int v)
+static bool gfx3d_glVertex16b(unsigned int v)
 {
 	if(coordind==0)
 	{
@@ -1218,7 +1233,7 @@ static BOOL gfx3d_glVertex16b(unsigned int v)
 		u16coord[1] = (v>>16)&0xFFFF;
 
 		++coordind;
-		return FALSE;
+		return false;
 	}
 
 	//coord[2]	  = float16table[v&0xFFFF];
@@ -1228,7 +1243,7 @@ static BOOL gfx3d_glVertex16b(unsigned int v)
 	SetVertex ();
 
 	GFX_DELAY(9);
-	return TRUE;
+	return true;
 }
 
 static void gfx3d_glVertex10b(u32 v)
@@ -1347,22 +1362,24 @@ static void gfx3d_glLightColor (u32 v)
 	GFX_DELAY(1);
 }
 
-static BOOL gfx3d_glShininess (u32 val)
+static bool gfx3d_glShininess (u32 val)
 {
-	shininessTable[shininessInd++] = ((val & 0xFF) / 256.0f);
-	shininessTable[shininessInd++] = (((val >> 8) & 0xFF) / 256.0f);
-	shininessTable[shininessInd++] = (((val >> 16) & 0xFF) / 256.0f);
-	shininessTable[shininessInd++] = (((val >> 24) & 0xFF) / 256.0f);
+	shininessTable[shininessInd] = ((s32(val & 0xFF)) / 256.0f);
+	shininessTable[shininessInd+1] = (((s32(val >> 8) & 0xFF)) / 256.0f);
+	shininessTable[shininessInd+2] = (((s32(val >> 16) & 0xFF)) / 256.0f);
+	shininessTable[shininessInd+3] = (((s32(val >> 24) & 0xFF)) / 256.0f);
+	
+	shininessInd+=4;
 
-	if (shininessInd < 128) return FALSE;
+	if (shininessInd < 128) return false;
 	shininessInd = 0;
 	GFX_DELAY(32);
-	return TRUE;
+	return true;
 }
 
 static void gfx3d_glBegin(u32 v)
 {
-	inBegin = TRUE;
+	inBegin = true;
 	vtxFormat = v&0x03;
 	triStripToggle = 0;
 	tempVertInfo.count = 0;
@@ -1374,7 +1391,7 @@ static void gfx3d_glBegin(u32 v)
 
 static void gfx3d_glEnd(void)
 {
-	inBegin = FALSE;
+	inBegin = false;
 	tempVertInfo.count = 0;
 	GFX_DELAY(1);
 }
@@ -1387,7 +1404,7 @@ static void gfx3d_glViewPort(u32 v)
 	GFX_DELAY(1);
 }
 
-static BOOL gfx3d_glBoxTest(u32 v)
+static bool gfx3d_glBoxTest(u32 v)
 {
 	MMU_new.gxstat.tr = 0;		// clear boxtest bit
 	MMU_new.gxstat.tb = 1;		// busy
@@ -1395,7 +1412,7 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	BTcoords[BTind++] = v & 0xFFFF;
 	BTcoords[BTind++] = v >> 16;
 
-	if (BTind < 5) return FALSE;
+	if (BTind < 5) return false;
 	BTind = 0;
 
 	MMU_new.gxstat.tb = 0;		// clear busy
@@ -1485,8 +1502,7 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	for(int i=0;i<8;i++) {
 		//MatrixMultVec4x4_M2(mtxCurrent[0], verts[i].coord);
 
-		//yuck.. cant use the sse2 accelerated ones because vert.coords is not cache aligned or something
-		//i dunno
+		//Yuck.. can't use the sse2 accelerated ones because vert.coords is not cache aligned or something
 		
 		void _NOSSE_MatrixMultVec4x4 (const float *matrix, float *vecPtr);
 		_NOSSE_MatrixMultVec4x4(mtxCurrent[1],verts[i].coord);
@@ -1519,10 +1535,10 @@ static BOOL gfx3d_glBoxTest(u32 v)
 		//printf("%06d FAIL %d\n",boxcounter,gxFIFO.size);
 	}
 	
-	return TRUE;
+	return true;
 }
 
-static BOOL gfx3d_glPosTest(u32 v)
+static bool gfx3d_glPosTest(u32 v)
 {
 	//this is apparently tested by transformers decepticons and ultimate spiderman
 
@@ -1534,7 +1550,7 @@ static BOOL gfx3d_glPosTest(u32 v)
 	PTcoords[PTind++] = float16table[v & 0xFFFF];
 	PTcoords[PTind++] = float16table[v >> 16];
 
-	if (PTind < 3) return FALSE;
+	if (PTind < 3) return false;
 	PTind = 0;
 	
 	PTcoords[3] = 1.0f;
@@ -1546,7 +1562,7 @@ static BOOL gfx3d_glPosTest(u32 v)
 
 	GFX_DELAY(9);
 
-	return TRUE;
+	return true;
 }
 
 static void gfx3d_glVecTest(u32 v)
@@ -1645,7 +1661,7 @@ s32 gfx3d_GetClipMatrix (unsigned int index)
 
 s32 gfx3d_GetDirectionalMatrix (unsigned int index)
 {
-	int _index = (((index / 3) * 4) + (index % 3));
+	int _index = (((index / 3) << 2) + (index % 3));
 
 	return (s32)(mtxCurrent[2][_index]*(1<<12));
 }
@@ -1842,8 +1858,8 @@ void gfx3d_execute3D()
 	}
 
 
-	//i thought it might be right to move these here, but it didnt help.
-	//maybe its a good idea for later.
+	//I thought it might be right to move these here, but it didn't help.
+	//Maybe it's a good idea for later.
 
 	//if(gxFIFO.size <= 127)
 	//{
@@ -1872,7 +1888,7 @@ void gfx3d_glFlush(u32 v)
 	}
 #endif
 	
-	isSwapBuffers = TRUE;
+	isSwapBuffers = true;
 	
 	//well, the game wanted us to flush.
 	//it may be badly timed. lets just flush it.
@@ -1908,7 +1924,7 @@ static bool gfx3d_ysort_compare(int num1, int num2)
 
 static void gfx3d_doFlush()
 {
-	gfx3d.frameCtr++;
+	++gfx3d.frameCtr;
 
 	//the renderer will get the lists we just built
 	gfx3d.polylist = polylist;
@@ -1939,14 +1955,15 @@ static void gfx3d_doFlush()
 		POLY &poly = polylist->list[i];
 		float verty = vertlist->list[poly.vertIndexes[0]].y;
 		float vertw = vertlist->list[poly.vertIndexes[0]].w;
-		verty = (verty+vertw)/(2*vertw);
+		verty = (verty+vertw)/(2.0f*vertw);
 		poly.miny = poly.maxy = verty;
 
-		for(int j=1; j<poly.type; j++)
+		int polyType = poly.type;
+		for(int j=1; j < polyType; j++)
 		{
 			verty = vertlist->list[poly.vertIndexes[j]].y;
 			vertw = vertlist->list[poly.vertIndexes[j]].w;
-			verty = (verty+vertw)/(2*vertw);
+			verty = (verty+vertw)/(2.0f*vertw);
 			poly.miny = min(poly.miny, verty);
 			poly.maxy = max(poly.maxy, verty);
 		}
@@ -1983,7 +2000,7 @@ static void gfx3d_doFlush()
 	//switch to the new lists
 	twiddleLists();
 
-	drawPending = TRUE;
+	drawPending = true;
 }
 
 void gfx3d_VBlankSignal()
@@ -1994,7 +2011,7 @@ void gfx3d_VBlankSignal()
 		gfx3d_doFlush();
 #endif
 		GFX_DELAY(392);
-		isSwapBuffers = FALSE;
+		isSwapBuffers = false;
 	}
 }
 
@@ -2003,7 +2020,7 @@ void gfx3d_VBlankEndSignal(bool skipFrame)
 	if (!drawPending) return;
 	if(skipFrame) return;
 
-	drawPending = FALSE;
+	drawPending = false;
 
 	//if the null 3d core is chosen, then we need to clear out the 3d buffers to keep old data from being rendered
 	if(gpu3D == &gpu3DNull || !CommonSettings.showGpu.main)
@@ -2232,16 +2249,20 @@ void gfx3d_savestate(EMUFILE* os)
 
 	//dump the render lists
 	OSWRITE(vertlist->count);
-	for(int i=0;i<vertlist->count;i++)
+	long vertlistCount = vertlist->count;
+	long i = 0;
+	for(; i < vertlistCount; i++)
 		vertlist->list[i].save(os);
 	OSWRITE(polylist->count);
-	for(int i=0;i<polylist->count;i++)
+	long polylistCount = polylist->count;
+	for(i = 0; i < polylistCount; i++)
 		polylist->list[i].save(os);
 
-	for(int i=0;i<4;i++)
+	for(i = 0; i < 4; i++)
 	{
 		OSWRITE(mtxStack[i].position);
-		for(int j=0;j<mtxStack[i].size*16;j++)
+		s32 mtxStackSize = mtxStack[i].size << 4;
+		for(s32 j = 0; j < mtxStackSize; j++)
 			OSWRITE(mtxStack[i].matrix[j]);
 	}
 
@@ -2274,10 +2295,13 @@ bool gfx3d_loadstate(EMUFILE* is, int size)
 	if(version>=1)
 	{
 		OSREAD(vertlist->count);
-		for(int i=0;i<vertlist->count;i++)
+		long vertlistCount = vertlist->count;
+		long i = 0;
+		for(; i < vertlistCount; i++)
 			vertlist->list[i].load(is);
 		OSREAD(polylist->count);
-		for(int i=0;i<polylist->count;i++)
+		long polylistCount = polylist->count;
+		for(i = 0; i < polylistCount; i++)
 			polylist->list[i].load(is);
 	}
 
@@ -2286,7 +2310,8 @@ bool gfx3d_loadstate(EMUFILE* is, int size)
 		for(int i=0;i<4;i++)
 		{
 			OSREAD(mtxStack[i].position);
-			for(int j=0;j<mtxStack[i].size*16;j++)
+			s32 mtxStackSize = mtxStack[i].size << 4;
+			for(s32 j = 0; j < mtxStackSize; j++)
 				OSREAD(mtxStack[i].matrix[j]);
 		}
 	}
@@ -2367,7 +2392,7 @@ static FORCEINLINE VERT clipPoint(VERT* inside, VERT* outside, int coord, int wh
 		ret.color_to_float();
 	}
 
-	//this seems like a prudent measure to make sure that math doesnt make a point pop back out
+	//This seems like a prudent measure to make sure that math doesn't make a point pop back out
 	//of the clip volume through interpolation
 	if(which==-1)
 		ret.coord[coord] = -ret.coord[3];
@@ -2423,15 +2448,14 @@ private:
 		float* vert0coord = vert0->coord;
 		float* vert1coord = vert1->coord;
 		bool out0, out1;
-		if(which==-1) 
-			out0 = vert0coord[coord] < -vert0coord[3];
-		else 
-			out0 = vert0coord[coord] > vert0coord[3];
-		if(which==-1) 
-			out1 = vert1coord[coord] < -vert1coord[3];
-		else
-			out1 = vert1coord[coord] > vert1coord[3];
 
+		if(which==-1){
+			out0 = vert0coord[coord] < -vert0coord[3];
+			out1 = vert1coord[coord] < -vert1coord[3];
+		}else{
+			out0 = vert0coord[coord] > vert0coord[3];
+			out1 = vert1coord[coord] > vert1coord[3];
+		}
 		//CONSIDER: should we try and clip things behind the eye? does this code even successfully do it? not sure.
 		//if(coord==2 && which==1) {
 		//	out0 = vert0coord[2] < 0;
@@ -2482,7 +2506,7 @@ public:
 	{
 		assert((u32)m_numVerts < MAX_CLIPPED_VERTS);
 		*m_nextDestVert++ = *vert;
-		m_numVerts++;
+		++m_numVerts;
 	}
 	int finish()
 	{
@@ -2525,7 +2549,7 @@ void GFX3D_Clipper::clipPoly(POLY* poly, VERT** verts)
 	{
 		clippedPolys[clippedPolyCounter].type = outType;
 		clippedPolys[clippedPolyCounter].poly = poly;
-		clippedPolyCounter++;
+		++clippedPolyCounter;
 	}
 }
 
