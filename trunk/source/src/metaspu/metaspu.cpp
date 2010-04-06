@@ -111,9 +111,9 @@ private:
 	public:
 		int size;
 		Adjustobuf(int _minLatency, int _maxLatency)
-			: size(0)
-			, minLatency(_minLatency)
+			: minLatency(_minLatency)
 			, maxLatency(_maxLatency)
+			, size(0)
 		{
 			rollingTotalSize = 0;
 			targetLatency = (maxLatency + minLatency)/2;
