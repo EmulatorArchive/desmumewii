@@ -62,8 +62,8 @@ void IPC_FIFOsend(u8 proc, u32 val)
 	cnt_l &= 0xBFFC;		// clear send empty bit & full
 	cnt_r &= 0xBCFF;		// set recv empty bit & full
 	ipc_fifo[proc].buf[ipc_fifo[proc].tail] = val;
-	ipc_fifo[proc].tail++;
-	ipc_fifo[proc].size++;
+	++ipc_fifo[proc].tail;
+	++ipc_fifo[proc].size;
 	if (ipc_fifo[proc].tail > 15) ipc_fifo[proc].tail = 0;
 	
 	if (ipc_fifo[proc].size > 15)
@@ -99,8 +99,8 @@ u32 IPC_FIFOrecv(u8 proc)
 	cnt_r &= 0xBFFC;		// set recv full bit & empty
 
 	val = ipc_fifo[proc_remote].buf[ipc_fifo[proc_remote].head];
-	ipc_fifo[proc_remote].head++;
-	ipc_fifo[proc_remote].size--;
+	++ipc_fifo[proc_remote].head;
+	--ipc_fifo[proc_remote].size;
 	if (ipc_fifo[proc_remote].head > 15) ipc_fifo[proc_remote].head = 0;
 	
 	//LOG("IPC%s recv FIFO 0x%08X size %03i (l 0x%X, tail %02i) (r 0x%X, tail %02i)\n", 
@@ -209,8 +209,8 @@ void GFX_FIFOsend(u8 cmd, u32 param)
 
 	gxFIFO.cmd[gxFIFO.tail] = cmd;
 	gxFIFO.param[gxFIFO.tail] = param;
-	gxFIFO.tail++;
-	gxFIFO.size++;
+	++gxFIFO.tail;
+	++gxFIFO.size;
 	if (gxFIFO.tail > HACK_GXIFO_SIZE-1) gxFIFO.tail = 0;
 
 	if(gxFIFO.size>=HACK_GXIFO_SIZE) {
@@ -238,8 +238,8 @@ bool GFX_PIPErecv(u8 *cmd, u32 *param)
 	*cmd = gxFIFO.cmd[gxFIFO.head];
 	*param = gxFIFO.param[gxFIFO.head];
 
-	gxFIFO.head++;
-	gxFIFO.size--;
+	++gxFIFO.head;
+	--gxFIFO.size;
 	if (gxFIFO.head > HACK_GXIFO_SIZE-1) gxFIFO.head = 0;
 
 	GXF_FIFO_handleEvents();
@@ -249,7 +249,7 @@ bool GFX_PIPErecv(u8 *cmd, u32 *param)
 
 void GFX_FIFOcnt(u32 val)
 {
-	//zeromus: i dont like any of this.
+	//zeromus: I don't like any of this.
 
 	////INFO("gxFIFO: write cnt 0x%08X (prev 0x%08X) FIFO size %03i PIPE size %03i\n", val, gxstat, gxFIFO.size, gxPIPE.size);
 
@@ -287,7 +287,7 @@ void DISP_FIFOsend(u32 val)
 {
 	//INFO("DISP_FIFO send value 0x%08X (head 0x%06X, tail 0x%06X)\n", val, disp_fifo.head, disp_fifo.tail);
 	disp_fifo.buf[disp_fifo.tail] = val;
-	disp_fifo.tail++;
+	++disp_fifo.tail;
 	if (disp_fifo.tail > 0x5FFF)
 		disp_fifo.tail = 0;
 }
@@ -296,7 +296,7 @@ u32 DISP_FIFOrecv()
 {
 	//if (disp_fifo.tail == disp_fifo.head) return (0); // FIFO is empty
 	u32 val = disp_fifo.buf[disp_fifo.head];
-	disp_fifo.head++;
+	++disp_fifo.head;
 	if (disp_fifo.head > 0x5FFF)
 		disp_fifo.head = 0;
 	return (val);

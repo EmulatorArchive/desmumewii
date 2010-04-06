@@ -236,9 +236,9 @@ struct VERT {
 	u8 color[3];
 	float fcolor[3];
 	void color_to_float() {
-		fcolor[0] = color[0];
-		fcolor[1] = color[1];
-		fcolor[2] = color[2];
+		fcolor[0] = float(s32(color[0]));
+		fcolor[1] = float(s32(color[1]));
+		fcolor[2] = float(s32(color[2]));
 	}
 	void save(EMUFILE* os)
 	{
@@ -291,9 +291,10 @@ public:
 	
 	struct TClippedPoly
 	{
-		int type; //otherwise known as "count" of verts
+		
 		POLY* poly;
 		VERT clipVerts[MAX_CLIPPED_VERTS];
+		int type; //otherwise known as "count" of verts
 	};
 
 	//the entry point for poly clipping
@@ -341,7 +342,7 @@ struct GFX3D
 			--i;
 		}while(i >= 0);
 	}
-	BOOL enableTexturing, enableAlphaTest, enableAlphaBlending, 
+	bool enableTexturing, enableAlphaTest, enableAlphaBlending, 
 		enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
 
 	u32 fogShift;
@@ -354,7 +355,7 @@ struct GFX3D
 	VERTLIST* vertlist;
 	int indexlist[POLYLIST_SIZE];
 
-	BOOL wbuffer, sortmode;
+	bool wbuffer, sortmode;
 
 	u8 alphaTestRef;
 
@@ -395,7 +396,7 @@ extern CACHE_ALIGN const u8 material_3bit_to_8bit[8];
 extern CACHE_ALIGN u8 gfx3d_convertedScreen[256*192*4];
 extern CACHE_ALIGN u8 gfx3d_convertedAlpha[256*192*2]; //see cpp for explanation of illogical *2
 
-extern BOOL isSwapBuffers;
+extern bool isSwapBuffers;
 
 int _hack_getMatrixStackLevel(int);
 
