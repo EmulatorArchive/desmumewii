@@ -109,8 +109,11 @@ public:
 	//todo - things in here other than the very first thing involving GFX3D_NOP_NOARG_HACK I am not too sure about.
 	void receive(u32 val) {
 
-		u32 frontCommand = front().command;
 		bool hack = false;
+
+		// better use u8, than cast it every time.
+		// It's not used in math, so it's not needed to be word.
+		u8 frontCommand = front().command;
 
 		if(size()>0 && val != 0 && 
 			(frontCommand == 0x15 || frontCommand == 0x11 || frontCommand == 0x41
@@ -121,7 +124,7 @@ public:
 			//processing will continue
 			if(frontCommand != GFX3D_NOP_NOARG_HACK){
 				//printf("gxf: sending hack %02X: (dummy=0)\n", front().command);
-				GFX_FIFOsend(u8(frontCommand),0);
+				GFX_FIFOsend(frontCommand,0);
 			}
 			hack = true;
 			goto hackTrigger;
@@ -132,11 +135,13 @@ public:
 			//if(commandsPending.front() == GFX3D_NOP_NOARG_HACK)
 			//{}
 			//else 
-				GFX_FIFOsend(u8(frontCommand),val);
+			GFX_FIFOsend(frontCommand,val);
 hackTrigger:
 			--countdown;
 			while(countdown==0) {
 				dequeue();
+				// command has changed
+				frontCommand = front().command;
 trigger:
 				//Don't set hack to false if you jumped from below! It needs to be true for when you jump down from above.
 				//oh my what a mess.
@@ -147,7 +152,7 @@ trigger:
 						&& frontCommand != GFX3D_NOP_NOARG_HACK //g.i. joe sends these in the form of 0xFF commands 
 						){
 						//printf("[%06d]gxf: sending %02X: (dummy=0)\n", currFrameCounter,front().command);
-						GFX_FIFOsend(u8(frontCommand),0);
+						GFX_FIFOsend(frontCommand,0);
 					}
 				}
 			}
@@ -460,31 +465,34 @@ static void makeTables() {
 		color_15bit_to_16bit_reverse[i+1] = ((((i+1) & 0x001F) << 11) | (material_5bit_to_6bit[((i+1) & 0x03E0) >> 5] << 5) | (((i+1) & 0x7C00) >> 10));
 	}
 
-	float o12 = 1.0f / (float)(1<<12);
-				
-	for (int i = 0; i < 65536; i += 8){
-		float16table[i] = i * o12; 
-		float16table[(i+1)] = (i+1) * o12; 
-		float16table[(i+2)] = (i+2) * o12; 
-		float16table[(i+3)] = (i+3) * o12; 
-		float16table[(i+4)] = (i+4) * o12; 
-		float16table[(i+5)] = (i+5) * o12; 
-		float16table[(i+6)] = (i+6) * o12; 
-		float16table[(i+7)] = (i+7) * o12; 
+	const double o12 = 1.0f / (float)(1<<12);
+
+// it's realy necessary
+#define fix2float_o12(v) (((float)((s32)((s16)v))) * o12)
+	for (s32 i = 0; i < 65536; i += 8) {
+		float16table[i] = fix2float_o12(i);
+		float16table[(i+1)] = fix2float_o12(i+1);
+		float16table[(i+2)] = fix2float_o12(i+2);
+		float16table[(i+3)] = fix2float_o12(i+3);
+		float16table[(i+4)] = fix2float_o12(i+4);
+		float16table[(i+5)] = fix2float_o12(i+5);
+		float16table[(i+6)] = fix2float_o12(i+6);
+		float16table[(i+7)] = fix2float_o12(i+7);
 	}
-	
-	float o15 = 1.0f / (float)(1<<15);
-	float o18 = 1.0f / (float)(1<<18);
+
+	const float o15 = 1.0f / (float)(1<<15);
+	const float o18 = 1.0f / (float)(1<<18);
 
 	for (int i = 0; i < 1024; i++){		
-		signed short i6 = (signed short)(i<<6);
+		s16 i6 = (s16)(i<<6);
 		float10Table[i] = (i6) * o12;
 		float10RelTable[i] = (i6) * o18;
 		normalTable[i] = (i6) * o15;
 	}
+
 	for(int r=0;r<=31;r++) {
-		for(int a=0;a<=31;a++) {
-			for(int oldr=0;oldr<=31;oldr++) {
+		for(int oldr=0;oldr<=31;oldr++) {
+			for(int a=0;a<=31;a++) {
 				int temp = (r*a + oldr*(31-a)) / 31;
 				mixTable555[a][r][oldr] = temp;
 			}
@@ -865,8 +873,6 @@ static void gfx3d_glPopMatrix(s32 i)
 
 static void gfx3d_glStoreMatrix(u32 v)
 {
-	if (v > 31) return;
-
 	//this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
 	u32 mymode = (mode==1?2:mode);
 
@@ -874,6 +880,8 @@ static void gfx3d_glStoreMatrix(u32 v)
 	//without the mymode==3 namco classics galaxian will try to use pos=1 and overrun the stack, corrupting emu
 	if(mymode==0 || mymode==3)
 		v = 0;
+
+	if (v > 31) return;
 
 	MatrixStackLoadMatrix (&mtxStack[mymode], v, mtxCurrent[mymode]);
 
@@ -885,8 +893,6 @@ static void gfx3d_glStoreMatrix(u32 v)
 
 static void gfx3d_glRestoreMatrix(u32 v)
 {
-	if (v > 31) return;
-	
 	//this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
 	u32 mymode = (mode==1?2:mode);
 
@@ -894,6 +900,8 @@ static void gfx3d_glRestoreMatrix(u32 v)
 	//without the mymode==3 namco classics galaxian will try to use pos=1 and overrun the stack, corrupting emu
 	if(mymode==0 || mymode==3)
 		v = 0;
+
+	if (v > 31) return;
 
 	MatrixCopy (mtxCurrent[mymode], MatrixStackGetPos(&mtxStack[mymode], v));
 
