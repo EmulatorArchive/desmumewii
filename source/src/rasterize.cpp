@@ -999,7 +999,13 @@ static char SoftRastInit(void)
 	{
 		tables_generated = true;
 
-		clipper.clippedPolys = clippedPolys = new GFX3D_Clipper::TClippedPoly[POLYLIST_SIZE*2];
+		/*
+			clipper.clippedPolys = clippedPolys = new GFX3D_Clipper::TClippedPoly[POLYLIST_SIZE*2];
+			
+			Why is this POLYLIST_SIZE*2?  I can't for the life of me find where you need 2*POLLYLIST_SIZE
+
+		*/
+		clipper.clippedPolys = clippedPolys = new GFX3D_Clipper::TClippedPoly[POLYLIST_SIZE];
 
 		for(int i=0;i<64;i++)
 		{
