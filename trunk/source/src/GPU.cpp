@@ -367,7 +367,7 @@ void GPU_setVideoProp(GPU * gpu, u32 p)
 
 	SetupFinalPixelBlitter (gpu);
 
-    gpu->dispMode = cnt->DisplayMode & ((gpu->core)?1:3);
+	gpu->dispMode = cnt->DisplayMode & ((gpu->core)?1:3);
 
 	gpu->vramBlock = cnt->VRAM_Block;
 //	gpu->dispMode = 2; // NOT sure if this is an option or what ... Setting it makes the screen WORK :)))) scanff
@@ -679,22 +679,24 @@ FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x, 
 }
 
 template<BlendFunc FUNC, bool WINDOW>
-static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)
+FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 type, u16 x)
 {
 	bool windowDraw = true, windowEffect = true;
+	
+	u8 *dst = currDst;
 
 	if(WINDOW)
 	{
-		gpu->renderline_checkWindows(x, windowDraw, windowEffect);
+		renderline_checkWindows(x, windowDraw, windowEffect);
 		if(!windowDraw)
 			return;
 	}
 
 	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
-	const int bg_under = gpu->bgPixels[x];
-	const bool allowBlend = (bg_under != 4) && gpu->blend2[bg_under];
+	const int bg_under = bgPixels[x];
+	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
 
-	const bool sourceEffectSelected = gpu->blend1;
+	const bool sourceEffectSelected = blend1;
 
 	//note that the fadein and fadeout is done here before blending, 
 	//so that a fade and blending can be applied at the same time (actually, I don't think that is legal..)
@@ -702,8 +704,8 @@ static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u
 	if(windowEffect && sourceEffectSelected)
 		switch(FUNC) 
 		{
-		case Increase: if(!allowBlend) color = gpu->currentFadeInColors[color&0x7FFF]; break;
-		case Decrease: if(!allowBlend) color = gpu->currentFadeOutColors[color&0x7FFF]; break;
+		case Increase: if(!allowBlend) color = currentFadeInColors[color&0x7FFF]; break;
+		case Decrease: if(!allowBlend) color = currentFadeOutColors[color&0x7FFF]; break;
 
 		//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
 		case Blend: forceBlendingForNormal = true; break;
@@ -719,11 +721,11 @@ static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u
 		if(type == GPU_OBJ_MODE_Bitmap)
 			color = _blend(color,backColor,&gpuBlendTable555[alpha+1][15-alpha]);
 		else if(type == GPU_OBJ_MODE_Transparent || forceBlendingForNormal)
-			color = gpu->blend(color,backColor);
+			color = blend(color,backColor);
 	}
 
 	T2WriteWord(dst, x<<1, (color | 0x8000));
-	gpu->bgPixels[x] = 4;	
+	bgPixels[x] = 4;	
 }
 
 GPU::FinalBGColor_ptr GPU::FinalBGColor_lut [8] = {
@@ -748,15 +750,15 @@ GPU::Final3dColor_ptr GPU::Final3dColor_lut [8] = {
 	&GPU::_master_setFinal3dColor<Decrease,true>
 };
 
-void (* OBJColor_lut[8])(GPU *, u8 *, u16, u8, u8, u16) = {
-	_master_setFinalOBJColor<None,false>,
-	_master_setFinalOBJColor<Blend,false>,
-	_master_setFinalOBJColor<Increase,false>,
-	_master_setFinalOBJColor<Decrease,false>,
-	_master_setFinalOBJColor<None,true>,
-	_master_setFinalOBJColor<Blend,true>,
-	_master_setFinalOBJColor<Increase,true>,
-	_master_setFinalOBJColor<Decrease,true>
+GPU::FinalColorSpr_ptr GPU::FinalColorSpr_lut[8] = {
+	&GPU::_master_setFinalOBJColor<None,false>,
+	&GPU::_master_setFinalOBJColor<Blend,false>,
+	&GPU::_master_setFinalOBJColor<Increase,false>,
+	&GPU::_master_setFinalOBJColor<Decrease,false>,
+	&GPU::_master_setFinalOBJColor<None,true>,
+	&GPU::_master_setFinalOBJColor<Blend,true>,
+	&GPU::_master_setFinalOBJColor<Increase,true>,
+	&GPU::_master_setFinalOBJColor<Decrease,true>
 };
 
 //FUNCNUM is only set for backdrop, for an optimization of looking it up early
@@ -771,7 +773,7 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 	bool draw = false;
 
-	const int test = BACKDROP?FUNCNUM:setFinalColorBck_funcNum;
+	const int test = BACKDROP ? FUNCNUM : setFinalColorBck_funcNum;
 
 	draw = (this->*GPU::FinalBGColor_lut[test])(color, x, BACKDROP);
 
@@ -788,9 +790,9 @@ FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(dstX,srcX);
 }
 
-FORCEINLINE void setFinalColorSpr(GPU* gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)
+FORCEINLINE void GPU::setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x)
 {
-	OBJColor_lut[gpu->setFinalColorSpr_funcNum](gpu, dst, color, alpha, type, x);
+	(this->*FinalColorSpr_lut[setFinalColor3d_funcNum])(color, alpha, type, x);
 }
 
 template<bool MOSAIC, bool BACKDROP>
@@ -2174,7 +2176,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 			for (int i=0; i < item->nbPixelsX; i++)
 			{
 				i16=item->PixelsX[i];
-				setFinalColorSpr(gpu, gpu->currDst, T2ReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
+				gpu->setFinalColorSpr(T2ReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
 			}
 		}
 	}
@@ -2450,8 +2452,8 @@ FORCEINLINE void GPU::setup_windows()
 		endY = WIN1V1;
 	}
 
-	if(WIN_NUM == 0 && !WIN0_ENABLED) goto allout;
-	if(WIN_NUM == 1 && !WIN1_ENABLED) goto allout;
+	if(!WIN1_ENABLED && (WIN_NUM == 0 || WIN_NUM == 1))
+		goto allout;
 
 	if(startY > endY)
 	{
@@ -2473,8 +2475,8 @@ allout:
 void GPU::update_winh(int WIN_NUM)
 {
 	//Don't even waste any time in here if the window isn't enabled
-	if(WIN_NUM==0 && !WIN0_ENABLED) return;
-	if(WIN_NUM==1 && !WIN1_ENABLED) return;
+	if(!WIN1_ENABLED && (WIN_NUM == 0 || WIN_NUM == 1))
+		return;
 
 	need_update_winh[WIN_NUM] = false;
 	u16 startX,endX;
