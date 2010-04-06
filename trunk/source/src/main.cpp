@@ -264,7 +264,8 @@ void init(){
 	// button initialization
 	PAD_Init();
 	WPAD_Init();
- 
+
+
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode(NULL);
 
@@ -283,6 +284,11 @@ void init(){
 		default: // 480 lines (PAL 60Hz)
 			break;
 	}
+
+	
+    WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
+    WPAD_SetVRes(WPAD_CHAN_ALL,rmode->viWidth,rmode->viHeight);
+    WPAD_SetIdleTimeout(200);
 
 	VIDEO_Configure(rmode);
 
