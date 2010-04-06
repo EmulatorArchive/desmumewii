@@ -779,6 +779,9 @@ struct GPU
 	template<BlendFunc FUNC, bool WINDOW>
 	FORCEINLINE FASTCALL void _master_setFinal3dColor(int dstX, int srcX);
 
+	template<BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL void _master_setFinalOBJColor(u16 color, u8 alpha, u8 type, u16 x);
+
 	int setFinalColorBck_funcNum;
 	int bgFunc;
 	int setFinalColor3d_funcNum;
@@ -801,6 +804,7 @@ struct GPU
 
 
 	void setFinalColor3d(int dstX, int srcX);
+	void setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x);
 	
 	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
 	template<bool MOSAIC, bool BACKDROP> FORCEINLINE void __setFinalColorBck(u16 color, const u32 x, const int opaque);
@@ -854,6 +858,9 @@ struct GPU
 	
 	typedef void ( GPU::*Final3dColor_ptr)(int, int);
 	static Final3dColor_ptr Final3dColor_lut [8];
+
+	typedef void ( GPU::*FinalColorSpr_ptr)(u16, u8, u8, u16);
+	static FinalColorSpr_ptr FinalColorSpr_lut [8];
 };
 #if 0
 // normally should have same addresses

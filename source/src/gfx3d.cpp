@@ -465,7 +465,7 @@ static void makeTables() {
 		color_15bit_to_16bit_reverse[i+1] = ((((i+1) & 0x001F) << 11) | (material_5bit_to_6bit[((i+1) & 0x03E0) >> 5] << 5) | (((i+1) & 0x7C00) >> 10));
 	}
 
-	const double o12 = 1.0f / (float)(1<<12);
+	const float o12 = 1.0f / (float)(1<<12);
 
 // it's realy necessary
 #define fix2float_o12(v) (((float)((s32)((s16)v))) * o12)

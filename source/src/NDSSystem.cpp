@@ -76,7 +76,8 @@ int TotalLagFrames;
 TSCalInfo TSCal;
 //----------------- VIRTUAL MEM ----------------------/
 
-#define TEMP_ROM_SIZE	(0xA4000) // 128K
+// #define TEMP_ROM_SIZE	(0xA4000) // 128K // actually 656K...
+#define TEMP_ROM_SIZE	(0x80000) // 512K
 static u8* temp_vm_buffer = 0; // temp storage of game data
 static FILE* vmf = 0;
 static u32 last_address = 0;

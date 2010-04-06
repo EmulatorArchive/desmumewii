@@ -84,15 +84,15 @@
 #define CACHE_ALIGN ALIGN(32)
 
 #ifndef FASTCALL
-#ifdef __MINGW32__
-#define FASTCALL __attribute__((fastcall))
-#elif defined (__i386__)
-#define FASTCALL __attribute__((regparm(3)))
-#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#define FASTCALL
-#else
-#define FASTCALL
-#endif
+#	ifdef __MINGW32__
+#		define FASTCALL __attribute__((fastcall))
+#	elif defined (__i386__)
+#		define FASTCALL __attribute__((regparm(3)))
+#	elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#		define FASTCALL
+#	else
+#		define FASTCALL
+#	endif
 #endif
 
 #ifdef _MSC_VER
@@ -110,13 +110,16 @@
 #endif
 
 #ifndef FORCEINLINE
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#define FORCEINLINE __forceinline
-#define MSC_FORCEINLINE __forceinline
-#else
-#define FORCEINLINE inline __attribute__((always_inline)) 
-#define MSC_FORCEINLINE
-#endif
+#	if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#		define FORCEINLINE __forceinline
+#		define MSC_FORCEINLINE __forceinline
+#	elif defined(GEKKO)
+#		define FORCEINLINE INLINE
+#		define MSC_FORCEINLINE INLINE
+#	else
+#		define FORCEINLINE inline __attribute__((always_inline)) 
+#		define MSC_FORCEINLINE
+#	endif
 #endif
 
 #if defined(__LP64__)
