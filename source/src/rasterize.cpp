@@ -891,7 +891,7 @@ public:
 		lastTexKey = NULL;
 
 		//a counter for how many polys got culled
-		int culled = 0;
+// 		int culled = 0;
 
 		u32 lastPolyAttr = 0;
 		u32 lastTextureFormat = 0, lastTexturePalette = 0;

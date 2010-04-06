@@ -117,22 +117,9 @@ int read64le(u64 *Bufo, EMUFILE *is)
 	return 1;
 }
 
-static int read32le(u32 *Bufo, std::istream *is)
-{
-	u32 buf;
-	if(is->read((char*)&buf,4).gcount() != 4)
-		return 0;
-#ifdef LOCAL_LE
-	*(u32*)Bufo=buf;
-#else
-	*(u32*)Bufo=((buf&0xFF)<<24)|((buf&0xFF00)<<8)|((buf&0xFF0000)>>8)|((buf&0xFF000000)>>24);
-#endif
-	return 1;
-}
-
 int readbool(bool *b, EMUFILE* is)
 {
-	u32 temp;
+	u32 temp = 0;
 	int ret = read32le(&temp,is);
 	*b = temp!=0;
 	return ret;

@@ -163,19 +163,19 @@ BOOL init_joy( void) {
   return joy_init_good;
 }
 
-/* Set all buttons at once 
+// Set all buttons at once 
 void set_joy_keys(const u16 joyCfg[])
 {
   memcpy(joypad_cfg, joyCfg, sizeof(joypad_cfg));
 }
 
-/* Set all buttons at once */
+// Set all buttons at once 
 void set_kb_keys(const u16 kbCfg[])
 {
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
 }
 
-/* Unload joysticks 
+// Unload joysticks 
 void uninit_joy( void)
 {
   int i;
@@ -192,7 +192,7 @@ void uninit_joy( void)
   SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
 }
 
-/* Return keypad vector with given key set to 1 
+// Return keypad vector with given key set to 1 
 u16 lookup_joy_key (u16 keyval) {
   int i;
   u16 Key = 0;
@@ -202,7 +202,7 @@ u16 lookup_joy_key (u16 keyval) {
   return Key;
 }
 
-/* Return keypad vector with given key set to 1 */
+// Return keypad vector with given key set to 1 
 u16 lookup_key (u16 keyval) {
   int i;
   u16 Key = 0;
@@ -212,29 +212,29 @@ u16 lookup_key (u16 keyval) {
   return Key;
 }
 
-/* Empty SDL Events' queue 
+// Empty SDL Events' queue 
 static void clear_events( void)
 {
   SDL_Event event;
-  /* IMPORTANT: Reenable joystick events iif needed. 
+  // IMPORTANT: Reenable joystick events iif needed. 
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? 
+  // There's an event waiting to be processed? 
   while (SDL_PollEvent(&event))
     {
     }
 
   return;
-}*/
+}
 
-/* Get and set a new joystick key 
+// Get and set a new joystick key 
 u16 get_set_joy_key(int index) {
   BOOL done = FALSE;
   SDL_Event event;
   u16 key = joypad_cfg[index];
 
-  /* Enable joystick events if needed 
+  // Enable joystick events if needed 
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE )
     SDL_JoystickEventState(SDL_ENABLE);
 
@@ -255,9 +255,9 @@ u16 get_set_joy_key(int index) {
   joypad_cfg[index] = key;
 
   return key;
-}*/
+}
 
-/* Reset corresponding key and its twin axis key 
+// Reset corresponding key and its twin axis key 
 static u16 get_joy_axis_twin(u16 key)
 {
   switch(key)
@@ -271,15 +271,15 @@ static u16 get_joy_axis_twin(u16 key)
     }
 }
 
-/* Get and set a new joystick axis 
+// Get and set a new joystick axis 
 void get_set_joy_axis(int index, int index_o) {
   BOOL done = FALSE;
   SDL_Event event;
   u16 key = joypad_cfg[index];
 
-  /* Clear events 
+  // Clear events 
   clear_events();
-  /* Enable joystick events if needed 
+  // Enable joystick events if needed 
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE )
     SDL_JoystickEventState(SDL_ENABLE);
 
@@ -288,7 +288,7 @@ void get_set_joy_axis(int index, int index_o) {
       switch(event.type)
         {
         case SDL_JOYAXISMOTION:
-          /* Discriminate small movements 
+          // Discriminate small movements 
           if( (event.jaxis.value >> 5) != 0 )
             {
               key = JOY_AXIS_(event.jaxis.axis);
@@ -299,7 +299,7 @@ void get_set_joy_axis(int index, int index_o) {
     }
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_ENABLE )
     SDL_JoystickEventState(SDL_IGNORE);
-  /* Update configuration 
+  // Update configuration 
   joypad_cfg[index]   = key;
   joypad_cfg[index_o] = joypad_cfg[index];
 }
@@ -317,7 +317,7 @@ screen_to_touch_range_y( signed long scr_y, float size_ratio) {
 
   return touch_y;
 }
-
+*/
 /* Set mouse coordinates */
 void set_mouse_coord(signed long x,signed long y)
 {
@@ -367,38 +367,38 @@ do_process_joystick_events( u16 *keypad, SDL_Event *event) {
 
   switch ( event->type)
     {
-      /* Joystick axis motion 
+      // Joystick axis motion 
          Note: button constants have a 1bit offset. 
     case SDL_JOYAXISMOTION:
       key = lookup_joy_key( JOY_AXIS_(event->jaxis.axis) );
-      if( key == 0 ) break;           /* Not an axis of interest? 
+      if( key == 0 ) break;           // Not an axis of interest? 
 
-      /* Axis is back to initial position 
+      // Axis is back to initial position 
       if( event->jaxis.value == 0 )
         RM_KEY( *keypad, key | get_joy_axis_twin(key) );
-      /* Key should have been down but its currently set to up? 
+      // Key should have been down but its currently set to up? 
       else if( (event->jaxis.value > 0) && 
                (key == KEYMASK_( KEY_UP-1 )) )
         key = KEYMASK_( KEY_DOWN-1 );
-      /* Key should have been left but its currently set to right? *
+      // Key should have been left but its currently set to right? 
       else if( (event->jaxis.value < 0) && 
                (key == KEYMASK_( KEY_RIGHT-1 )) )
         key = KEYMASK_( KEY_LEFT-1 );
               
-      /* Remove some sensitivity before checking if different than zero... 
-         Fixes some badly behaving joypads [like one of mine]. *
+      // Remove some sensitivity before checking if different than zero... 
+      // Fixes some badly behaving joypads [like one of mine]. 
       if( (event->jaxis.value >> 5) != 0 )
         ADD_KEY( *keypad, key );
       break;
 
-      /* Joystick button pressed */
-      /* FIXME: Add support for BOOST *
+      // Joystick button pressed 
+      // FIXME: Add support for BOOST 
     case SDL_JOYBUTTONDOWN:
       key = lookup_joy_key( event->jbutton.button );
       ADD_KEY( *keypad, key );
       break;
 
-      /* Joystick button released *
+      // Joystick button released *
     case SDL_JOYBUTTONUP:
       key = lookup_joy_key(event->jbutton.button);
       RM_KEY( *keypad, key );
@@ -419,11 +419,11 @@ void
 process_joystick_events( u16 *keypad) {
   SDL_Event event;
 
-  /* IMPORTANT: Reenable joystick events iif needed. 
+  // IMPORTANT: Reenable joystick events iif needed. 
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? 
+  // There's an event waiting to be processed? 
   while (SDL_PollEvent(&event))
     {
       do_process_joystick_events( keypad, &event);
@@ -432,9 +432,7 @@ process_joystick_events( u16 *keypad) {
 
 u16 shift_pressed;
 
-/*void
-process_ctrls_event( SDL_Event& event, u16 *keypad,
-                      float nds_screen_size_ratio)*/
+*/
 
 #define CHECK_KEY(key, exp1, exp2) { \
 	if(exp1 || exp2) \
@@ -466,8 +464,12 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	if ((wpad_h & WPAD_BUTTON_A) || (pad_h & PAD_TRIGGER_Z))
 		mouse.down = TRUE;
 	  
-	if (!(wpad_h & WPAD_BUTTON_A) && !(pad_h & PAD_TRIGGER_Z))
-		mouse.down = FALSE;
+	if (!(wpad_h & WPAD_BUTTON_A) && !(pad_h & PAD_TRIGGER_Z)) {
+		if(mouse.down) {
+			mouse.click = TRUE;
+			mouse.down = FALSE;
+		}
+	}
 
 	if ((wpad_h & WPAD_BUTTON_LEFT) || (pad_substickx < -20)){
 		--mouse.x;
