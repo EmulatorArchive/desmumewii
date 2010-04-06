@@ -174,10 +174,10 @@ static void GPU_InitFadeColors()
 				}
 			}
 		}
-	}			
+	}		
 	//Old:
-	/*
-	for(int c0=0;c0<=31;c0++) 
+	
+	/*for(int c0=0;c0<=31;c0++) 
 		for(int c1=0;c1<=31;c1++) 
 			for(int eva=0;eva<=16;eva++)
 				for(int evb=0;evb<=16;evb++)
@@ -185,8 +185,8 @@ static void GPU_InitFadeColors()
 					int blend = ((c0 * eva) + (c1 * evb) ) / 16;
 					int final = std::min<int>(31,blend);
 					gpuBlendTable555[eva][evb][c0][c1] = final;
-				}
-	//*/
+				}*/
+
 }
 
 static CACHE_ALIGN GPU GPU_main, GPU_sub;
@@ -818,7 +818,8 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 			//--DCN: I hate goto; hate it like pain
 			setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
 		}
-		return;
+		else
+	        return;
 	}
 
 	if(!opaque)
