@@ -485,6 +485,15 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 		--mouse.y;
 	}
 
+	// Maybe an option, I like this better than the D-Pad ?
+    u32 type;
+    WPADData *wd_one;
+    WPAD_Probe(WPAD_CHAN_ALL, &type);
+    wd_one = WPAD_Data(0);
+	
+	mouse.x = wd_one->ir.x;
+	mouse.y = wd_one->ir.y;
+
 	set_mouse_coord( mouse.x, mouse.y );
 
 		  
