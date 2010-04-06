@@ -561,8 +561,7 @@ void DSExec(){
 		vertical = !vertical;
 	}
 	
-	if ((PAD_ButtonsDown(0) & PAD_BUTTON_RIGHT)) // TODO: Which button combo are we gonna use for Wiimote/Classic controller?
-	{
+	if ((WPAD_ButtonsDown(0)&WPAD_BUTTON_PLUS) || (PAD_ButtonsDown(0) & PAD_BUTTON_RIGHT)){ 
 		drawcursor ^= 1;
 	}
 
