@@ -490,9 +490,11 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
     WPADData *wd_one;
     WPAD_Probe(WPAD_CHAN_ALL, &type);
     wd_one = WPAD_Data(0);
-	
-	mouse.x = wd_one->ir.x;
-	mouse.y = wd_one->ir.y;
+	if (wd_one->ir.valid)
+	{
+		mouse.x = wd_one->ir.x;
+		mouse.y = wd_one->ir.y;
+	}
 
 	set_mouse_coord( mouse.x, mouse.y );
 
