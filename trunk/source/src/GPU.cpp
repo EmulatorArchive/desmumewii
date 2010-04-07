@@ -143,7 +143,7 @@ static void GPU_InitFadeColors()
 
 	for(int i = 0; i <= 16; i++)
 	{
-		int idiv16 = (i >> 4);
+		float idiv16 = (i >> 4);
 		for(int j = 0x8000; j < 0x10000; j++)
 		{
 			COLOR cur;
@@ -792,7 +792,7 @@ FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 
 FORCEINLINE void GPU::setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x)
 {
-	(this->*FinalColorSpr_lut[setFinalColor3d_funcNum])(color, alpha, type, x);
+	(this->*FinalColorSpr_lut[setFinalColorSpr_funcNum])(color, alpha, type, x);
 }
 
 template<bool MOSAIC, bool BACKDROP>
@@ -2252,8 +2252,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 								{
 									//INFO("Capture screen (BG + OBJ + 3D)\n");
 
-									u8 *src;
-									src = (u8*)(gpu->tempScanline);
+									u8 *src = (u8*)(gpu->tempScanline);
 									CAPCOPY(src,cap_dst);
 								}
 							break;
