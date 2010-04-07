@@ -49,7 +49,7 @@ extern void IPC_FIFOcnt(u8 proc, u16 val);
 //yeah, its oversize for now. thats a simpler solution
 //moon seems to overdrive the fifo with immediate dmas
 //i think this might be nintendo code too
-#define HACK_GXIFO_SIZE 200000
+#define HACK_GXIFO_SIZE 20000
 
 typedef struct
 {
