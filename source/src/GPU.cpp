@@ -818,8 +818,7 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 			//--DCN: I hate goto; hate it like pain
 			setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
 		}
-		else
-	        return;
+	      return;
 	}
 
 	if(!opaque)
