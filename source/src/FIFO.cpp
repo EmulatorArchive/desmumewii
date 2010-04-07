@@ -201,6 +201,7 @@ void GFX_FIFOsend(u8 cmd, u32 param)
         //      //NEED TO HANDLE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
+
         //      //gxstat |= 0x08000000;                 // busy
         //      NDS_RescheduleGXFIFO(1);
         //      //INFO("ERROR: gxFIFO is full (cmd 0x%02X = 0x%08X) (prev cmd 0x%02X = 0x%08X)\n", cmd, param, gxFIFO.cmd[255], gxFIFO.param[255]);
@@ -302,5 +303,3 @@ u32 DISP_FIFOrecv()
                 disp_fifo.head = 0;
         return (val);
 }
-
-

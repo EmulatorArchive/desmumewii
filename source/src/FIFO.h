@@ -32,7 +32,7 @@
 typedef struct
 {
         u32             buf[16];
-        
+       
         u8              head;
         u8              tail;
         u8              size;
@@ -53,19 +53,18 @@ extern void IPC_FIFOcnt(u8 proc, u16 val);
 
 typedef struct
 {
-        u8              cmd[HACK_GXIFO_SIZE];
         u32             param[HACK_GXIFO_SIZE];
 
         u32             head;           // start position
         u32             tail;           // tail
         u32             size;           // size FIFO buffer
+        u8              cmd[HACK_GXIFO_SIZE];
 } GFX_FIFO;
 
 typedef struct
 {
-        u8              cmd[4];
         u32             param[4];
-
+        u8              cmd[4];
         u8              head;
         u8              tail;
         u8              size;
@@ -93,5 +92,3 @@ extern void DISP_FIFOsend(u32 val);
 extern u32 DISP_FIFOrecv();
 
 #endif
-
-
