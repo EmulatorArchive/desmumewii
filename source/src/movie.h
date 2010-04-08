@@ -1,6 +1,8 @@
 #ifndef __MOVIE_H_
 #define __MOVIE_H_
 
+#ifdef _MOVIETIME_
+
 #include <vector>
 #include <map>
 #include <string>
@@ -205,4 +207,5 @@ bool LoadFM2(MovieData& movieData, EMUFILE* fp, int size, bool stopAfterHeader);
 extern bool movie_readonly;
 extern bool ShowInputDisplay;
 void FCEUI_MakeBackupMovie(bool dispMessage);
+#endif
 #endif

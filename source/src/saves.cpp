@@ -251,11 +251,13 @@ SFORMAT SF_MMU[]={
 	{ 0 }
 };
 
+#ifdef _MOVIETIME_
 SFORMAT SF_MOVIE[]={
 	{ "FRAC", 4, 1, &currFrameCounter},
 	{ "LAGC", 4, 1, &TotalLagFrames},
 	{ 0 }
 };
+#endif
 
 static void mmu_savestate(EMUFILE* os)
 {
@@ -1038,8 +1040,11 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
 	savestate_WriteChunk(os,91,gfx3d_savestate);
+#ifdef _MOVIETIME_
 	savestate_WriteChunk(os,100,SF_MOVIE);
+
 	savestate_WriteChunk(os,101,mov_savestate);
+#endif	
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,0xFFFFFFFF,(SFORMAT*)0);
@@ -1068,10 +1073,14 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			case 7: if(!gpu_loadstate(is,size)) ret=false; break;
 			case 8: if(!spu_loadstate(is,size)) ret=false; break;
 			case 81: if(!mic_loadstate(is,size)) ret=false; break;
+#ifdef _MOVIETIME_
 			case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
+#endif
 			case 91: if(!gfx3d_loadstate(is,size)) ret=false; break;
+#ifdef _MOVIETIME_
 			case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
 			case 101: if(!mov_loadstate(is, size)) ret=false; break;
+#endif			
 			case 110: if(!ReadStateChunk(is,SF_WIFI,size)) ret=false; break;
 			case 120: if(!ReadStateChunk(is,SF_RTC,size)) ret=false; break;
 			default:
@@ -1212,8 +1221,10 @@ int rewindinterval = 4;
 
 void rewindsave () {
 
+#ifdef _MOVIETIME_
 	if(currFrameCounter % rewindinterval)
 		return;
+#endif
 
 	//printf("rewindsave"); printf("%d%s", currFrameCounter, "\n");
 
@@ -1239,10 +1250,10 @@ void rewindsave () {
 
 void dorewind()
 {
-
+#ifdef _MOVIETIME_
 	if(currFrameCounter % rewindinterval)
 		return;
-
+#endif
 	//printf("rewind\n");
 
 	nds.debugConsole = FALSE;

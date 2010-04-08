@@ -94,6 +94,10 @@ static const u8 kDefaultCmdBitsSize[8] = {8, 8, 56, 24, 0, 24, 8, 8};
 
 #define toBCD(x) ((x / 10) << 4) | (x % 10);
 
+
+#ifdef _MOVIETIME_
+
+
 struct movietime {
 
 	int sec;
@@ -140,6 +144,9 @@ static void MovieTime(void) {
 	movie.hour=movie.hour % 24;
 }
 
+#endif
+
+
 static void rtcRecv()
 {
 	//INFO("RTC Read command 0x%02X\n", (rtc.cmd >> 1));
@@ -164,7 +171,7 @@ static void rtcRecv()
 				struct tm *tm_local= localtime(&tm);
 				tm_local->tm_year %= 100;
 				tm_local->tm_mon++;
-
+#ifdef _MOVIETIME_
 				if(movieMode != MOVIEMODE_INACTIVE) {
 
 					MovieTime();
@@ -179,8 +186,9 @@ static void rtcRecv()
 					rtc.data[6]=toBCD(movie.sec);
 					break;
 				}
-				else {
-
+				else 
+#endif
+				{
 					rtc.data[0] = toBCD(tm_local->tm_year);
 					rtc.data[1] = toBCD(tm_local->tm_mon);
 					rtc.data[2] = toBCD(tm_local->tm_mday);
@@ -198,7 +206,7 @@ static void rtcRecv()
 				time_t	tm;
 				time(&tm);
 				struct tm *tm_local= localtime(&tm);
-
+#ifdef _MOVIETIME_
 				if(movieMode != MOVIEMODE_INACTIVE) {
 
 					MovieTime();
@@ -208,7 +216,9 @@ static void rtcRecv()
 					rtc.data[1] =  toBCD(movie.minute);
 					rtc.data[2] =  toBCD(movie.sec);
 				}
-				else {
+				else
+#endif 
+				{
 
 					if (!(rtc.regStatus1 & 0x02)) tm_local->tm_hour %= 12;
 					rtc.data[0] = ((tm_local->tm_hour < 12) ? 0x00 : 0x40) | toBCD(tm_local->tm_hour);

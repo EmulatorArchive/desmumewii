@@ -1005,7 +1005,9 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #endif
 void NDS_FreeROM(void)
 {
+#ifdef _MOVIETIME_
 	FCEUI_StopMovie();
+#endif
 	if ((u8*)MMU.CART_ROM == (u8*)gameInfo.romdata)
 		gameInfo.romdata = NULL;
 	if (MMU.CART_ROM != MMU.UNUSED_RAM)
@@ -2345,9 +2347,11 @@ void NDS_exec(s32 nb)
 	//TODO - singlestep is broken
 
 	LagFrameFlag=1;
-
+	
+#ifdef _MOVIETIME_
 	if((currFrameCounter&63) == 0)
 		MMU_new.backupDevice.lazy_flush();
+#endif
 
 	sequencer.nds_vblankEnded = false;
 
@@ -2423,7 +2427,9 @@ void NDS_exec(s32 nb)
 		lastLag = lagframecounter;
 		lagframecounter = 0;
 	}
+#ifdef _MOVIETIME_
 	currFrameCounter++;
+#endif	
 	cheatsProcess();
 }
 
@@ -2473,18 +2479,23 @@ void NDS_Reset()
 	nds_timer = 0;
 	nds_arm9_timer = 0;
 	nds_arm7_timer = 0;
+#ifdef _MOVIETIME_
 
 	if(movieMode != MOVIEMODE_INACTIVE && !_HACK_DONT_STOPMOVIE)
 		movie_reset_command = true;
 
 	if(movieMode == MOVIEMODE_INACTIVE) {
 		currFrameCounter = 0;
+#endif		
 		lagframecounter = 0;
 		LagFrameFlag = 0;
 		lastLag = 0;
 		TotalLagFrames = 0;
+
+#ifdef _MOVIETIME_
 	}
-	
+#endif	
+
 	MMU_Reset();
 
 	//ARM7 BIOS IRQ HANDLER
@@ -2858,13 +2869,15 @@ void NDS_setTouchPos(u16 x, u16 y)
 	rawUserInput.touch.touchX = NDS_getADCTouchPosX(x);
 	rawUserInput.touch.touchY = NDS_getADCTouchPosY(y);
 	rawUserInput.touch.isTouch = true;
-
+	
+#ifdef _MOVIETIME_
 	if(movieMode != MOVIEMODE_INACTIVE && movieMode != MOVIEMODE_FINISHED)
 	{
 		// just in case, since the movie only stores 8 bits per touch coord
 		rawUserInput.touch.touchX &= 0x0FF0;
 		rawUserInput.touch.touchY &= 0x0FF0;
 	}
+#endif
 
 #ifndef WIN32
 	// FIXME: this code should be deleted from here,
