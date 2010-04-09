@@ -143,22 +143,21 @@ static void GPU_InitFadeColors()
 
 	for(int i = 0; i <= 16; i++)
 	{
-		float idiv16 = (i >> 4);
 		for(int j = 0x8000; j < 0x10000; j++)
 		{
 			COLOR cur;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red + ((31 - cur.bits.red) * idiv16));
-			cur.bits.green = (cur.bits.green + ((31 - cur.bits.green) * idiv16));
-			cur.bits.blue = (cur.bits.blue + ((31 - cur.bits.blue) * idiv16));
+			cur.bits.red = (cur.bits.red + (((31 - cur.bits.red) * i) >> 4));
+			cur.bits.green = (cur.bits.green + (((31 - cur.bits.green) * i) >> 4));
+			cur.bits.blue = (cur.bits.blue + (((31 - cur.bits.blue) * i) >> 4));
 			cur.bits.alpha = 0;
 			fadeInColors[i][j & 0x7FFF] = cur.val;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red - (cur.bits.red * idiv16));
-			cur.bits.green = (cur.bits.green - (cur.bits.green * idiv16));
-			cur.bits.blue = (cur.bits.blue - (cur.bits.blue * idiv16));
+			cur.bits.red = (cur.bits.red - ((cur.bits.red * i) >> 4));
+			cur.bits.green = (cur.bits.green - ((cur.bits.green * i) >> 4));
+			cur.bits.blue = (cur.bits.blue - ((cur.bits.blue * i) >> 4));
 			cur.bits.alpha = 0;
 			fadeOutColors[i][j & 0x7FFF] = cur.val;
 		}
