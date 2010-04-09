@@ -191,14 +191,77 @@ typedef struct {
 /*******************************************************************************
     this structure is for rotoscale parameters
 *******************************************************************************/
+union somename16 {
+  struct {
+#ifdef WORDS_BIGENDIAN
+	u8 l7:1;
+	u8 l6:1;
+	u8 l5:1;
+	u8 l4:1;
+	u8 l3:1;
+	u8 l2:1;
+	u8 l1:1;
+	u8 l0:1;
+
+	u8 h7:1;
+	u8 h6:1;
+	u8 h5:1;
+	u8 h4:1;
+	u8 h3:1;
+	u8 h2:1;
+	u8 h1:1;
+	u8 h0:1;
+
+#else
+    u8 l, h;
+#endif
+  } bits;
+  u16 val;
+};
+
+struct _16_bit {
+  somename16 value;
+  u16 get_val() { 
+	  u16 val = 0;
+
+	  val = (value.bits.h7 << 15 | value.bits.h6 << 14 |
+			value.bits.h5 << 13 | value.bits.h4 << 12 |
+  			value.bits.h3 << 11 | value.bits.h2 << 10 |
+  			value.bits.h1 << 9 | value.bits.h0 << 8 |
+			value.bits.l7 << 7 | value.bits.l6 << 6 |
+			value.bits.l5 << 5 | value.bits.l4 << 4 |
+  			value.bits.l3 << 3 | value.bits.l2 << 2 |
+  			value.bits.l1 << 1 | value.bits.l0);
+
+
+	  
+	  return val;//((value.bits.h << 8) | value.bits.l); 
+	};
+};
+
+union somename32 {
+  struct {
+#ifdef WORDS_BIGENDIAN
+    u8 h3, h2, h, l;
+#else
+    u8 l, h, h2, h3;
+#endif
+  } bits;
+  s32 val;
+};
+
+struct _32_bit {
+  somename32 value;
+  s32 get_val() { return ((value.bits.h3 << 24) | (value.bits.h2 << 16) | (value.bits.h << 8) | value.bits.l); }
+};
 
 typedef struct {
-    s16 BGxPA;
-    s16 BGxPB;
-    s16 BGxPC;
-    s16 BGxPD;
-    s32 BGxX;
-    s32 BGxY;
+    _16_bit BGxPA;
+    _16_bit BGxPB;
+    _16_bit BGxPC;
+    _16_bit BGxPD;
+    _32_bit BGxX;
+    _32_bit BGxY;
 } BGxPARMS;
 
 
@@ -435,12 +498,22 @@ typedef union
 	u16 val;
 } TILEENTRY;
 
+#ifdef WORDS_BIGENDIAN
+struct _ROTOCOORD
+{
+	u32 pad:4;
+	s32 Integer:20;
+	u32 Fraction:8;
+
+};
+#else
 struct _ROTOCOORD
 {
 	u32 Fraction:8;
 	s32 Integer:20;
 	u32 pad:4;
 };
+#endif
 typedef union
 {
 	struct _ROTOCOORD bits;
