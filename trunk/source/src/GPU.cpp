@@ -1265,16 +1265,17 @@ template<bool MOSAIC> void lineRot(GPU * gpu)
 	}
 	else
 	{
+
 		 rotBG2<MOSAIC>(gpu, 
-				  parms->BGxX,
-				  parms->BGxY,
-				  parms->BGxPA,
-				  parms->BGxPB,
-				  parms->BGxPC,
-				  parms->BGxPD,
+				  parms->BGxX.get_val(),
+				  parms->BGxY.get_val(),
+				  parms->BGxPA.get_val(),
+				  parms->BGxPB.get_val(),
+				  parms->BGxPC.get_val(),
+				  parms->BGxPD.get_val(),
 				  256);
-		 parms->BGxX += parms->BGxPB;
-		 parms->BGxY += parms->BGxPD;
+		 parms->BGxX.value.val += parms->BGxPB.get_val();
+		 parms->BGxY.value.val += parms->BGxPD.get_val();
 	}
 }
 
@@ -1295,15 +1296,27 @@ template<bool MOSAIC> void lineExtRot(GPU * gpu)
 	else
 	{
 		extRotBG2<MOSAIC>(gpu,
-              parms->BGxX,
-              parms->BGxY,
-              parms->BGxPA,
-              parms->BGxPB,
-              parms->BGxPC,
-              parms->BGxPD,
+              (s16)(parms->BGxX.get_val()),
+              (s16)(parms->BGxY.get_val()),
+              (s16)(parms->BGxPA.get_val()),
+              (s16)(parms->BGxPB.get_val()),
+              (s16)(parms->BGxPC.get_val()),
+              (s16)(parms->BGxPD.get_val()),
               256);
-		parms->BGxX += parms->BGxPB;
-		parms->BGxY += parms->BGxPD;
+		parms->BGxX.value.val += (s16)(parms->BGxPB.get_val());
+		parms->BGxY.value.val += (s16)(parms->BGxPD.get_val());
+
+	/*	printf("PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
+			             parms->BGxX.get_val(),
+              parms->BGxY.get_val(),
+              parms->BGxPA.get_val(),
+              parms->BGxPB.get_val(),
+              parms->BGxPC.get_val(),
+              parms->BGxPD.get_val()
+              );
+*/
+
+
 	}
 }
 
@@ -2750,9 +2763,9 @@ void GPU::refreshAffineStartRegs(const int num, const int xy)
 		parms = &(dispx_st)->dispx_BG3PARMS;		
 
 	if(xy==0)
-		parms->BGxX = affineInfo[num-2].x;
+		parms->BGxX.value.val = affineInfo[num-2].x;
 	else
-		parms->BGxY = affineInfo[num-2].y;
+		parms->BGxY.value.val = affineInfo[num-2].y;
 }
 
 template<bool MOSAIC> void GPU::modeRender(int layer)
