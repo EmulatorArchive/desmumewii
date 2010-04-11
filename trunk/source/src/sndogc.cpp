@@ -57,15 +57,15 @@ static u32 soundbufsize;
 static lwpq_t audioqueue = LWP_TQUEUE_NULL;
 static lwp_t audiothread = LWP_THREAD_NULL;
 static mutex_t audiomutex = LWP_MUTEX_NULL;
+static int sndogcvolume = 100;
 
 static void *audio_thread(void*)
 {
 	u8 *sdata, *soundbuf;
 	while(1)
 	{
-		LWP_MutexLock(audiomutex);
-
 		SPU_Emulate_user();
+		LWP_MutexLock(audiomutex);
 
 		whichab ^= 1;
 		sdata = (u8*)stereodata16[whichab];
@@ -109,12 +109,15 @@ int SNDOGCInit(int buffersize)
 
 	AUDIO_SetDSPSampleRate(AI_SAMPLERATE_48KHZ);
 	AUDIO_SetStreamSampleRate(AI_SAMPLERATE_48KHZ);
+	AUDIO_SetStreamVolLeft(sndogcvolume);
+	AUDIO_SetStreamVolRight(sndogcvolume);
+
 	soundoffset = 0;
 	soundbufsize = buffersize;
 	soundpos = 0;
 
-	if ((stereodata16[0] = (u8 *)memalign(8, soundbufsize)) == NULL ||
-	    (stereodata16[1] = (u8 *)memalign(8, soundbufsize)) == NULL ||
+	if ((stereodata16[0] = (u8 *)memalign(32, soundbufsize)) == NULL ||
+	    (stereodata16[1] = (u8 *)memalign(32, soundbufsize)) == NULL ||
 		(tmpbuffer       = (u8 *)malloc(soundbufsize)) == NULL)
 		return -1;
 
@@ -216,6 +219,17 @@ void SNDOGCUnMuteAudio()
 
 void SNDOGCSetVolume(int volume)
 {
+	volume < 0 ? volume = 0 : volume > 255 ? volume = 255 : 0;
+	
+	sndogcvolume = volume;
+	
+/*	#define AVE_AI_VOLUME 0x71
+
+	VIWriteI2CRegister8(AVE_AI_VOLUME, clamp(volume.left, 0x00, 0xFF));
+    VIWriteI2CRegister8(AVE_AI_VOLUME + 1, clamp(volume.right, 0x00, 0xFF));
+*/
+	AUDIO_SetStreamVolLeft(sndogcvolume);
+	AUDIO_SetStreamVolRight(sndogcvolume);
 }
 
 //////////////////////////////////////////////////////////////////////////////
