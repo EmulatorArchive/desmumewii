@@ -220,12 +220,13 @@ void Execute() {
 			DSExec();
 
 		}
+/*		TODO ... add this option in ogcsnd and ndssystem ... sound emulation should not be done here !
 		if ( enable_sound)
 		{
 			SPU_Emulate_core();
 			SPU_Emulate_user();
 		}
-
+*/
 	}
 
 	abort_thread = 1;

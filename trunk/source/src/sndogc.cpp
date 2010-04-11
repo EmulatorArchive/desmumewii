@@ -64,6 +64,9 @@ static void *audio_thread(void*)
 	while(1)
 	{
 		LWP_MutexLock(audiomutex);
+
+		SPU_Emulate_user();
+
 		whichab ^= 1;
 		sdata = (u8*)stereodata16[whichab];
 		soundbuf = (u8*)tmpbuffer;
@@ -105,7 +108,7 @@ int SNDOGCInit(int buffersize)
 	AUDIO_Init(NULL);
 
 	AUDIO_SetDSPSampleRate(AI_SAMPLERATE_48KHZ);
-
+	AUDIO_SetStreamSampleRate(AI_SAMPLERATE_48KHZ);
 	soundoffset = 0;
 	soundbufsize = buffersize;
 	soundpos = 0;
