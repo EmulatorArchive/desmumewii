@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
-		SPU_Init(SNDCORE_OGC, 2048);
+		SPU_Init(SNDCORE_OGC, 740);
 	}
   
 	//rom_filename = "sd:/boot.nds";
