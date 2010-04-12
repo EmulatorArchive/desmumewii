@@ -27,6 +27,7 @@
 #include "SPU.h"
 #include "sndogc.h"
 #include "debug.h"
+#include <unistd.h>
 
 int SNDOGCInit(int buffersize);
 void SNDOGCDeInit();
@@ -65,6 +66,7 @@ static void *audio_thread(void*)
 	while(1)
 	{
 		SPU_Emulate_user();
+		usleep(10);
 		LWP_MutexLock(audiomutex);
 
 		whichab ^= 1;

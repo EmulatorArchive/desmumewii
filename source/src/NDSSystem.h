@@ -28,7 +28,7 @@
 #include "armcpu.h"
 #include "MMU.h"
 //#include "driver.h"
-#include "GPU.h"
+// #include "GPU.h"
 #include "SPU.h"
 #include "mem.h"
 #include "wifi.h"
@@ -411,12 +411,7 @@ static INLINE void NDS_ARM7VBlankInt(void)
          //emu_halt();
 }
 
-static INLINE void NDS_swapScreen(void)
-{
-   u16 tmp = MainScreen.offset;
-   MainScreen.offset = SubScreen.offset;
-   SubScreen.offset = tmp;
-}
+void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
 

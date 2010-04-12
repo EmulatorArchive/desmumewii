@@ -32,6 +32,7 @@
 #include "debug.h"
 #include "sndogc.h"
 #include "ctrlssdl.h"
+#include "GPU.h"
 #include "render3D.h"
 //#include "gdbstub.h"
 #include "FrontEnd.h"
@@ -187,7 +188,7 @@ int main(int argc, char **argv)
 
 	if ( enable_sound) {
 		printf("Setting up for sound...\n");
-		SPU_Init(SNDCORE_OGC, 740);
+		SPU_Init(SNDCORE_OGC, 768);	// audio samples count is 512 or 1024. Buffer is arg*2. 768*2 = 512*3.
 	}
   
 	//rom_filename = "sd:/boot.nds";
@@ -247,8 +248,6 @@ void Execute() {
 	return;
 }
 
-
-
 //////////////////////////////////////////////////////////////////
 //////////////////////////// FUNCTIONS ///////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -287,9 +286,9 @@ void init(){
 	}
 
 	
-    WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
-    WPAD_SetVRes(WPAD_CHAN_ALL,rmode->viWidth,rmode->viHeight);
-    WPAD_SetIdleTimeout(200);
+	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
+	WPAD_SetVRes(WPAD_CHAN_ALL,rmode->viWidth,rmode->viHeight);
+	WPAD_SetIdleTimeout(200);
 
 	VIDEO_Configure(rmode);
 
@@ -410,65 +409,70 @@ static void Draw(void) {
 	return;
 }
 
+static bool change_screen_layout = true;
+
 static void do_screen_layout()
 {
+	change_screen_layout = false;
 
-	if (screen_layout == SCREEN_HORI_NORMAL) 
+	if(++screen_layout >= SCREEN_MAX)
+		screen_layout = SCREEN_VERT_NORMAL;
+
+	switch(screen_layout) 
 	{
-		// not scaled
+		case SCREEN_HORI_NORMAL:
+			// not scaled
 
-		topX = 	int((rmode->viWidth /2) - ((width*2) / 2));
-		topY = 	int((rmode->viHeight /2) - (height / 2));
-		bottomX = topX + width;
-		bottomY = topY;
-		scaley = scalex = 1.0;
+			topX = 	int((rmode->viWidth /2) - ((width*2) / 2));
+			topY = 	int((rmode->viHeight /2) - (height / 2));
+			bottomX = topX + width;
+			bottomY = topY;
+			scaley = scalex = 1.0;
+			break;
 
+		case SCREEN_HORI_STRETCH:
+			//scaled
+
+			scalex = float(rmode->viWidth / (width*2.0f));
+			scaley = float(rmode->viHeight / height);
+			topX = topY = 0;
+			bottomY = 0;
+			bottomX = topX + width;
+			break;
+
+		case SCREEN_VERT_NORMAL:
+			// normal
+			topX = 	int((rmode->viWidth / 2) - (width / 2.0f));
+			topY = 	int((rmode->viHeight / 2) - ((height * 2.0f) / 2));
+			bottomX = topX;
+			bottomY = topY+height;
+			scaley = scalex = 1.0;
+			break;
+
+		case SCREEN_VERT_STRETCH:
+			// stretched
+			topX = topY = 0;
+			bottomX = 0;
+			scalex = float(rmode->viWidth / (width));
+			scaley = float(rmode->viHeight / (height*2));
+			bottomY = height;
+			break;
+
+		case SCREEN_MAIN_STRETCH:
+		case SCREEN_SUB_STRETCH:
+			topX = topY = 0;
+			bottomX = bottomY = 0;
+			scalex = float(rmode->viWidth / (width));
+			scaley = float(rmode->viHeight / (height));
+			break;
+
+		case SCREEN_MAIN_NORMAL: 
+		case SCREEN_SUB_NORMAL:
+			topX = bottomX = int((rmode->viWidth /2) - (width / 2));
+			topY = bottomY = int((rmode->viHeight /2) - (height / 2));
+			scaley = scalex = 1.0;
+			break;
 	}
-	else if (screen_layout == SCREEN_HORI_STRETCH)
-	{
-		//scaled
-
-		scalex = float(rmode->viWidth / (width*2.0f));
-		scaley = float(rmode->viHeight / height);
-
-		topX = topY = 0;
-		bottomY = 0;
-		bottomX = topX + width;
-			
-	} 
-	else if (screen_layout == SCREEN_VERT_NORMAL)
-	{
-		// normal
-		topX = 	int((rmode->viWidth / 2) - (width / 2.0f));
-		topY = 	int((rmode->viHeight / 2) - ((height * 2.0f) / 2));
-		bottomX = topX;
-		bottomY = topY+height;
-		scaley = scalex = 1.0;
-	}
-	else if (screen_layout == SCREEN_VERT_STRETCH)
-	{
-		// stretched
-		topX = topY = 0;
-		bottomX = 0;
-		scalex = float(rmode->viWidth / (width));
-		scaley = float(rmode->viHeight / (height*2));
-		bottomY = height;
-
-	}
-	else if ((screen_layout == SCREEN_MAIN_STRETCH)||(screen_layout == SCREEN_SUB_STRETCH))
-	{
-		topX = topY = 0;
-		bottomX = bottomY = 0;
-		scalex = float(rmode->viWidth / (width));
-		scaley = float(rmode->viHeight / (height));
-	}
-	else if ((screen_layout == SCREEN_MAIN_NORMAL)||(screen_layout == SCREEN_SUB_NORMAL))
-	{
-		topX = bottomX = int((rmode->viWidth /2) - (width / 2));
-		topY = bottomY = int((rmode->viHeight /2) - (height / 2));
-		scaley = scalex = 1.0;
-	}
-
 };
 
 static void *draw_thread(void*)
@@ -478,7 +482,8 @@ static void *draw_thread(void*)
 		if (abort_thread)
 			break;
 
-		do_screen_layout();
+		if(change_screen_layout)	// call it only when necessary.
+			do_screen_layout();
 		
 		LWP_MutexLock(vidmutex);
 		
@@ -490,7 +495,7 @@ static void *draw_thread(void*)
 		guMtxScaleApply(m1, m1, scalex, scaley, 1.0f);
 		guMtxTransApply(m1, m1,0, 0, -1.0f);
 		guMtxConcat (GXmodelView2D, m1, mv);
-	    GX_LoadPosMtxImm (mv, GX_PNMTX0);
+		GX_LoadPosMtxImm (mv, GX_PNMTX0);
 
 		// TOP SCREEN
 		if ((screen_layout != SCREEN_SUB_NORMAL) && (screen_layout != SCREEN_SUB_STRETCH))
@@ -510,7 +515,7 @@ static void *draw_thread(void*)
 		// BOTTOM SCREEN
 		if (screen_layout != SCREEN_MAIN_NORMAL && (screen_layout != SCREEN_MAIN_STRETCH))
 		{
-
+ 
 			GX_LoadTexObj(&BottomTex, GX_TEXMAP0);
 			GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 				GX_Position2f32(bottomX, bottomY);
@@ -624,7 +629,7 @@ void DSExec(){
 	
 	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2) || (PAD_ButtonsDown(0) & PAD_BUTTON_UP))
 	{
-		screen_layout+1 < SCREEN_MAX ? screen_layout++ : screen_layout = SCREEN_VERT_NORMAL;
+		change_screen_layout = true;
 	}
 	
 	if ((WPAD_ButtonsDown(0)&WPAD_BUTTON_PLUS) || (PAD_ButtonsDown(0) & PAD_BUTTON_RIGHT)){ 

@@ -31,15 +31,13 @@ enum {
 	SCREEN_MAX
 };
 
-u32 screen_layout = SCREEN_VERT_NORMAL;
+u32 screen_layout = SCREEN_MAX;
 
 // positioning screen vars.
 int bottomX, bottomY, topX, topY;
 float scalex, scaley;
-float width	= 256;
+float width = 256;
 float height = 192;
-
-
 
 void DoConfig();
 
