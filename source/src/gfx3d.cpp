@@ -44,6 +44,7 @@
 #include "NDSSystem.h"
 #include "readwrite.h"
 #include "FIFO.h"
+#include "GPU.h"
 #include <queue>
 //#include "movie.h"
 
@@ -2129,20 +2130,26 @@ void gfx3d_GetLineData(int line, u8** dst)
 
 void gfx3d_GetLineData15bpp(int line, u16** dst)
 {
-        //TODO - this is not very thread safe!!!
-        static u16 buf[256];
-        *dst = buf;
+	//TODO - this is not very thread safe!!!
+	static u16 buf[256];
+	*dst = buf;
 
-        u8* lineData;
-        gfx3d_GetLineData(line, &lineData);
-        for(int i=0;i<256;i++)
-        {
-                const u8 r = lineData[i*4+0];
-                const u8 g = lineData[i*4+1];
-                const u8 b = lineData[i*4+2];
-                const u8 a = lineData[i*4+3];
-                buf[i] = R6G6B6TORGB15(r,g,b) | (a==0?0:0x8000);
-        }
+	u8* lineData;
+	gfx3d_GetLineData(line, &lineData);
+	for(int i=0;i<256;i++)
+	{
+#if 1
+		COLOR32 color;
+		color.val = (*(u32 *)&lineData[i*4]);
+		buf[i] = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b) | (color.bits.a == 0 ? 0 : 0x8000);
+#else
+		const u8 r = lineData[i*4+0];
+		const u8 g = lineData[i*4+1];
+		const u8 b = lineData[i*4+2];
+		const u8 a = lineData[i*4+3];
+		buf[i] = R6G6B6TORGB15(r, g, b) | (a == 0 ? 0 : 0x8000);
+#endif
+	}
 }
 
 
