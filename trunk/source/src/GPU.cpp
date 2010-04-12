@@ -143,21 +143,22 @@ static void GPU_InitFadeColors()
 
 	for(int i = 0; i <= 16; i++)
 	{
+		float idiv16 = ((float)i) / 16;
 		for(int j = 0x8000; j < 0x10000; j++)
 		{
 			COLOR cur;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red + (((31 - cur.bits.red) * i) >> 4));
-			cur.bits.green = (cur.bits.green + (((31 - cur.bits.green) * i) >> 4));
-			cur.bits.blue = (cur.bits.blue + (((31 - cur.bits.blue) * i) >> 4));
+			cur.bits.red = (cur.bits.red + ((31 - cur.bits.red) * idiv16));
+			cur.bits.green = (cur.bits.green + ((31 - cur.bits.green) * idiv16));
+			cur.bits.blue = (cur.bits.blue + ((31 - cur.bits.blue) * idiv16));
 			cur.bits.alpha = 0;
 			fadeInColors[i][j & 0x7FFF] = cur.val;
 
 			cur.val = j;
-			cur.bits.red = (cur.bits.red - ((cur.bits.red * i) >> 4));
-			cur.bits.green = (cur.bits.green - ((cur.bits.green * i) >> 4));
-			cur.bits.blue = (cur.bits.blue - ((cur.bits.blue * i) >> 4));
+			cur.bits.red = (cur.bits.red - (cur.bits.red * idiv16));
+			cur.bits.green = (cur.bits.green - (cur.bits.green * idiv16));
+			cur.bits.blue = (cur.bits.blue - (cur.bits.blue * idiv16));
 			cur.bits.alpha = 0;
 			fadeOutColors[i][j & 0x7FFF] = cur.val;
 		}
@@ -1267,15 +1268,16 @@ template<bool MOSAIC> void lineRot(GPU * gpu)
 	{
 
 		 rotBG2<MOSAIC>(gpu, 
-				  parms->BGxX.get_val(),
-				  parms->BGxY.get_val(),
-				  parms->BGxPA.get_val(),
-				  parms->BGxPB.get_val(),
-				  parms->BGxPC.get_val(),
-				  parms->BGxPD.get_val(),
-				  256);
-		 parms->BGxX.value.val += parms->BGxPB.get_val();
-		 parms->BGxY.value.val += parms->BGxPD.get_val();
+			parms->BGxX.get_val(),
+			parms->BGxY.get_val(),
+			parms->BGxPA.get_val(),
+			parms->BGxPB.get_val(),
+			parms->BGxPC.get_val(),
+			parms->BGxPD.get_val(),
+			256);
+
+		parms->BGxX += parms->BGxPB;
+		parms->BGxY += parms->BGxPD;
 	}
 }
 
@@ -1296,26 +1298,25 @@ template<bool MOSAIC> void lineExtRot(GPU * gpu)
 	else
 	{
 		extRotBG2<MOSAIC>(gpu,
-              (s16)(parms->BGxX.get_val()),
-              (s16)(parms->BGxY.get_val()),
-              (s16)(parms->BGxPA.get_val()),
-              (s16)(parms->BGxPB.get_val()),
-              (s16)(parms->BGxPC.get_val()),
-              (s16)(parms->BGxPD.get_val()),
-              256);
-		parms->BGxX.value.val += (s16)(parms->BGxPB.get_val());
-		parms->BGxY.value.val += (s16)(parms->BGxPD.get_val());
+			(s16)(parms->BGxX.get_val()),
+			(s16)(parms->BGxY.get_val()),
+			(s16)(parms->BGxPA.get_val()),
+			(s16)(parms->BGxPB.get_val()),
+			(s16)(parms->BGxPC.get_val()),
+			(s16)(parms->BGxPD.get_val()),
+			256);
 
-	/*	printf("PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
-			             parms->BGxX.get_val(),
-              parms->BGxY.get_val(),
-              parms->BGxPA.get_val(),
-              parms->BGxPB.get_val(),
-              parms->BGxPC.get_val(),
-              parms->BGxPD.get_val()
-              );
-*/
+		parms->BGxX += parms->BGxPB;
+		parms->BGxY += parms->BGxPD;
 
+		/*printf("PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
+			parms->BGxX.get_val(),
+			parms->BGxY.get_val(),
+			parms->BGxPA.get_val(),
+			parms->BGxPB.get_val(),
+			parms->BGxPC.get_val(),
+			parms->BGxPD.get_val()
+		);*/
 
 	}
 }
@@ -1493,7 +1494,7 @@ FORCEINLINE BOOL compute_sprite_vars(_OAM_ * spriteInfo, u16 l,
 
 static u8* bmp_sprite_address(GPU* gpu, _OAM_ * spriteInfo, size sprSize, s32 y)
 {
-	u8* src;
+	u8* src = 0;
 	if (spriteInfo->Mode == 3) //sprite is in BMP format
 	{
 		if (gpu->dispCnt().OBJ_BMP_mapping)

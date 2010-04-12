@@ -42,6 +42,7 @@
 #include "Disassembler.h"
 #include "readwrite.h"
 #include "debug.h"
+#include "GPU.h"
 
 #include "path.h"
 
@@ -3065,6 +3066,15 @@ void emu_halt() {
 	//printf("halting emu: ARM9 PC=%08X/%08X, ARM7 PC=%08X/%08X\n", NDS_ARM9.R[15], NDS_ARM9.instruct_adr, NDS_ARM7.R[15], NDS_ARM7.instruct_adr);
 	execute = false;
 }
+
+
+INLINE void NDS_swapScreen(void)
+{
+	u16 tmp = MainScreen.offset;
+	MainScreen.offset = SubScreen.offset;
+	SubScreen.offset = tmp;
+}
+
 
 //these templates needed to be instantiated manually
 template void NDS_exec<FALSE>(s32 nb);

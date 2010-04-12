@@ -44,6 +44,7 @@
 #include "version.h"
 
 #include "readwrite.h"
+#include "GPU.h"
 #include "gfx3d.h"
 #include "movie.h"
 #include "mic.h"

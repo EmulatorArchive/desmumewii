@@ -36,6 +36,7 @@
 #include "cp15.h"
 #include "wifi.h"
 #include "registers.h"
+#include "GPU.h"
 #include "render3D.h"
 #include "gfx3d.h"
 #include "rtc.h"
