@@ -18,6 +18,28 @@
   const char *cflash_disk_image_file;
 
 
+// Screen layout/scale etc...
+enum {
+	SCREEN_VERT_NORMAL = 0,
+	SCREEN_HORI_NORMAL,
+	SCREEN_VERT_STRETCH,
+	SCREEN_HORI_STRETCH,
+	SCREEN_MAIN_NORMAL,
+	SCREEN_SUB_NORMAL,
+	SCREEN_MAIN_STRETCH,
+	SCREEN_SUB_STRETCH,
+	SCREEN_MAX
+};
+
+u32 screen_layout = SCREEN_VERT_NORMAL;
+
+// positioning screen vars.
+int bottomX, bottomY, topX, topY;
+float scalex, scaley;
+float width	= 256;
+float height = 192;
+
+
 
 void DoConfig();
 
