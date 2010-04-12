@@ -9,6 +9,7 @@
 #include "common.h"
 #include "debug.h"
 #include "gfx3d.h"
+#include "GPU.h"
 #include "NDSSystem.h"
 
 //--DCN (what is this wizardry!?)
@@ -480,7 +481,7 @@ public:
 				//This check isn't necessary since the addressing is tied to the texture data which will also run out:
 				//if(msIndex.numItems != 1) PROGINFO("Your 4x4 texture index has overrun its slot.\n");
 
-	#define PAL4X4(offset) ( *(u16*)( MMU.texInfo.texPalSlot[((paletteAddress + ((offset) << 1))>>14)] + ((paletteAddress + ((offset) << 1))&0x3FFF) ) )
+	#define PAL4X4(offset) ( LE_TO_LOCAL_16( *(u16*)( MMU.texInfo.texPalSlot[((paletteAddress + ((offset) << 1))>>14)] + ((paletteAddress + ((offset) << 1))&0x3FFF) ) ))
 
 				u16* slot1;
 				u32* map = (u32*)ms.items[0].ptr;
@@ -518,9 +519,9 @@ public:
 						}
 
 						u32 currBlock	= map[d];
-						u16 pal1		= slot1[d];
+						u16 pal1	= LE_TO_LOCAL_16(slot1[d]);
 						u16 pal1offset	= (pal1 & 0x3FFF)<<1;
-						u8  mode		= pal1>>14;
+						u8  mode	= pal1>>14;
 						u32 tmp_col[4];
 						
 						tmp_col[0]=RGB16TO32(PAL4X4(pal1offset),255);
@@ -545,33 +546,30 @@ public:
 							break;
 						case 3: 
 							{
-								u32 red1 = tmp_col[0] & 0xff;
-								u32 green1 = (tmp_col[0] >> 8) & 0xff;
-								u32 blue1 = (tmp_col[0] >> 16) & 0xff;
-								u32 red2 = tmp_col[1] & 0xff;
-								u32 green2 = (tmp_col[1] >> 8) & 0xff;
-								u32 blue2 = (tmp_col[1] >> 16) & 0xff;
+								u16 tmp1, tmp2;
+								COLOR32 color1, color2;
 
-								//--DCN: Old...
-								/*
-								u16 tmp1=((red1*5+red2*3)>>6)|
-									(((green1*5+green2*3)>>6)<<5)|
-									(((blue1*5+blue2*3)>>6)<<10);
-								u16 tmp2=((red2*5+red1*3)>>6)|
-									(((green2*5+green1*3)>>6)<<5)|
-									(((blue2*5+blue1*3)>>6)<<10);
-								//*/
+								color1.val = tmp_col[0];
+								color2.val = tmp_col[1];
 
-								//--New!
-								u32 tmp1 = (u16)((INTx5(red1) + INTx3(red2)) >> 6)|
-									(((INTx5(green1) + INTx3(green2)) >> 6) << 5)|
-									(((INTx5(blue1) + INTx3(blue2)) >> 6) << 10);
-								u32 tmp2 = (u16)((INTx5(red2) + INTx3(red1)) >> 6)|
-									(((INTx5(green2) + INTx3(green1)) >> 6) << 5)|
-									(((INTx5(blue2) + INTx3(blue1)) >> 6) << 10);
+								u8 red1   = color1.bits.r;
+								u8 green1 = color1.bits.g;
+								u8 blue1  = color1.bits.b;
 
-								tmp_col[2]=RGB16TO32(tmp1,255);
-								tmp_col[3]=RGB16TO32(tmp2,255);
+								u8 red2   = color2.bits.r;
+								u8 green2 = color2.bits.g;
+								u8 blue2  = color2.bits.b;
+
+								tmp1 =  (((INTx5(red1)   + INTx3(red2))   >>6) <<  0) |
+									(((INTx5(green1) + INTx3(green2)) >>6) <<  5) |
+									(((INTx5(blue1)  + INTx3(blue2))  >>6) << 10);
+
+								tmp2 =  (((INTx5(red2)   + INTx3(red1))   >>6) <<  0) |
+									(((INTx5(green2) + INTx3(green1)) >>6) <<  5) |
+									(((INTx5(blue2)  + INTx3(blue1))  >>6) << 10);
+
+								tmp_col[2] = RGB16TO32(tmp1,255);
+								tmp_col[3] = RGB16TO32(tmp2, 255);
 								break;
 							}
 						}
