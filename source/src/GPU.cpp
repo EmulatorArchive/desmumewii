@@ -2764,9 +2764,9 @@ void GPU::refreshAffineStartRegs(const int num, const int xy)
 		parms = &(dispx_st)->dispx_BG3PARMS;		
 
 	if(xy==0)
-		parms->BGxX.value.val = affineInfo[num-2].x;
+		parms->BGxX.value.val = LE_TO_LOCAL_32(affineInfo[num-2].x);
 	else
-		parms->BGxY.value.val = affineInfo[num-2].y;
+		parms->BGxY.value.val = LE_TO_LOCAL_32(affineInfo[num-2].y);
 }
 
 template<bool MOSAIC> void GPU::modeRender(int layer)
