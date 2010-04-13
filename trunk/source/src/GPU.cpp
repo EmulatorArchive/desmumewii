@@ -57,8 +57,16 @@ GPU::MosaicLookup GPU::mosaicLookup;
 CACHE_ALIGN u8 GPU_screen[4*256*192];
 CACHE_ALIGN u8 sprWin[256];
 
-
 u16 gpu_angle = 0;
+
+// #define FGPU_LOG
+static FILE *flog;
+static char gpulog[256];
+#ifdef FGPU_LOG
+# define FLOG(x) fprintf(flog, x);
+#else
+# define FLOG(x)
+#endif
 
 const size sprSizeTab[4][4] = 
 {
@@ -1268,16 +1276,16 @@ template<bool MOSAIC> void lineRot(GPU * gpu)
 	{
 
 		 rotBG2<MOSAIC>(gpu, 
-			parms->BGxX.get_val(),
-			parms->BGxY.get_val(),
-			parms->BGxPA.get_val(),
-			parms->BGxPB.get_val(),
-			parms->BGxPC.get_val(),
-			parms->BGxPD.get_val(),
+			parms->BGxX,
+			parms->BGxY,
+			LE_TO_LOCAL_16(parms->BGxPA),
+			LE_TO_LOCAL_16(parms->BGxPB),
+			LE_TO_LOCAL_16(parms->BGxPC),
+			LE_TO_LOCAL_16(parms->BGxPD),
 			256);
 
-		parms->BGxX += parms->BGxPB;
-		parms->BGxY += parms->BGxPD;
+		parms->BGxX += LE_TO_LOCAL_16(parms->BGxPB);
+		parms->BGxY += LE_TO_LOCAL_16(parms->BGxPD);
 	}
 }
 
@@ -1298,25 +1306,26 @@ template<bool MOSAIC> void lineExtRot(GPU * gpu)
 	else
 	{
 		extRotBG2<MOSAIC>(gpu,
-			(s16)(parms->BGxX.get_val()),
-			(s16)(parms->BGxY.get_val()),
-			(s16)(parms->BGxPA.get_val()),
-			(s16)(parms->BGxPB.get_val()),
-			(s16)(parms->BGxPC.get_val()),
-			(s16)(parms->BGxPD.get_val()),
+			parms->BGxX,
+			parms->BGxY,
+			LE_TO_LOCAL_16(parms->BGxPA),
+			LE_TO_LOCAL_16(parms->BGxPB),
+			LE_TO_LOCAL_16(parms->BGxPC),
+			LE_TO_LOCAL_16(parms->BGxPD),
 			256);
 
-		parms->BGxX += parms->BGxPB;
-		parms->BGxY += parms->BGxPD;
+		parms->BGxX += LE_TO_LOCAL_16(parms->BGxPB);
+		parms->BGxY += LE_TO_LOCAL_16(parms->BGxPD);
 
-		/*printf("PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
-			parms->BGxX.get_val(),
-			parms->BGxY.get_val(),
-			parms->BGxPA.get_val(),
-			parms->BGxPB.get_val(),
-			parms->BGxPC.get_val(),
-			parms->BGxPD.get_val()
-		);*/
+		/*sprintf(gpulog, "PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
+			parms->BGxX,
+			parms->BGxY,
+			LE_TO_LOCAL_16(parms->BGxPA),
+			LE_TO_LOCAL_16(parms->BGxPB),
+			LE_TO_LOCAL_16(parms->BGxPC),
+			LE_TO_LOCAL_16(parms->BGxPD)
+		);
+		FLOG(gpulog);*/
 
 	}
 }
@@ -1860,6 +1869,9 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 int Screen_Init(int coreid)
 {
+#ifdef FGPU_LOG
+	flog = fopen("sd:/gpu.log", "wb");
+#endif
 	MainScreen.gpu = GPU_Init(0);
 	SubScreen.gpu = GPU_Init(1);
 
@@ -1889,6 +1901,9 @@ void Screen_Reset(void)
 
 void Screen_DeInit(void)
 {
+#ifdef FGPU_LOG
+	fclose(flog);
+#endif
 	GPU_DeInit(MainScreen.gpu);
 	GPU_DeInit(SubScreen.gpu);
 
@@ -2736,8 +2751,10 @@ void GPU::setAffineStartWord(int layer, int xy, u16 val, int word)
 
 void GPU::setAffineStart(int layer, int xy, u32 val)
 {
-	if(xy==0) affineInfo[layer-2].x = val;
-	else affineInfo[layer-2].y = val;
+	if(xy==0)
+		affineInfo[layer-2].x = val;
+	else
+		affineInfo[layer-2].y = val;
 	refreshAffineStartRegs(layer,xy);
 }
 
@@ -2764,9 +2781,9 @@ void GPU::refreshAffineStartRegs(const int num, const int xy)
 		parms = &(dispx_st)->dispx_BG3PARMS;		
 
 	if(xy==0)
-		parms->BGxX.value.val = LE_TO_LOCAL_32(affineInfo[num-2].x);
+		parms->BGxX = affineInfo[num-2].x;
 	else
-		parms->BGxY.value.val = LE_TO_LOCAL_32(affineInfo[num-2].y);
+		parms->BGxY = affineInfo[num-2].y;
 }
 
 template<bool MOSAIC> void GPU::modeRender(int layer)

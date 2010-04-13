@@ -191,57 +191,14 @@ typedef struct {
 /*******************************************************************************
     this structure is for rotoscale parameters
 *******************************************************************************/
-union somename16 {
-	struct {
-		u8 l, h;
-	} bits;
-	u16 val;
-};
-
-struct _16_bit {
-	somename16 value;
-	u16 get_val() { 
-#ifdef WORDS_BIGENDIAN
-		return ((value.bits.h << 8) | value.bits.l); 
-#else
-		return value.val;
-#endif
-	};
-};
-
-union somename32 {
-	struct {
-		u8 l, h, h2, h3;
-	} bits;
-	s32 val;
-};
-
-struct _32_bit {
-	somename32 value;
-	s32 get_val() {
-#ifdef WORDS_BIGENDIAN
-		return ((value.bits.h3 << 24) | (value.bits.h2 << 16) | (value.bits.h << 8) | value.bits.l);
-#else
-		return value.val;
-#endif
-	}
-	void operator+= (const _16_bit x) {
-#ifdef WORDS_BIGENDIAN
-		value.bits.l += x.value.bits.l;
-		value.bits.h += x.value.bits.h;
-#else
-		value.val += x.value.val;
-#endif
-	}
-};
 
 typedef struct {
-	_16_bit BGxPA;
-	_16_bit BGxPB;
-	_16_bit BGxPC;
-	_16_bit BGxPD;
-	_32_bit BGxX;
-	_32_bit BGxY;
+	s16 BGxPA;
+	s16 BGxPB;
+	s16 BGxPC;
+	s16 BGxPD;
+	s32 BGxX;
+	s32 BGxY;
 } BGxPARMS;
 
 
