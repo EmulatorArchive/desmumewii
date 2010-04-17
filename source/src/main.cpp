@@ -39,53 +39,54 @@
 #include "version.h"
 #include "log_console.h"
 #include "rasterize.h"
-
 #include "filebrowser.h"
-
 #include <ogcsys.h>
 #include <sys/time.h>
+#include <ogc/lwp_watchdog.h>
+
+#define NUM_FRAMES_TO_TIME 60
+#define FPS_LIMITER_FRAME_PERIOD 8
+#define DEFAULT_FIFO_SIZE (256*1024)
 
 NDS_header * header;
 
-volatile bool execute = false;
-
-static float nds_screen_size_ratio = 1.0f;
-
-#define NUM_FRAMES_TO_TIME 60
-
-#define FPS_LIMITER_FRAME_PERIOD 8
-
 GXRModeObj *rmode = NULL;
+Mtx44 perspective;
+Mtx GXmodelView2D;
+unsigned int *xfb[2]; // Double framebuffer [frameBuffer[fb]]
+int currfb;           // Current framebuffer (0 or 1)
 
-static bool sdl_quit = false;
-static u16 keypad;
-
-static unsigned int *xfb[2];
-static int currfb;
-static GXTexObj TopTex;
-#define DEFAULT_FIFO_SIZE (256*1024)
 static u8 gp_fifo[DEFAULT_FIFO_SIZE] __attribute__((aligned(32)));
 static u16 TopScreen[256*192] __attribute__((aligned(32)));
-static GXTexObj BottomTex;
 static u16 BottomScreen[256*192] __attribute__((aligned(32)));
+
+static GXTexObj TopTex;
+static GXTexObj BottomTex;
 static GXTexObj CursorTex;
+
 // TODO: Make this fancier
 static u8 CursorData[16] __attribute__((aligned(32))) = {
-0xFF, 0xFF, 0xFF, 0xFF,
-0xFF, 0xFF, 0xFF, 0xFF,
-0xFF, 0xFF, 0xFF, 0xFF,
-0xFF, 0xFF, 0xFF, 0xFF
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF
 };
 static int drawcursor = 1;
 static lwp_t vidthread = LWP_THREAD_NULL;
 static mutex_t vidmutex = LWP_MUTEX_NULL;
 static u8 abort_thread = 0;
 
+static float nds_screen_size_ratio = 1.0f;
+static u16 keypad;
+static bool sdl_quit = false;
+volatile bool execute = false;
+bool show_console = true;
+
 SoundInterface_struct *SNDCoreList[] = {
-  &SNDDummy,
-  //&SNDFile,
-  &SNDOGC,
-  NULL
+	&SNDDummy,
+	//&SNDFile,
+	&SNDOGC,
+	NULL
 };
 
 GPU3DInterface *core3DList[] = {
@@ -98,6 +99,7 @@ GPU3DInterface *core3DList[] = {
 //////////////////////////////////////////////////////////////////
 ////////////////////// FUNCTION PROTOTYPES ///////////////////////
 //////////////////////////////////////////////////////////////////
+#define max(a, b) ((a > b) ? b : a)
 
 void init();
 bool PickDevice();
@@ -106,32 +108,17 @@ void ShowFPS();
 void DSExec();
 void Pause();
 static void *draw_thread(void*);
+void Execute();
+void create_dummy_firmware();
 bool CheckBios(bool);
 
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 
-#define max(a, b) ((a > b) ? b : a)
-
 #ifdef __cplusplus
 extern "C"
 #endif
-
-void Execute();
-
-
-//needed for some games
-void create_dummy_firmware()
-{
-		
-	// Create the dummy firmware
-	NDS_fw_config_data dummy;
-	
-	NDS_FillDefaultFirmwareConfigData(&dummy);
-
-	NDS_CreateDummyFirmware( &dummy);
-}
 
 int main(int argc, char **argv)
 {
@@ -149,7 +136,7 @@ int main(int argc, char **argv)
 	//log_console_enable_log(true);
 
 	printf("\x1b[2;0H");
-	printf("Welcome to DeSmuME Wii!!!\n");
+	printf("Welcome to DeSmuME Wii!\n");
 
 	VIDEO_WaitVSync();
 	
@@ -161,7 +148,7 @@ int main(int argc, char **argv)
 		fatUnmount("sd:/");
 		__io_wiisd.shutdown();
 		fatMountSimple("sd", &__io_wiisd);
-		sprintf(rom_filename, "sd:/DSROM");
+		sprintf(rom_filename, "sd:/DS/ROMS");
 	}
 	else {
 		fatUnmount("usb:/");
@@ -170,7 +157,7 @@ int main(int argc, char **argv)
 			if (isMounted) break;
 			sleep(1);
 		}
-		sprintf(rom_filename, "usb:/DSROM");
+		sprintf(rom_filename, "usb:/DS/ROMS");
 	}
 
 	if(FileBrowser(rom_filename) != 0)
@@ -188,6 +175,7 @@ int main(int argc, char **argv)
 	// Initialize the DS!
 	NDS_Init();
 	create_dummy_firmware(); // Must do for some games!
+
 	NDS_3D_ChangeCore(1);
 	printf("Initialization successful!\n");
 
@@ -198,8 +186,6 @@ int main(int argc, char **argv)
 		SPU_Init(SNDCORE_OGC, 768);	// audio samples count is 512 or 1024. Buffer is arg*2. 768*2 = 512*3.
 	}
   
-	//rom_filename = "sd:/boot.nds";
- 
 	printf("Placing ROM into virtual NDS...\n");
 	if (NDS_LoadROM(rom_filename, cflash_disk_image_file) < 0) {
 		printf("Error loading ROM\n");
@@ -214,52 +200,9 @@ int main(int argc, char **argv)
 	exit(0);
 }
 
-void Execute() {
-	if(vidthread == LWP_THREAD_NULL)
-		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
-
-	while(!sdl_quit)
-	{
-		// Look for queued events and update keypad status
-		if(frameskip != 0){
-			for(s32 f= 0; f < frameskip; f++)
-				DSExec();
-		}else{
-			DSExec();
-
-		}
-/*		TODO ... add this option in ogcsnd and ndssystem ... sound emulation should not be done here !
-		if ( enable_sound)
-		{
-			SPU_Emulate_core();
-			SPU_Emulate_user();
-		}
-*/
-	}
-
-	abort_thread = 1;
-	LWP_MutexDestroy(vidmutex);
-	vidmutex = LWP_MUTEX_NULL;
-	LWP_JoinThread(vidthread, NULL);
-	vidthread = LWP_THREAD_NULL;
-
-	NDS_DeInit();
-
-	GX_AbortFrame();
-	GX_Flush();
-
-	VIDEO_Flush();
-	VIDEO_WaitVSync();
-	VIDEO_SetBlack(true);
-
-	return;
-}
-
 //////////////////////////////////////////////////////////////////
 //////////////////////////// FUNCTIONS ///////////////////////////
 //////////////////////////////////////////////////////////////////
-Mtx44 perspective;
-Mtx GXmodelView2D;
 
 void init(){
 	u32 xfbHeight;
@@ -271,23 +214,20 @@ void init(){
 	// button initialization
 	PAD_Init();
 	WPAD_Init();
-
-
 	VIDEO_Init();
+
 	rmode = VIDEO_GetPreferredMode(NULL);
 
 	switch (rmode->viTVMode >> 2)
 	{
+		case VI_NTSC: // 480 lines (NTSC 60hz)
+			break;
 		case VI_PAL: // 576 lines (PAL 50hz)
 			rmode = &TVPal574IntDfScale;
 			rmode->xfbHeight = 480;
 			rmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
 			rmode->viHeight = 480;
 			break;
-
-		case VI_NTSC: // 480 lines (NTSC 60hz)
-			break;
-
 		default: // 480 lines (PAL 60Hz)
 			break;
 	}
@@ -568,7 +508,47 @@ static void *draw_thread(void*)
 	return NULL;
 }
 
+void Execute() {
+	if(vidthread == LWP_THREAD_NULL)
+		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
+	while(!sdl_quit){
+		// Look for queued events and update keypad status
+		if(frameskip != 0){
+			for(s32 f= 0; f < frameskip; f++)
+				DSExec();
+		}else{
+			DSExec();
+
+		}
+/*		TODO ... add this option in ogcsnd and ndssystem ... sound emulation should not be done here !
+		if ( enable_sound)
+		{
+			SPU_Emulate_core();
+			SPU_Emulate_user();
+		}
+*/
+	}
+
+	abort_thread = 1;
+	LWP_MutexDestroy(vidmutex);
+	vidmutex = LWP_MUTEX_NULL;
+	LWP_JoinThread(vidthread, NULL);
+	vidthread = LWP_THREAD_NULL;
+
+	NDS_DeInit();
+
+	GX_AbortFrame();
+	GX_Flush();
+
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	VIDEO_SetBlack(true);
+
+	return;
+}
+
+/*
 static int64_t gettime(void)
 {
 	struct timeval tv;
@@ -582,6 +562,7 @@ static u32 GetTicks (void)
 	const u64 ms         = ticks / TB_TIMER_CLOCK;
 	return ms;
 }
+//*/
 
 void ShowFPS() {
 	u32 fps_timing = 0;
@@ -591,7 +572,7 @@ void ShowFPS() {
 	float fps;
 
 	fps_frame_counter += 1;
-	fps_temp_time = GetTicks();
+	fps_temp_time = ticks_to_millisecs(gettime());
 	fps_timing += fps_temp_time - fps_previous_time;
 	fps_previous_time = fps_temp_time;
 
@@ -607,8 +588,6 @@ void ShowFPS() {
 	}
 }
 
-
-bool show_console = true;
 void DSExec(){  
    
 	PAD_ScanPads();
@@ -694,16 +673,25 @@ bool PickDevice(){
 	return device;
 }
 
+//needed for some games
+void create_dummy_firmware(){
+	// Create the dummy firmware
+	NDS_fw_config_data dummy;
+	
+	NDS_FillDefaultFirmwareConfigData(&dummy);
+
+	NDS_CreateDummyFirmware( &dummy);
+}
+
 /*
 	As we don't have a menu right now this function is used to see if the user
 	has external bios files.  If they do we mark them to be used
 */
-bool CheckBios(bool device)
-{
+bool CheckBios(bool device){
 	char path[256] = {0};
 
-	if (!device) strcat(path,"sd:/DSBIOS/");
-	else strcat(path,"usb:/DSBIOS/");
+	if (!device) strcat(path,"sd:/DS/BIOS/");
+	else strcat(path,"usb:/DS/BIOS/");
 
 	FILE* biosfile = 0;
 
@@ -711,8 +699,7 @@ bool CheckBios(bool device)
 	sprintf(CommonSettings.ARM7BIOS,"%sbiosnds7.rom",path);
 
 	biosfile = fopen(CommonSettings.ARM7BIOS,"rb");
-	if (!biosfile)
-	{
+	if (!biosfile){
 		printf("No ARM7 BIOS\n");
 		memset(CommonSettings.ARM7BIOS,0,256);
 		return false;		
@@ -725,8 +712,7 @@ bool CheckBios(bool device)
 	sprintf(CommonSettings.ARM9BIOS,"%sbiosnds9.rom",path);
 
 	biosfile = fopen(CommonSettings.ARM9BIOS,"rb");
-	if (!biosfile)
-	{
+	if (!biosfile){
 		printf("No ARM9 BIOS\n");
 		memset(CommonSettings.ARM9BIOS,0,256);
 		return false;		
