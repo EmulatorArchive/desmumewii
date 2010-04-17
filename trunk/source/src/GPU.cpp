@@ -60,9 +60,9 @@ CACHE_ALIGN u8 sprWin[256];
 u16 gpu_angle = 0;
 
 // #define FGPU_LOG
+#ifdef FGPU_LOG
 static FILE *flog;
 static char gpulog[256];
-#ifdef FGPU_LOG
 # define FLOG(x) fprintf(flog, x);
 #else
 # define FLOG(x)
@@ -1643,7 +1643,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 					lg = 256 - sprX;
 			}
 
-			// If we are using 1 palette of 256 colours
+			// If we are using 1 palette of 256 colors
 			if(spriteInfo->Depth)
 			{
 				src = (u8 *)MMU_gpu_map(gpu->sprMem + (spriteInfo->TileIndex << block));
@@ -1876,6 +1876,7 @@ int Screen_Init(int coreid)
 	SubScreen.gpu = GPU_Init(1);
 
 	memset(GPU_screen, 0, sizeof(GPU_screen));
+	//				width*height* two screens
 	for(int i = 0; i < (256*192*2); i++)
 		((u16*)GPU_screen)[i] = 0x7FFF;
 	disp_fifo.head = disp_fifo.tail = 0;
@@ -1964,13 +1965,13 @@ void GFXDummyResize(int width, int height, BOOL fullscreen);
 void GFXDummyOnScreenText(char *string, ...);
 
 GraphicsInterface_struct GFXDummy = {
-GFXCORE_DUMMY,
-"Dummy Graphics Interface",
-0,
-GFXDummyInit,
-GFXDummyDeInit,
-GFXDummyResize,
-GFXDummyOnScreenText
+	GFXCORE_DUMMY,
+	"Dummy Graphics Interface",
+	0,
+	GFXDummyInit,
+	GFXDummyDeInit,
+	GFXDummyResize,
+	GFXDummyOnScreenText
 };
 
 int GFXDummyInit()

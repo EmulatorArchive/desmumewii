@@ -313,8 +313,8 @@ static bool cflash_build_fat( void) {
 	// Original (where is pathRoROM defined? I couldn't find it!)
 	//sRomPath = pathToROM;
 	
-	//--DCN: Quick fix:
-	strcpy(sRomPath, "SD:/desmumewii/save/");
+	//--DCN: Quick fix: (We're not even using this, are we?)
+	strcpy(sRomPath, "SD:/DS/SAVES");
 	
 	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));

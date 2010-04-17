@@ -113,8 +113,7 @@ void mc_init(memory_chip_t *mc, int type)
 
 u8 *mc_alloc(memory_chip_t *mc, u32 size)
 {
-	u8 *buffer;
-	buffer = new u8[size];
+	u8 *buffer = new u8[size];
 	memset(buffer,0,size);
 
 	mc->data = buffer;
@@ -153,7 +152,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 	{
 		if(mc->addr_shift > 0)   /* if we got a complete address */
 		{
-			mc->addr_shift--;
+			--mc->addr_shift;
 			mc->addr |= data << (mc->addr_shift * 8); /* argument is a byte of address */
 		}
 		else    /* if we have received 3 bytes of address, proceed command */
@@ -164,7 +163,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 					if(mc->addr < mc->size)  /* check if we can read */
 					{
 						data = mc->data[mc->addr];       /* return byte */
-						mc->addr++;      /* then increment address */
+						++mc->addr;      /* then increment address */
 					}
 					break;
 					
@@ -172,7 +171,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 					if(mc->addr < mc->size)
 					{
 						mc->data[mc->addr] = data;       /* write byte */
-						mc->addr++;
+						++mc->addr;
 					}
 					break;
 			}
@@ -401,7 +400,7 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 				//continue building address
 				addr <<= 8;
 				addr |= val;
-				addr_counter++;
+				++addr_counter;
 				//if(addr_counter==addr_size) printf("ADR: %08X\n",addr);
 			}
 			else
@@ -425,7 +424,7 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 					flushPending = true;
 					//printf("writ: %08X\n",addr);
 				}
-				addr++;
+				++addr;
 
 			}
 		}
@@ -471,7 +470,7 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 			case BM_CMD_READHIGH:
 				//printf("XHI: %08X\n",addr);
 				if(val == BM_CMD_WRITEHIGH) val = BM_CMD_WRITELOW;
-				if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
+				else if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
 				com = val;
 				addr_counter = 0;
 				addr = 0;
@@ -566,10 +565,10 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 	u8	*dst = (u8 *)out_buf;
 	u32 src_pos = 0;
 	u32 dst_pos = 0;
-	u8	cc = 0;
 	u32	size_unpacked = 0;
 	u32	size_packed = 0;
 	u32	compressMethod = 0;
+	u8	cc = 0;
 
 	if (fsize < 0x50) return (1);
 

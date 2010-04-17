@@ -184,30 +184,28 @@ int MatrixCompare (const float* matrixDST, const float* matrixSRC)
 
 void MatrixStackInit(MatrixStack *stack)
 {
-	for (int i = 0; i < stack->size; i++)
-	{
-		MatrixInit(&stack->matrix[i*16]);
+	for (s32 i = 0, stackSize = stack->size; i < stackSize; i++){
+		MatrixInit(&stack->matrix[i<<4]);
 	}
 	stack->position = 0;
 }
 
 void MatrixStackSetMaxSize (MatrixStack *stack, int size)
 {
-	int i;
-
 	stack->size = (size + 1);
 
 	if (stack->matrix != NULL) {
 		free (stack->matrix);
 	}
-	stack->matrix = (float*) malloc (stack->size*16*sizeof(float));
+	s32 stackSize = stack->size;
 
-	for (i = 0; i < stack->size; i++)
-	{
-		MatrixInit (&stack->matrix[i*16]);
+	stack->matrix = (float*) malloc ((stackSize<<4)*sizeof(float));
+
+	for (s32 i = 0; i < stackSize; ++i){
+		MatrixInit (&stack->matrix[i<<4]);
 	}
 
-	stack->size--;
+	--stack->size;
 }
 
 

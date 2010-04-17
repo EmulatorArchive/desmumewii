@@ -331,8 +331,8 @@ CACHE_ALIGN MatrixStack mtxStack[4] = {
 
 int _hack_getMatrixStackLevel(int which) { return mtxStack[which].position; }
 
-static CACHE_ALIGN float                mtxCurrent [4][16];
-static CACHE_ALIGN float                mtxTemporal[16];
+static CACHE_ALIGN float  mtxCurrent [4][16];
+static CACHE_ALIGN float  mtxTemporal[16];
 static u32 mode = 0;
 
 // Indexes for matrix loading/multiplication
@@ -343,17 +343,17 @@ static u8 MM4x3ind = 0;
 static u8 MM3x3ind = 0;
 
 // Data for vertex submission
-static CACHE_ALIGN u16          u16coord[4] = {0, 0, 0, 0};
-static char             coordind = 0;
-static u32 vtxFormat = 0;
-static BOOL inBegin = FALSE;
+static CACHE_ALIGN u16   u16coord[4] = {0, 0, 0, 0};
+static char              coordind = 0;
+static u32               vtxFormat = 0;
+static BOOL              inBegin = FALSE;
 
 // Data for basic transforms
-static CACHE_ALIGN float        trans[4] = {0.0, 0.0, 0.0, 0.0};
-static int              transind = 0;
-static CACHE_ALIGN float        scale[4] = {0.0, 0.0, 0.0, 0.0};
-static int              scaleind = 0;
-static u32 viewport = 0;
+static CACHE_ALIGN float trans[4] = {0.0, 0.0, 0.0, 0.0};
+static int               transind = 0;
+static CACHE_ALIGN float scale[4] = {0.0, 0.0, 0.0, 0.0};
+static int               scaleind = 0;
+static u32               viewport = 0;
 
 //various other registers
 static float _t=0, _s=0;
@@ -390,10 +390,10 @@ static int shininessInd = 0;
 //-----------cached things:
 //these dont need to go into the savestate. they can be regenerated from HW registers
 //from polygonattr:
-static unsigned int cullingMask=0;
+static unsigned int cullingMask = 0;
 // static u8 colorAlpha=0;
-static u32 envMode=0;
-static u32 lightMask=0;
+static u32 envMode = 0;
+static u32 lightMask = 0;
 //other things:
 static int texCoordinateTransform = 0;
 static CACHE_ALIGN float cacheLightDirection[4][4];
@@ -406,10 +406,10 @@ static CACHE_ALIGN float cacheHalfVector[4][4];
 
 //-------------poly and vertex lists and such things
 POLYLIST* polylists = NULL;
-POLYLIST* polylist = NULL;
+POLYLIST* polylist  = NULL;
 VERTLIST* vertlists = NULL;
-VERTLIST* vertlist = NULL;
-int                     polygonListCompleted = 0;
+VERTLIST* vertlist  = NULL;
+int polygonListCompleted = 0;
 
 int listTwiddle = 1;
 int triStripToggle;
@@ -633,7 +633,7 @@ static void SetVertex()
         //VERT &vert = tempVertList.list[tempVertList.count];
         int vertIndex = vertlist->count + tempVertInfo.count - continuation;
         if(vertIndex<0) {
-                printf("wtf\n");
+                printf("What happened?\n");
         }
         VERT &vert = vertlist->list[vertIndex];
 
@@ -1492,8 +1492,7 @@ static BOOL gfx3d_glBoxTest(u32 v)
         for(int i=0;i<8;i++) {
                 //MatrixMultVec4x4_M2(mtxCurrent[0], verts[i].coord);
 
-                //yuck.. cant use the sse2 accelerated ones because vert.coords is not cache aligned or something
-                //i dunno
+                //Yuck.. can't use the sse2 accelerated ones because vert.coords is not cache aligned or something
                
                 void _NOSSE_MatrixMultVec4x4 (const float *matrix, float *vecPtr);
                 _NOSSE_MatrixMultVec4x4(mtxCurrent[1],verts[i].coord);
