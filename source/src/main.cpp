@@ -106,6 +106,8 @@ void ShowFPS();
 void DSExec();
 void Pause();
 static void *draw_thread(void*);
+bool CheckBios(bool);
+
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -177,6 +179,11 @@ int main(int argc, char **argv)
 	cflash_disk_image_file = NULL;
 
 	printf("Initializing virtual Nintendo DS...\n");
+
+	if (CheckBios(device)) // See if we have external bios files
+		printf("Found external BIOS files.  Will Use!\n");
+	else 
+		printf("No external BIOS files found.\n");
 
 	// Initialize the DS!
 	NDS_Init();
@@ -685,4 +692,50 @@ bool PickDevice(){
 	}
 
 	return device;
+}
+
+/*
+	As we don't have a menu right now this function is used to see if the user
+	has external bios files.  If they do we mark them to be used
+*/
+bool CheckBios(bool device)
+{
+	char path[256] = {0};
+
+	if (!device) strcat(path,"sd:/DSBIOS/");
+	else strcat(path,"usb:/DSBIOS/");
+
+	FILE* biosfile = 0;
+
+	// Check arm7 bios
+	sprintf(CommonSettings.ARM7BIOS,"%sbiosnds7.rom",path);
+
+	biosfile = fopen(CommonSettings.ARM7BIOS,"rb");
+	if (!biosfile)
+	{
+		printf("No ARM7 BIOS\n");
+		memset(CommonSettings.ARM7BIOS,0,256);
+		return false;		
+	}
+
+	fclose(biosfile);
+	biosfile = 0;
+
+	// Check arm9 bios
+	sprintf(CommonSettings.ARM9BIOS,"%sbiosnds9.rom",path);
+
+	biosfile = fopen(CommonSettings.ARM9BIOS,"rb");
+	if (!biosfile)
+	{
+		printf("No ARM9 BIOS\n");
+		memset(CommonSettings.ARM9BIOS,0,256);
+		return false;		
+	}
+
+	fclose(biosfile);
+	biosfile = 0;
+
+	CommonSettings.UseExtBIOS = true;
+
+	return true;
 }
