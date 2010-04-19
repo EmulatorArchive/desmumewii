@@ -60,9 +60,10 @@ CACHE_ALIGN u8 sprWin[256];
 u16 gpu_angle = 0;
 
 // #define FGPU_LOG
-#ifdef FGPU_LOG
+
 static FILE *flog;
 static char gpulog[256];
+#ifdef FGPU_LOG
 # define FLOG(x) fprintf(flog, x);
 #else
 # define FLOG(x)

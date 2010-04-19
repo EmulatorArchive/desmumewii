@@ -85,7 +85,7 @@ public:
 		if (++p >= pathToModule) *p = 0;
 #else
 		//char *cwd = g_get_current_dir();
-		strncpy(pathToModule, "sd:/DS/", MAX_PATH);
+		strncpy(pathToModule, "sd:/DS/SAVES/", MAX_PATH);
 		//g_free(cwd);
 #endif
 	}
