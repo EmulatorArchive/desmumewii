@@ -396,6 +396,15 @@ static void do_screen_layout()
 			scaley = scalex = 1.0;
 			break;
 
+        case SCREEN_VERT_SEPARATED:
+			// normal
+			topX =     int((rmode->viWidth / 2) - (width / 2.0f));
+			topY =     int((rmode->viHeight / 2) - ((height * 2.0f) / 2) - 24);
+			bottomX = topX;
+			bottomY = topY+height+48;
+			scaley = scalex = 1.0;
+			break;
+
 		case SCREEN_VERT_STRETCH:
 			// stretched
 			topX = topY = 0;
