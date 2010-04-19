@@ -306,16 +306,8 @@ static bool cflash_build_fat( void) {
 	numFiles  = 0;
 	fileLevel = -1;
 	maxLevel  = -1;
-
-	//--DCN (Copied "sFlashPath.c_str();" from Vanilla Desmume)
-	//sRomPath = sFlashPath.c_str();
 	
-	// Original (where is pathRoROM defined? I couldn't find it!)
-	//sRomPath = pathToROM;
-	
-	//--DCN: Quick fix: (We're not even using this, are we?)
-	strcpy(sRomPath, "SD:/DS/SAVES");
-	
+	sRomPath = "sd:/DS/SAVES/";
 	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));
 	if (files == NULL)

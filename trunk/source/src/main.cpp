@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 	//log_console_enable_log(true);
 
 	printf("\x1b[2;0H");
-	printf("Welcome to DeSmuME Wii!\n");
+	printf("Welcome to DeSmuME Wii!!!\n");
 
 	VIDEO_WaitVSync();
 	
