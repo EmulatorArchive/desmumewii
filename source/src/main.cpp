@@ -102,6 +102,7 @@ GPU3DInterface *core3DList[] = {
 #define max(a, b) ((a > b) ? b : a)
 
 void init();
+void ShowCredits();
 bool PickDevice();
 static void Draw(void);
 void ShowFPS();
@@ -134,9 +135,6 @@ int main(int argc, char **argv)
 	log_console_init(rmode, 0, 20, 30, rmode->fbWidth - 40, rmode->xfbHeight - 60);
 	log_console_enable_video(true);
 	//log_console_enable_log(true);
-
-	printf("\x1b[2;0H");
-	printf("Welcome to DeSmuME Wii!!!\n");
 
 	VIDEO_WaitVSync();
 	
@@ -665,9 +663,10 @@ bool PickDevice(){
 		 
 		printf("\x1b[2J");
 		printf("\x1b[2;0H");
-		printf("Welcome to DeSmuME Wii!\n\n");
-		printf("Select Device: ");
-		printf("%s", device ? "USB" : "SD");
+		printf("Welcome to DeSmuME Wii!!!\n\n");
+		printf("Select Device: << ");
+		printf("%s", device ? "USB >>" : "SD >>");
+		printf("\n\nPress B to see the credits.");
 
 		if(GetInput(LEFT, LEFT, LEFT) || GetInput(RIGHT, RIGHT, RIGHT)) {
 			device = !device;
@@ -676,10 +675,38 @@ bool PickDevice(){
 		if(GetInput(A, A, A))
 			break;
 			
+		if(GetInput(B, B, B))
+		    ShowCredits();
+			
 		VIDEO_WaitVSync();
 	}
 
 	return device;
+}
+
+void ShowCredits() {
+
+	printf("\x1b[2J");
+	printf("\x1b[2;0H");
+	
+	printf("DeSmuME Wii\n\n");
+	printf("http://code.google.com/p/desmumewii\n\n");
+	printf("Written By:\n\n");
+	printf("Arikado - http://arikadosblog.blogspot.com\n");
+	printf("scanff\n");
+	printf("firnis\n");
+	printf("baby.lueshi\n");
+	printf("Dancingninja\n");
+	printf("With contributions from Cyan\n\n");
+	printf("Press A to return to the menu.");
+	
+	while(true){ 
+	    PAD_ScanPads();
+		WPAD_ScanPads();
+		if(GetInput(A, A, A))
+		    break;
+	}
+
 }
 
 //needed for some games
