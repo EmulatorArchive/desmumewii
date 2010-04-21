@@ -81,6 +81,7 @@ static u16 keypad;
 static bool sdl_quit = false;
 volatile bool execute = false;
 bool show_console = true;
+int SkipFrame = 0;
 
 SoundInterface_struct *SNDCoreList[] = {
 	&SNDDummy,
@@ -510,6 +511,8 @@ static void *draw_thread(void*)
 		LWP_MutexUnlock(vidmutex);
 
 		VIDEO_WaitVSync();
+
+		usleep(1000); // sleep for 1ms .. no point in chewing up the cpu here.
 	}
 
 	return NULL;
@@ -520,21 +523,13 @@ void Execute() {
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
 	while(!sdl_quit){
-		// Look for queued events and update keypad status
-		if(frameskip != 0){
-			for(s32 f= 0; f < frameskip; f++)
-				DSExec();
-		}else{
-			DSExec();
+		
+		if (SkipFrame) NDS_SkipNextFrame();
+	
+		DSExec();
 
-		}
-/*		TODO ... add this option in ogcsnd and ndssystem ... sound emulation should not be done here !
-		if ( enable_sound)
-		{
-			SPU_Emulate_core();
-			SPU_Emulate_user();
-		}
-*/
+		SkipFrame++;
+		if(SkipFrame == 3) SkipFrame = 0;
 	}
 
 	abort_thread = 1;
@@ -633,7 +628,7 @@ void DSExec(){
 		sdl_quit = true;
 
 	int nb = 0;
-    
+
 	NDS_exec<TRUE>(nb);
 
 	Draw();
