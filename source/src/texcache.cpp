@@ -502,8 +502,8 @@ public:
 
 				for (u16 y = 0; y < yTmpSize; ++y)
 				{
-					u32 tmpPos[4]={(y<<2)*sizeX,((y<<2)+1)*sizeX,
-						((y<<2)+2)*sizeX,((y<<2)+3)*sizeX};
+					u32 tmpPos[4]={((y<<2)+3)*sizeX,((y<<2)+2)*sizeX,((y<<2)+1)*sizeX,(y<<2)*sizeX};
+
 					for (u16 x = 0; x < xTmpSize; ++x, ++d)
 					{
 						if(d >= limit)
