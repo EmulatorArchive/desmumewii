@@ -2171,7 +2171,9 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 								if((q < 0) || (q > 255))
 									continue;
 
-								if(colorLine[(q<<2)+3])
+
+								//if(colorLine[(q<<2)+3]) 
+								if(colorLine[(q<<2)]) // This optimization must check the first byte as we are using ABGR
 									gpu->setFinalColor3d(k, q);
 							}
 

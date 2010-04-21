@@ -118,7 +118,7 @@ u8* MMU_CART_ROM(u32 position)
 {
 	if (!vmf) exit(0); // ahhhhhh
 
-	if ((position >= last_address) && (position < (last_address+vmem_read)-4)/*safety*/)
+	if ((position >= last_address) && (position < (last_address+vmem_read)-8)/*safety*/)
 	{
 		return &temp_vm_buffer[position-last_address];
 	}
