@@ -81,7 +81,8 @@ static u16 keypad;
 static bool sdl_quit = false;
 volatile bool execute = false;
 bool show_console = true;
-int SkipFrame = 0;
+static int SkipFrame = 0;
+static u32 pad, wpad;
 
 SoundInterface_struct *SNDCoreList[] = {
 	&SNDDummy,
@@ -595,6 +596,9 @@ void DSExec(){
 	PAD_ScanPads();
 	WPAD_ScanPads();
 	
+	wpad = WPAD_ButtonsDown(WPAD_CHAN_0);
+	pad = PAD_ButtonsDown(0);
+
 	process_ctrls_event(&keypad, nds_screen_size_ratio);
 	
 	// Update mouse position and click
@@ -609,34 +613,31 @@ void DSExec(){
 
 	update_keypad(keypad);     /* Update keypad */
 
-	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_1) || (PAD_ButtonsDown(0) & PAD_BUTTON_LEFT))
+	if ((wpad & WPAD_BUTTON_1) || (pad & PAD_BUTTON_LEFT))
 	{
 		show_console = !show_console;
 		log_console_enable_video(show_console);
 	}
 	
-	if ((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_2) || (PAD_ButtonsDown(0) & PAD_BUTTON_UP))
+	if ((wpad & WPAD_BUTTON_2) || (pad & PAD_BUTTON_UP))
 	{
 		change_screen_layout = true;
 	}
 	
-	if ((WPAD_ButtonsDown(0)&WPAD_BUTTON_PLUS) || (PAD_ButtonsDown(0) & PAD_BUTTON_RIGHT)){ 
+	if ((wpad & WPAD_BUTTON_PLUS) || (pad & PAD_BUTTON_RIGHT)){ 
 		drawcursor ^= 1;
 	}
 
-	if((WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_HOME) || ((PAD_ButtonsHeld(0) & PAD_TRIGGER_Z) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_R) && (PAD_ButtonsHeld(0) & PAD_TRIGGER_L)))
+	if(	(wpad & WPAD_BUTTON_HOME) || ((pad & PAD_TRIGGER_Z) && (pad  & PAD_TRIGGER_R) && (pad & PAD_TRIGGER_L)) || 
+		(wpad & WPAD_CLASSIC_BUTTON_HOME))
 		sdl_quit = true;
 
-	int nb = 0;
-
-	NDS_exec<TRUE>(nb);
+	NDS_exec<TRUE>(0);
 
 	if (!SkipFrame) Draw(); // only update when !Frame skip
 	
-	showfps = 0;
 
-	if(showfps)
-		ShowFPS();
+	if(showfps) ShowFPS();
 }
 
 void Pause(){
