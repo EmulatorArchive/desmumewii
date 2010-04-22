@@ -212,7 +212,7 @@ public:
 	TTexCacheItemMultimap index;
 
 	//this ought to be enough for anyone
-	static const u32 kMaxCacheSize = 64*1024*1024; 
+	static const u32 kMaxCacheSize = 20*1024*1024; // 20MB cache for Wii
 	//this is not really precise, it is off by a constant factor
 	u32 cache_size;
 
