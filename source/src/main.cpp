@@ -82,6 +82,7 @@ static bool sdl_quit = false;
 volatile bool execute = false;
 bool show_console = true;
 static int SkipFrame = 0;
+static int SkipFrameTracker = 0;
 static u32 pad, wpad;
 
 SoundInterface_struct *SNDCoreList[] = {
@@ -522,13 +523,15 @@ void Execute() {
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
 	while(!sdl_quit){
-		
-		if (SkipFrame) NDS_SkipNextFrame();
+		 
+		if(SkipFrameTracker) NDS_SkipNextFrame(); 
 	
 		DSExec();
 
-		SkipFrame++;
-		if(SkipFrame == 3) SkipFrame = 0;
+		SkipFrameTracker++;
+		
+		if(SkipFrameTracker == SkipFrame+1) SkipFrameTracker = 0;
+		
 	}
 
 	abort_thread = 1;
@@ -622,9 +625,18 @@ void DSExec(){
 		change_screen_layout = true;
 	}
 	
-	if ((wpad & WPAD_BUTTON_PLUS) || (pad & PAD_BUTTON_RIGHT)){ 
+	if ((wpad & WPAD_BUTTON_B) || (pad & PAD_BUTTON_RIGHT)){ 
 		drawcursor ^= 1;
 	}
+	
+	if (wpad & WPAD_BUTTON_PLUS)
+	SkipFrame++;
+	
+	if (wpad &WPAD_BUTTON_MINUS)
+	SkipFrame--;
+	
+	if(SkipFrame < 0)
+	SkipFrame = 0;
 
 	if(	(wpad & WPAD_BUTTON_HOME) || ((pad & PAD_TRIGGER_Z) && (pad  & PAD_TRIGGER_R) && (pad & PAD_TRIGGER_L)) || 
 		(wpad & WPAD_CLASSIC_BUTTON_HOME))
@@ -632,7 +644,7 @@ void DSExec(){
 
 	NDS_exec<TRUE>(0);
 
-	if (!SkipFrame) Draw(); // only update when !Frame skip
+	if (!SkipFrameTracker) Draw(); // only update when !Frame skip tracker
 	
 
 	if(showfps) ShowFPS();
