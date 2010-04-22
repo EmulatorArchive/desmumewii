@@ -11,7 +11,7 @@
   int disable_limiter;
   int cpu_ratio;
   int lang;
-  int showfps;
+  int showfps = 0;
   int vertical = 1;
   int frameskip;
   const char *nds_file;
