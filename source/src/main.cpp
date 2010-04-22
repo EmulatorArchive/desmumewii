@@ -631,7 +631,7 @@ void DSExec(){
 
 	NDS_exec<TRUE>(nb);
 
-	Draw();
+	if (!SkipFrame) Draw(); // only update when !Frame skip
 	
 	showfps = 0;
 
