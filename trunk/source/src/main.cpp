@@ -530,7 +530,7 @@ void Execute() {
 
 		SkipFrameTracker++;
 		
-		if(SkipFrameTracker == SkipFrame+1) SkipFrameTracker = 0;
+		if(SkipFrameTracker >= SkipFrame+1) SkipFrameTracker = 0;
 		
 	}
 
