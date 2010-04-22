@@ -512,8 +512,6 @@ static void *draw_thread(void*)
 		LWP_MutexUnlock(vidmutex);
 
 		VIDEO_WaitVSync();
-
-		usleep(1000); // sleep for 1ms .. no point in chewing up the cpu here.
 	}
 
 	return NULL;
