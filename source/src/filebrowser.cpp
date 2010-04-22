@@ -204,7 +204,8 @@ int FileBrowser( char *dir ) {
 
 	if(ret == BROWSER_FILE_NOT_FOUND)
 	{
-		browse_back(game_filename.path);	// to the root
+		browse_back(game_filename.path);
+		browse_back(game_filename.path);	// move to the root if no DS/ROMS folder found
 		ret = textFileBrowser(&game_filename);
 	}
 	
