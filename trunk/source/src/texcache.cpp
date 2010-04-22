@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <map>
+#include <malloc.h>
 
 #include "texcache.h"
 
@@ -343,7 +344,8 @@ public:
 			//we found a cached item for the current address, but the data is stale.
 			//for a variety of complicated reasons, we need to throw it out right this instant.
 			list_remove(curr);
-			delete curr;
+			//delete curr;
+			free(curr);
 			break;
 		}
 
@@ -363,7 +365,8 @@ public:
 		newitem->dump.textureSize = ms.dump(newitem->dump.texture,sizeof(newitem->dump.texture));
 		newitem->decode_len = sizeX*sizeY<<2;
 		newitem->mode = textureMode;
-		newitem->decoded = new u8[newitem->decode_len];
+		newitem->decoded = (u8 *)memalign(32, newitem->decode_len); // faster memaligned on wii ?
+
 		list_push_front(newitem);
 		//printf("allocating: up to %d with %d items\n",cache_size,index.size());
 
