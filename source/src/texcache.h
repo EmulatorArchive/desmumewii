@@ -49,7 +49,7 @@ public:
 			delete[] texture;
 		}
 		int textureSize, indexSize;
-		static const int maxTextureSize=128*1024;
+		static const int maxTextureSize=4*1024;
 		u8* texture;
 		u8 palette[256*2];
 	} dump;
