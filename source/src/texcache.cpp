@@ -2,10 +2,9 @@
 #include <algorithm>
 #include <assert.h>
 #include <map>
-#include <malloc.h>
+
 
 #include "texcache.h"
-
 #include "bits.h"
 #include "common.h"
 #include "debug.h"
@@ -41,7 +40,7 @@ public:
 	static const int MAXSIZE = 8;
 
 	MemSpan() 
-		: numItems(0)
+		: numItems(0), size(0)
 	{}
 
 	int numItems;
@@ -212,7 +211,7 @@ public:
 	TTexCacheItemMultimap index;
 
 	//this ought to be enough for anyone
-	static const u32 kMaxCacheSize = 20*1024*1024; // 20MB cache for Wii
+	static const u32 kMaxCacheSize = 16*1024*1024; // 16MB, As lowered in Desmume SVN.
 	//this is not really precise, it is off by a constant factor
 	u32 cache_size;
 
@@ -326,7 +325,7 @@ public:
 			if(mspal.size != 0 && memcmp(curr->dump.palette,pal,mspal.size)) goto REJECT;
 
 			//when the texture data doesn't match
-			if(ms.memcmp(curr->dump.texture,sizeof(curr->dump.texture))) goto REJECT;
+			if(ms.memcmp(&curr->dump.texture[0],curr->dump.textureSize)) goto REJECT;
 
 			//if the texture is 4x4 then the index data must match
 			if(textureMode == TEXMODE_4X4)
@@ -344,8 +343,7 @@ public:
 			//we found a cached item for the current address, but the data is stale.
 			//for a variety of complicated reasons, we need to throw it out right this instant.
 			list_remove(curr);
-			//delete curr;
-			free(curr);
+			delete curr;
 			break;
 		}
 
@@ -362,11 +360,9 @@ public:
 		newitem->sizeY=sizeY;
 		newitem->invSizeX=1.0f/((float)(sizeX));
 		newitem->invSizeY=1.0f/((float)(sizeY));
-		newitem->dump.textureSize = ms.dump(newitem->dump.texture,sizeof(newitem->dump.texture));
-		newitem->decode_len = sizeX*sizeY<<2;
+		newitem->decode_len = sizeX*sizeY*4;
 		newitem->mode = textureMode;
-		newitem->decoded = (u8 *)memalign(32, newitem->decode_len); // faster memaligned on wii ?
-
+		newitem->decoded = new u8[newitem->decode_len];
 		list_push_front(newitem);
 		//printf("allocating: up to %d with %d items\n",cache_size,index.size());
 
@@ -375,15 +371,17 @@ public:
 		//dump palette data for cache keying
 		if(palSize)
 		{
-			memcpy(newitem->dump.palette, pal, palSize<<1);
+			memcpy(newitem->dump.palette, pal, palSize*2);
 		}
-		//dump 4x4 index data for cache keying
-		newitem->dump.indexSize = 0;
+
+		//dump texture and 4x4 index data for cache keying
+		const int texsize = newitem->dump.textureSize = ms.size;
+		const int indexsize = newitem->dump.indexSize = msIndex.size;
+		newitem->dump.texture = new u8[texsize+indexsize];
+		ms.dump(&newitem->dump.texture[0],newitem->dump.maxTextureSize); //dump texture
 		if(textureMode == TEXMODE_4X4)
-		{
-			newitem->dump.indexSize = min(msIndex.size,(int)sizeof(newitem->dump.texture) - newitem->dump.textureSize);
-			msIndex.dump(newitem->dump.texture+newitem->dump.textureSize,newitem->dump.indexSize);
-		}
+			msIndex.dump(newitem->dump.texture+newitem->dump.textureSize,newitem->dump.indexSize); //dump 4x4
+
 
 		//============================================================================ 
 		//Texture conversion
