@@ -211,7 +211,7 @@ public:
 	TTexCacheItemMultimap index;
 
 	//this ought to be enough for anyone
-	static const u32 kMaxCacheSize = 16*1024*1024; // 16MB, As lowered in Desmume SVN.
+	static const u32 kMaxCacheSize = 4*1024*1024; // 4MB, Lowered for Desmume Wii.
 	//this is not really precise, it is off by a constant factor
 	u32 cache_size;
 
