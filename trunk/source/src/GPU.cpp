@@ -856,6 +856,7 @@ static void mosaicSpriteLinePixel(GPU * gpu, int x, u16 l, u8 * dst, u8 * dst_al
 
 	GPU::MosaicColor::Obj objColor;
 	objColor.color = T1ReadWord(dst,x<<1);
+	Log_fprintf("%s %d\n", __FUNCTION__, objColor.color);
 	objColor.alpha = dst_alpha[x];
 	objColor.opaque = opaque;
 
@@ -893,6 +894,7 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 	u8 num = gpu->currBgNum;
 	u32 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
 	u32 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	Log_fprintf("%s %d %d\n", __FUNCTION__, XBG, YBG);
 	u32 lg     = gpu->BGSize[num][0];
 	u32 ht     = gpu->BGSize[num][1];
 	u32 wmask  = (lg-1);
@@ -1047,7 +1049,6 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 		for(; x < xfin; )
 		{
 			color = T1ReadWord(tilePal, (*line) << 1);
-
 			gpu->__setFinalColorBck<MOSAIC,false>(color,x,*line);
 			
 			++x; ++xoff;
@@ -1062,16 +1063,14 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 /*****************************************************************************/
 
 template<bool MOSAIC> FORCEINLINE void rot_tiled_8bit_entry(GPU * gpu, s32 auxX, s32 auxY, int lg, u32 map, u32 tile, u8 * pal, int i) {
-	u32 palette_entry;
-	u32 tileindex, x, y, color;
+	u16 tileindex = *(u8*)MMU_gpu_map(map + ((auxX>>3) + (auxY>>3) * (lg>>3)));
 
-	tileindex = *(u8*)MMU_gpu_map(map + ((auxX>>3) + (auxY>>3) * (lg>>3)));
+	u16 x = (auxX&7); 
+	u16 y = (auxY&7);
 
-	x = (auxX&7); 
-	y = (auxY&7);
-
-	palette_entry = *(u8*)MMU_gpu_map(tile + ((tileindex<<6)+(y<<3)+x));
-	color = T1ReadWord(pal, palette_entry << 1);
+	u8 palette_entry = *(u8*)MMU_gpu_map(tile + ((tileindex<<6)+(y<<3)+x));
+	u16 color = T1ReadWord(pal, palette_entry << 1);
+	Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color,i,palette_entry);
 }
 
@@ -1081,29 +1080,28 @@ template<bool MOSAIC, bool extPal> FORCEINLINE void rot_tiled_16bit_entry(GPU * 
 	TILEENTRY tileentry;
 	tileentry.val = T1ReadWord(map_addr, 0);
 
-	const u32 x = ((tileentry.bits.HFlip) ? 7 - (auxX) : (auxX))&7;
-	const u32 y = ((tileentry.bits.VFlip) ? 7 - (auxY) : (auxY))&7;
+	const u16 x = ((tileentry.bits.HFlip) ? 7 - (auxX) : (auxX))&7;
+	const u16 y = ((tileentry.bits.VFlip) ? 7 - (auxY) : (auxY))&7;
 
 	const u8 palette_entry = *(u8*)MMU_gpu_map(tile + ((tileentry.bits.TileNum<<6)+(y<<3)+x));
 	const u16 color = T1ReadWord(pal, (palette_entry + (extPal ? (tileentry.bits.Palette<<8) : 0)) << 1);
+	Log_fprintf("%s %d %d %d\n", __FUNCTION__, tileentry.bits.Palette, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, palette_entry);
 }
 
 template<bool MOSAIC> FORCEINLINE void rot_256_map(GPU * gpu, s32 auxX, s32 auxY, int lg, u32 map, u32 tile, u8 * pal, int i) {
-	u8 palette_entry;
-	u16 color;
-
 	u8* adr = (u8*)MMU_gpu_map((map) + ((auxX + auxY * lg)));
 
-	palette_entry = *adr;
-	color = T1ReadWord(pal, palette_entry << 1);
+	u8 palette_entry = *adr;
+	u16 color = T1ReadWord(pal, palette_entry << 1);
+	Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, palette_entry);
 }
 
 template<bool MOSAIC> FORCEINLINE void rot_BMP_map(GPU * gpu, s32 auxX, s32 auxY, int lg, u32 map, u32 tile, u8 * pal, int i) {
-	u16 color;
 	void* adr = MMU_gpu_map((map) + ((auxX + auxY * lg) << 1));
-	color = T1ReadWord(adr, 0);
+	u16 color = T1ReadWord(adr, 0);
+	Log_fprintf("%s %d\n", __FUNCTION__, color);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, color&0x8000);
 }
 
@@ -1561,6 +1559,13 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 			sprX = (spriteInfo->X<<23)>>23;
 			sprY = spriteInfo->Y;
 			sprSize = sprSizeTab[spriteInfo->Size][spriteInfo->Shape];
+			
+			/*Log_fprintf("%s[%d] %d %d %d %d\n", 
+				__FUNCTION__, 
+				__LINE__, 
+				spriteInfo->X, spriteInfo->Y, 
+				sprSize.x, sprSize.y
+			);*/
 
 			lg = sprSize.x;
 			
@@ -1590,22 +1595,15 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 			blockparameter = (spriteInfo->RotScalIndex + (spriteInfo->HFlip<< 3) + (spriteInfo->VFlip << 4))*4;
 
 			// Get rotation/scale parameters
-#ifdef WORDS_BIGENDIAN
-			dx  = ((s16)(gpu->oam + blockparameter+0)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+0)->attr30);
-			dmx = ((s16)(gpu->oam + blockparameter+1)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+1)->attr30);
-			dy  = ((s16)(gpu->oam + blockparameter+2)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+2)->attr30);
-			dmy = ((s16)(gpu->oam + blockparameter+3)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+3)->attr30);
-#else
-			dx  = (s16)(gpu->oam + blockparameter+0)->attr3;
-			dmx = (s16)(gpu->oam + blockparameter+1)->attr3;
-			dy  = (s16)(gpu->oam + blockparameter+2)->attr3;
-			dmy = (s16)(gpu->oam + blockparameter+3)->attr3;
-#endif
+			dx  = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+0)->attr3);
+			dmx = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+1)->attr3);
+			dy  = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+2)->attr3);
+			dmy = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+3)->attr3);
 
 			// Calculate fixed poitn 8.8 start offsets
 			realX = ((sprSize.x) << 7) - (fieldX >> 1)*dx - (fieldY>>1)*dmx + y * dmx;
 			realY = ((sprSize.y) << 7) - (fieldX >> 1)*dy - (fieldY>>1)*dmy + y * dmy;
-
+			
 			if(sprX<0)
 			{
 				// If sprite is not in the window
@@ -1634,13 +1632,13 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 					pal = (MMU.ObjExtPal[gpu->core][0]+(spriteInfo->PaletteIndex*0x200));
 				else
 					pal = (MMU.ARM9_VMEM + 0x200 + gpu->core *0x400);
-
+				
 				for(j = 0; j < lg; ++j, ++sprX)
 				{
 					// Get the integer part of the fixed point 8.8, and check if it lies inside the sprite data
 					auxX = (realX>>8);
 					auxY = (realY>>8);
-
+					
 					if (auxX >= 0 && auxY >= 0 && auxX < sprSize.x && auxY < sprSize.y)
 					{
 						if(MODE == SPRITE_2D)
@@ -1649,10 +1647,16 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 							offset = (auxX&0x7) + ((auxX&0xFFF8)<<3) + ((auxY>>3)*sprSize.x*8) + ((auxY&0x7)*8);
 
 						colour = src[offset];
+						
+						/*Log_fprintf("%s[%d] %d %d\n", 
+							__FUNCTION__, 
+							__LINE__, 
+							colour, LE_TO_LOCAL_16(T2ReadWord(pal, (colour<<1)))
+						);*/
 
 						if (colour && (prioTab[sprX]>=prio))
 						{ 
-							T2WriteWord(dst, (sprX<<1), T2ReadWord(pal, (colour<<1)));
+							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (colour<<1))));
 							dst_alpha[sprX] = 16;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -1692,6 +1696,8 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 
 						colour = T1ReadWord (src, offset<<1);
+						
+						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, colour);
 
 						if((colour&0x8000) && (prioTab[sprX]>=prio))
 						{
@@ -1738,6 +1744,8 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 							offset = ((auxX>>1)&0x3) + (((auxX>>1)&0xFFFC)<<3) + ((auxY>>3)*sprSize.x)*4 + ((auxY&0x7)*4);
 						
 						colour = src[offset];
+						
+						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, colour);
 
 						// Get 4bits value from the readed 8bits
 						if (auxX&1)	colour >>= 4;
