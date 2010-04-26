@@ -793,8 +793,7 @@ public:
 
 	
 	//rotates verts counterclockwise
-	template<int type>
-	INLINE void rot_verts() {
+	INLINE void rot_verts(int type) {
 		#define ROTSWAP(X) if(type>X) swap(verts[X-1],verts[X]);
 		ROTSWAP(1); ROTSWAP(2); ROTSWAP(3); ROTSWAP(4);
 		ROTSWAP(5); ROTSWAP(6); ROTSWAP(7); ROTSWAP(8); ROTSWAP(9);
@@ -802,8 +801,7 @@ public:
 
 	//rotate verts until vert0.y is minimum, and then vert0.x is minimum in case of ties
 	//this is a necessary precondition for our shape engine
-	template<int type>
-	void sort_verts(bool backwards) {
+	void sort_verts(int type, bool backwards) {
 		//if the verts are backwards, reorder them first
 		if(backwards)
 			for(int i=0;i<type/2;i++)
@@ -818,11 +816,11 @@ public:
 			break;
 			
 		doswap:
-			rot_verts<type>();
+			rot_verts(type);
 		}
 		
 		while(verts[0]->y == verts[1]->y && verts[0]->x > verts[1]->x)
-			rot_verts<type>();
+			rot_verts(type);
 		
 	}
 
@@ -833,18 +831,11 @@ public:
 	void shape_engine(int type, bool backwards)
 	{
 		bool failure = false;
-
-		switch(type) {
-			case 3: sort_verts<3>(backwards); break;
-			case 4: sort_verts<4>(backwards); break;
-			case 5: sort_verts<5>(backwards); break;
-			case 6: sort_verts<6>(backwards); break;
-			case 7: sort_verts<7>(backwards); break;
-			case 8: sort_verts<8>(backwards); break;
-			case 9: sort_verts<9>(backwards); break;
-			case 10: sort_verts<10>(backwards); break;
-			default: printf("skipping type %d\n",type); return;
+		if(type < 3 || type > 10) {
+			printf("skipping type %d\n",type); 
+			return;
 		}
+		sort_verts(type, backwards);
 
 		//we are going to step around the polygon in both directions starting from vert 0.
 		//right edges will be stepped over clockwise and left edges stepped over counterclockwise.

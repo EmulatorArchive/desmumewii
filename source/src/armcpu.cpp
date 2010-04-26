@@ -260,7 +260,9 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 {
         u32 oldmode = armcpu->CPSR.bits.mode;
-	
+
+	if(oldmode == mode) return oldmode;	// I think there is no need to change mode.
+
 	switch(oldmode)
 	{
 		case USR :
@@ -307,59 +309,59 @@ u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 			break;
 		default :
 			break;
-		}
-		
-		switch(mode)
-		{
-			case USR :
-			case SYS :
-				armcpu->R[13] = armcpu->R13_usr;
-				armcpu->R[14] = armcpu->R14_usr;
-				//SPSR = CPSR;
-				break;
-				
-			case FIQ :
-				{
-					u32 tmp;
-					SWAP(armcpu->R[8], armcpu->R8_fiq, tmp);
-					SWAP(armcpu->R[9], armcpu->R9_fiq, tmp);
-					SWAP(armcpu->R[10], armcpu->R10_fiq, tmp);
-					SWAP(armcpu->R[11], armcpu->R11_fiq, tmp);
-					SWAP(armcpu->R[12], armcpu->R12_fiq, tmp);
-					armcpu->R[13] = armcpu->R13_fiq;
-					armcpu->R[14] = armcpu->R14_fiq;
-					armcpu->SPSR = armcpu->SPSR_fiq;
-					break;
-				}
-				
-			case IRQ :
-				armcpu->R[13] = armcpu->R13_irq;
-				armcpu->R[14] = armcpu->R14_irq;
-				armcpu->SPSR = armcpu->SPSR_irq;
-				break;
-				
-			case SVC :
-				armcpu->R[13] = armcpu->R13_svc;
-				armcpu->R[14] = armcpu->R14_svc;
-				armcpu->SPSR = armcpu->SPSR_svc;
-				break;
-				
-			case ABT :
-				armcpu->R[13] = armcpu->R13_abt;
-				armcpu->R[14] = armcpu->R14_abt;
-				armcpu->SPSR = armcpu->SPSR_abt;
-				break;
-				
-          case UND :
-				armcpu->R[13] = armcpu->R13_und;
-				armcpu->R[14] = armcpu->R14_und;
-				armcpu->SPSR = armcpu->SPSR_und;
-				break;
-				
-				default :
-					break;
 	}
-	
+
+	switch(mode)
+	{
+		case USR :
+		case SYS :
+			armcpu->R[13] = armcpu->R13_usr;
+			armcpu->R[14] = armcpu->R14_usr;
+			//SPSR = CPSR;
+			break;
+
+		case FIQ :
+			{
+				u32 tmp;
+				SWAP(armcpu->R[8], armcpu->R8_fiq, tmp);
+				SWAP(armcpu->R[9], armcpu->R9_fiq, tmp);
+				SWAP(armcpu->R[10], armcpu->R10_fiq, tmp);
+				SWAP(armcpu->R[11], armcpu->R11_fiq, tmp);
+				SWAP(armcpu->R[12], armcpu->R12_fiq, tmp);
+				armcpu->R[13] = armcpu->R13_fiq;
+				armcpu->R[14] = armcpu->R14_fiq;
+				armcpu->SPSR = armcpu->SPSR_fiq;
+				break;
+			}
+			
+		case IRQ :
+			armcpu->R[13] = armcpu->R13_irq;
+			armcpu->R[14] = armcpu->R14_irq;
+			armcpu->SPSR = armcpu->SPSR_irq;
+			break;
+			
+		case SVC :
+			armcpu->R[13] = armcpu->R13_svc;
+			armcpu->R[14] = armcpu->R14_svc;
+			armcpu->SPSR = armcpu->SPSR_svc;
+			break;
+			
+		case ABT :
+			armcpu->R[13] = armcpu->R13_abt;
+			armcpu->R[14] = armcpu->R14_abt;
+			armcpu->SPSR = armcpu->SPSR_abt;
+			break;
+			
+		case UND :
+			armcpu->R[13] = armcpu->R13_und;
+			armcpu->R[14] = armcpu->R14_und;
+			armcpu->SPSR = armcpu->SPSR_und;
+			break;
+			
+		default :
+			break;
+	}
+
 	armcpu->CPSR.bits.mode = mode & 0x1F;
 	return oldmode;
 }
