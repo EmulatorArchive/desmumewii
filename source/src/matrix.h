@@ -141,6 +141,10 @@ FORCEINLINE void memset_u16_le(void* dst, u16 val)
 template<int NUM>
 static FORCEINLINE void memset_u16_le(void* dst, u16 val)
 {
+#ifdef WORDS_BIGENDIAN
+	val = val << 8 | val >> 8;
+#endif
+
 	for(int i=0;i<NUM;i++)
 		T1WriteWord((u8*)dst,i<<1,val);
 }
