@@ -45,6 +45,7 @@
 #include "GPU.h"
 
 #include "path.h"
+#include "log.h"
 
 PathInfo path;
 
@@ -563,6 +564,7 @@ struct armcpu_ctrl_iface **arm7_ctrl_iface) {
 #else
 int NDS_Init( void) {
 #endif
+	Log_Init();
 	nds.idleFrameCounter = 0;
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
@@ -607,6 +609,7 @@ int NDS_Init( void) {
 }
 
 void NDS_DeInit(void) {
+	Log_DeInit();
 	if(MMU.CART_ROM != MMU.UNUSED_RAM)
 		NDS_FreeROM();
 
