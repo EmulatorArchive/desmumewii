@@ -9,7 +9,7 @@
 
 static FILE *flog;
 
-#define _FLOG
+// #define _FLOG
 
 void Log_Init() {
 #ifdef _FLOG
@@ -24,8 +24,10 @@ void Log_Init() {
 }
 
 void Log_DeInit() {
+#ifdef _FLOG
 	if(flog)
 		fclose(flog);
+#endif
 }
 
 void Log_fprintf(const char *msg, ...) {
