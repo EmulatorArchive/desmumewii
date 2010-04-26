@@ -37,6 +37,7 @@
 //#include "GPU_osd.h"
 #include "NDSSystem.h"
 #include "readwrite.h"
+#include "log.h"
 
 //#undef FORCEINLINE
 //#define FORCEINLINE
@@ -58,16 +59,6 @@ CACHE_ALIGN u8 GPU_screen[4*256*192];
 CACHE_ALIGN u8 sprWin[256];
 
 u16 gpu_angle = 0;
-
-// #define FGPU_LOG
-
-static FILE *flog;
-static char gpulog[256];
-#ifdef FGPU_LOG
-# define FLOG(x) fprintf(flog, x);
-#else
-# define FLOG(x)
-#endif
 
 const size sprSizeTab[4][4] = 
 {
@@ -1317,17 +1308,6 @@ template<bool MOSAIC> void lineExtRot(GPU * gpu)
 
 		parms->BGxX += LE_TO_LOCAL_16(parms->BGxPB);
 		parms->BGxY += LE_TO_LOCAL_16(parms->BGxPD);
-
-		/*sprintf(gpulog, "PX=  %d. PY = %d , PA = %d, PB = %d, PC = %d, PD = %d\n",
-			parms->BGxX,
-			parms->BGxY,
-			LE_TO_LOCAL_16(parms->BGxPA),
-			LE_TO_LOCAL_16(parms->BGxPB),
-			LE_TO_LOCAL_16(parms->BGxPC),
-			LE_TO_LOCAL_16(parms->BGxPD)
-		);
-		FLOG(gpulog);*/
-
 	}
 }
 
@@ -1870,9 +1850,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 int Screen_Init(int coreid)
 {
-#ifdef FGPU_LOG
-	flog = fopen("sd:/gpu.log", "wb");
-#endif
 	MainScreen.gpu = GPU_Init(0);
 	SubScreen.gpu = GPU_Init(1);
 
@@ -1903,9 +1880,6 @@ void Screen_Reset(void)
 
 void Screen_DeInit(void)
 {
-#ifdef FGPU_LOG
-	fclose(flog);
-#endif
 	GPU_DeInit(MainScreen.gpu);
 	GPU_DeInit(SubScreen.gpu);
 
@@ -2061,7 +2035,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	gpu->currentFadeInColors = &fadeInColors[gpu->BLDY_EVY][0];
 	gpu->currentFadeOutColors = &fadeOutColors[gpu->BLDY_EVY][0];
 
-	u16 backdrop_color = T1ReadWord(MMU.ARM9_VMEM, gpu->core * 0x400) & 0x7FFF;
+	u16 backdrop_color = LE_TO_LOCAL_16(T1ReadWord(MMU.ARM9_VMEM, gpu->core * 0x400) & 0x7FFF);
 
 	//we need to write backdrop colors in the same way as we do BG pixels in order to do correct window processing
 	//this is currently eating up 2fps or so. it is a reasonable candidate for optimization. 
