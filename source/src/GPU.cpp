@@ -2635,7 +2635,12 @@ void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip)
 			{
 				u8 * dst = GPU_screen + (screen->offset + l) * 512;
 				u8 * src = gpu->VRAMaddr + (l*512);
-				memcpy (dst, src, 512);
+				//memcpy (dst, src, 512);
+				u16* src_color = (u16*)src;
+				u16* dest_color = (u16*)dst;
+				for(int i=0; i<256;i++) {
+					dest_color[i] = LE_TO_LOCAL_16(src_color[i]);
+				}
 			}
 			break;
 		case 3: // Display memory FIFO
