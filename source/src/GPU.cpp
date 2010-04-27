@@ -370,7 +370,6 @@ void GPU_setVideoProp(GPU * gpu, u32 p)
 	gpu->dispMode = cnt->DisplayMode & ((gpu->core)?1:3);
 
 	gpu->vramBlock = cnt->VRAM_Block;
-//	gpu->dispMode = 2; // NOT sure if this is an option or what ... Setting it makes the screen WORK :)))) scanff
 	
 	switch (gpu->dispMode)
 	{
@@ -2633,13 +2632,10 @@ void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip)
 
 		case 2: // Display vram framebuffer
 			{
-				u8 * dst = GPU_screen + (screen->offset + l) * 512;
-				u8 * src = gpu->VRAMaddr + (l*512);
-				//memcpy (dst, src, 512);
-				u16* src_color = (u16*)src;
-				u16* dest_color = (u16*)dst;
+				u16 * dst = (u16*)(GPU_screen + (screen->offset + l) * 512);
+				u16 * src = (u16*)(gpu->VRAMaddr + (l*512));
 				for(int i=0; i<256;i++) {
-					dest_color[i] = LE_TO_LOCAL_16(src_color[i]);
+					dst[i] = LE_TO_LOCAL_16(src[i]);
 				}
 			}
 			break;
