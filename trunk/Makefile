@@ -18,7 +18,7 @@ include $(DEVKITPPC)/wii_rules
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source/src source/src/metaspu \
-				source/src/addons source/src/utils
+				source/src/addons source/src/utils source/src/gekko_utils
 DATA		:=	data  
 INCLUDES	:=
 
@@ -75,7 +75,8 @@ endif
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
-					$(sFILES:.s=.o) $(SFILES:.S=.o)
+					$(sFILES:.s=.o) $(SFILES:.S=.o) \
+					$(CURDIR)/source/src/gekko_utils/ehcmodule.elf.o
 
 #---------------------------------------------------------------------------------
 # build a list of include paths
