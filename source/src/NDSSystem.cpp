@@ -77,10 +77,9 @@ int TotalLagFrames;
 
 TSCalInfo TSCal;
 //----------------- VIRTUAL MEM ----------------------/
-
-// #define TEMP_ROM_SIZE	(0xA4000) // 128K // actually 656K...
-#define TEMP_ROM_SIZE	(0x80000) // 512K
-static u8* temp_vm_buffer = 0; // temp storage of game data
+// WAS (0x80000) // 512K
+#define TEMP_ROM_SIZE	(0x800) // 2K - This seems much faster with a smaller cache.  I think the overhead of a large fread is lagging!
+static CACHE_ALIGN u8* temp_vm_buffer = 0; // temp storage of game data
 static FILE* vmf = 0;
 static u32 last_address = 0;
 static int vmem_read = 0;
