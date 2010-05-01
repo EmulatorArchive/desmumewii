@@ -2193,11 +2193,19 @@ static INLINE void write_auxspicnt(const int proc, const int size, const int adr
 		case 8:
 			switch(adr) {
 				case 0: 
+#ifdef WORDS_BIGENDIAN
+					T1WriteByte((u8*)&MMU.AUX_SPI_CNT,1,val); 
+#else
 					T1WriteByte((u8*)&MMU.AUX_SPI_CNT,0,val); 
+#endif
 					if (val == 0) MMU_new.backupDevice.reset_command();
 					break;
 				case 1: 
+#ifdef WORDS_BIGENDIAN
+					T1WriteByte((u8*)&MMU.AUX_SPI_CNT,0,val); 
+#else
 					T1WriteByte((u8*)&MMU.AUX_SPI_CNT,1,val); 
+#endif
 					break;
 			}
 	}
