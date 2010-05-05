@@ -43,17 +43,17 @@
 // and in particular, DMA or code+data access bus contention is still missing.
 
 	// makes non-sequential accesses slower than sequential ones.
-#define ACCOUNT_FOR_NON_SEQUENTIAL_ACCESS
+//#define ACCOUNT_FOR_NON_SEQUENTIAL_ACCESS
 	//(SOMETIMES THIS IS A BIG SPEED HIT!)
 
 	// enables emulation of code fetch waits.
-#define ACCOUNT_FOR_CODE_FETCH_CYCLES
+//#define ACCOUNT_FOR_CODE_FETCH_CYCLES
 
 	// makes access to DTCM (arm9 only) fast.
 #define ACCOUNT_FOR_DATA_TCM_SPEED
 
 	// enables simulation of cache hits and cache misses.
-#define ENABLE_CACHE_CONTROLLER_EMULATION
+//#define ENABLE_CACHE_CONTROLLER_EMULATION
 
 //
 ////////////////////////////////////////////////////////////////
