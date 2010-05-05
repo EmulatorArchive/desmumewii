@@ -776,7 +776,7 @@ struct GPU
 	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x, bool);
 
 	template<BlendFunc FUNC, bool WINDOW>
-	FORCEINLINE FASTCALL void _master_setFinal3dColor(int dstX, int srcX);
+	FORCEINLINE FASTCALL void _master_setFinal3dColor(int l, int i16);
 
 	template<BlendFunc FUNC, bool WINDOW>
 	FORCEINLINE FASTCALL void _master_setFinalOBJColor(u16 color, u8 alpha, u8 type, u16 x);
@@ -802,7 +802,7 @@ struct GPU
 	}
 
 
-	void setFinalColor3d(int dstX, int srcX);
+	void setFinalColor3d(int l, int i16);
 	void setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x);
 	
 	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
