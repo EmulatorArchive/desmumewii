@@ -257,7 +257,7 @@ void GPU_DeInit(GPU * gpu)
 static void GPU_resortBGs(GPU *gpu)
 {
 	int i, prio;
-	struct _DISPCNT * cnt = &gpu->dispx_st->dispx_DISPCNT.bits;
+	const struct _DISPCNT * cnt = &gpu->dispx_st->dispx_DISPCNT.bits;
 	itemsForPriority_t * item;
 
 	// we don't need to check for windows here...
@@ -287,7 +287,7 @@ static void GPU_resortBGs(GPU *gpu)
 		++item->nbBGs;
 	}while(i > 0);
 
-	int bg0Prio = gpu->dispx_st->dispx_BGxCNT[0].bits.Priority;
+	const int bg0Prio = gpu->dispx_st->dispx_BGxCNT[0].bits.Priority;
 	gpu->bg0HasHighestPrio = TRUE;
 	for(i = 1; i < 4; i++)
 	{
@@ -319,9 +319,9 @@ static void GPU_resortBGs(GPU *gpu)
 
 static FORCEINLINE u16 _blend(u16 colA, u16 colB, GPU::TBlendTable* blendTable)
 {
-	u8 r = (*blendTable)[colA&0x1F][colB&0x1F];
-	u8 g = (*blendTable)[(colA>>5)&0x1F][(colB>>5)&0x1F];
-	u8 b = (*blendTable)[(colA>>10)&0x1F][(colB>>10)&0x1F];
+	const u8 r = (*blendTable)[colA&0x1F][colB&0x1F];
+	const u8 g = (*blendTable)[(colA>>5)&0x1F][(colB>>5)&0x1F];
+	const u8 b = (*blendTable)[(colA>>10)&0x1F][(colB>>10)&0x1F];
 
 	return r|(g<<5)|(b<<10);
 }
@@ -593,12 +593,12 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 
 	this->currBgNum = 0;
 
-	BGxOFS *bgofs = &this->dispx_st->dispx_BGxOFS[i16];
-	u16 hofs = (T1ReadWord((u8*)&bgofs->BGxHOFS, 0) & 0x1FF);
+	const BGxOFS *bgofs = &this->dispx_st->dispx_BGxOFS[i16];
+	const u16 hofs = (T1ReadWord((u8*)&bgofs->BGxHOFS, 0) & 0x1FF);
 
 	gfx3d_GetLineData(l, &this->_3dColorLine);
 
-	u8* colorLine = this->_3dColorLine;
+	const u8* colorLine = this->_3dColorLine;
 
 	for(int k = 256; k--;)
 	{
@@ -2221,11 +2221,11 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 	#define CAPCOPY(SRC,DST) \
 	switch(gpu->dispCapCnt.capx) { \
 		case DISPCAPCNT::_128: \
-			for (int i = 127; i--;)  \
+			for (int i = 128; i--;)  \
 				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
 			break; \
 		case DISPCAPCNT::_256: \
-			for (int i = 255; i--;)  \
+			for (int i = 256; i--;)  \
 				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
 			break; \
 			default: assert(false); \
@@ -2312,7 +2312,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 							case 1:
 								//capture dispfifo
 								//(not yet tested)
-								for(int i=127; i--;)
+								for(int i=128; i--;)
 									T1WriteLong(cap_dst, i << 2, DISP_FIFOrecv());
 								break;
 						}
@@ -2342,7 +2342,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 						{
 							//fifo - tested by splinter cell chaos theory thermal view
 							srcB = fifoLine;
-							for (int i=127; i--;)
+							for (int i=128; i--;)
 								T1WriteLong((u8*)srcB, i << 2, DISP_FIFOrecv());
 						}
 
