@@ -83,6 +83,9 @@
 
 #define CACHE_ALIGN ALIGN(32)
 
+//use this for example when you want a byte value to be better-aligned
+#define FAST_ALIGN ALIGN(4)
+
 #ifndef FASTCALL
 #	ifdef __MINGW32__
 #		define FASTCALL __attribute__((fastcall))
