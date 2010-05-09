@@ -33,6 +33,7 @@
 #include "mem.h"
 #include "wifi.h"
 #include "emufile.h"
+#include "firmware.h"
 
 #include <string>
 
@@ -150,7 +151,16 @@ void NDS_RescheduleGXFIFO(u32 cost);
 void NDS_RescheduleDMA();
 void NDS_RescheduleTimers();
 
-typedef struct
+enum ENSATA_HANDSHAKE
+{
+	ENSATA_HANDSHAKE_none = 0,
+	ENSATA_HANDSHAKE_query = 1,
+	ENSATA_HANDSHAKE_ack = 2,
+	ENSATA_HANDSHAKE_confirm = 3,
+	ENSATA_HANDSHAKE_complete = 4,
+};
+
+struct NDSSystem
 {
 	s32 wifiCycle;
 	s32 cycles;
@@ -171,6 +181,7 @@ typedef struct
 	u32 FW_ARM7BootCodeSize;
 
 	BOOL sleeping;
+	BOOL cardEjected;
 
 	//this is not essential NDS runtime state.
 	//it was perhaps a mistake to put it here.
@@ -184,9 +195,26 @@ typedef struct
 	//if the game was booted on a debug console, this is set
 	BOOL debugConsole;
 
+	//set if the user requests ensata emulation
+	BOOL ensataEmulation;
+
+	//there is a hack in the ipc sync for ensata. this tracks its state
+	u32 ensataIpcSyncCounter;
+
+	//maintains the state of the ensata handshaking protocol
+	u32 ensataHandshake;
+
+	struct {
+		u8 lcd, gpuMain, gfx3d_render, gfx3d_geometry, gpuSub, dispswap;
+	} power1; //POWCNT1
+
+	struct {
+		u8 speakers, wifi /*(initial value=0)*/;
+	} power2; //POWCNT2
+
 	bool isInVblank() const { return VCount >= 192; } 
 	bool isIn3dVblank() const { return VCount >= 192 && VCount<215; } 
-} NDSSystem;
+};
 
 /** /brief A touchscreen calibration point.
  */
@@ -242,8 +270,6 @@ int NDS_Init ( void);
 void Desmume_InitOnce();
 
 void NDS_DeInit(void);
-void
-NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config);
 
 BOOL NDS_SetROM(u8 * rom, u32 mask);
 NDS_header * NDS_getROMHeader(void);
@@ -280,12 +306,16 @@ typedef struct TSCalInfo
 	{
 		u16 x1, x2;
 		u16 y1, y2;
+		u16 width;
+		u16 height;
 	} adc;
 
 	struct scr
 	{
 		u8 x1, x2;
 		u8 y1, y2;
+		u16 width;
+		u16 height;
 	} scr;
 
 } TSCalInfo;
@@ -359,9 +389,6 @@ bool NDS_ExportSave(const char *filename);
 void nds_savestate(EMUFILE* os);
 bool nds_loadstate(EMUFILE* is, int size);
 
-int NDS_LoadFirmware(const char *filename);
-int NDS_CreateDummyFirmware( struct NDS_fw_config_data *user_settings);
-
 void NDS_Sleep();
 
 void NDS_SkipNextFrame();
@@ -424,24 +451,35 @@ extern struct TCommonSettings {
 		, GFX3D_Fog(true)
 		, UseExtBIOS(false)
 		, SWIFromBIOS(false)
+		, PatchSWI3(false)
 		, UseExtFirmware(false)
 		, BootFromFirmware(false)
 		, DebugConsole(false)
-		//, gfx3d_flushMode(0)
+		, EnsataEmulation(false)
+		, cheatsDisable(false)
 		, num_cores(1)
+		, rigorous_timing(false)
+		, advanced_timing(true)
 		, micMode(InternalNoise)
 		, spuInterpolationMode(SPUInterpolation_Linear)
 		, manualBackupType(0)
+		, spu_captureMuted(false)
+		, spu_advanced(false)
 	{
 		strcpy(ARM9BIOS, "biosnds9.bin");
 		strcpy(ARM7BIOS, "biosnds7.bin");
 		strcpy(Firmware, "firmware.bin");
+		NDS_FillDefaultFirmwareConfigData(&InternalFirmConf);
 
 		wifi.mode = 0;
 		wifi.infraBridgeAdapter = 0;
 
 		for(int i=0;i<16;i++)
 			spu_muteChannels[i] = false;
+
+		for(int g=0;g<2;g++)
+			for(int x=0;x<5;x++)
+				dispLayers[g][x]=true;
 	}
 	bool GFX3D_HighResolutionInterpolateColor;
 	bool GFX3D_EdgeMark;
@@ -451,15 +489,25 @@ extern struct TCommonSettings {
 	char ARM9BIOS[256];
 	char ARM7BIOS[256];
 	bool SWIFromBIOS;
+	bool PatchSWI3;
 
 	bool UseExtFirmware;
 	char Firmware[256];
 	bool BootFromFirmware;
+	struct NDS_fw_config_data InternalFirmConf;
 
 	bool DebugConsole;
+	bool EnsataEmulation;
+	
+	bool cheatsDisable;
 
 	int num_cores;
 	bool single_core() { return num_cores==1; }
+	bool rigorous_timing;
+
+	bool dispLayers[2][5];
+	
+	FAST_ALIGN bool advanced_timing;
 	
 	struct _Wifi {
 		int mode;
@@ -484,6 +532,8 @@ extern struct TCommonSettings {
 	int manualBackupType;
 
 	bool spu_muteChannels[16];
+	bool spu_captureMuted;
+	bool spu_advanced;
 
 	struct _ShowGpu {
 		_ShowGpu() : main(true), sub(true) {}
@@ -501,8 +551,9 @@ extern struct TCommonSettings {
 			, FrameCounterDisplay(false)
 			, ShowLagFrameCounter(false)
 			, ShowMicrophone(false)
+			, ShowRTC(false)
 		{}
-		bool ShowInputDisplay, ShowGraphicalInputDisplay, FpsDisplay, FrameCounterDisplay, ShowLagFrameCounter, ShowMicrophone;
+		bool ShowInputDisplay, ShowGraphicalInputDisplay, FpsDisplay, FrameCounterDisplay, ShowLagFrameCounter, ShowMicrophone, ShowRTC;
 	} hud;
 
 } CommonSettings;

@@ -216,7 +216,7 @@ static void armcp15_maskPrecalc(armcp15_t *armcp15)
 	precalc(7) ;
 }
 
-INLINE BOOL armcp15_isAccessAllowed(armcp15_t *armcp15,u32 address,u32 access)
+BOOL armcp15_isAccessAllowed(armcp15_t *armcp15,u32 address,u32 access)
 {
 	int i ;
 	if (!(armcp15->ctrl & 1)) return TRUE ;        /* protection checking is not enabled */
@@ -447,7 +447,8 @@ BOOL armcp15_moveARM2CP(armcp15_t *armcp15, u32 val, u8 CRn, u8 CRm, u8 opcode1,
 		{
 			armcp15->ctrl = val;
 			MMU.ARM9_RW_MODE = BIT7(val);
-			armcp15->cpu->intVector = 0x0FFF0000 * (BIT13(val));
+			//zero 31-jan-2010: change from 0x0FFF0000 to 0xFFFF0000 per gbatek
+			armcp15->cpu->intVector = 0xFFFF0000 * (BIT13(val));
 			armcp15->cpu->LDTBit = !BIT15(val); //TBit
 			/*if(BIT17(val))
 			{

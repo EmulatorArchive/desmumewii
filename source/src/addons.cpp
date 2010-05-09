@@ -1,8 +1,4 @@
-/*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
-
-    Copyright (C) 2009 CrazyMax
+/*  Copyright (C) 2009 CrazyMax
 	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
@@ -25,14 +21,12 @@
 #include "addons.h"
 #include <string>
 
-std::string CFlash_Path;
+//this is the currently-configured cflash mode
 ADDON_CFLASH_MODE CFlash_Mode;
 
-
-//char CFlashName[MAX_PATH];
-//char CFlashPath[MAX_PATH];
-//u8	 CFlashUseRomPath = TRUE;
-//u8	 CFlashUsePath = TRUE;
+//this is the currently-configured path (directory or filename) for cflash.
+//it should be viewed as a parameter for the above.
+std::string CFlash_Path;
 
 char GBAgameName[MAX_PATH];
 

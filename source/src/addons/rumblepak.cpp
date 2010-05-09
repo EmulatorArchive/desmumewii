@@ -23,12 +23,17 @@
 #include "../MMU.h"
 #include <string.h>
 
+u16 old_val_rumble = 0;
+
 void (*FeedbackON)(BOOL enable) = NULL;
 
 static BOOL RumblePak_init(void) { return (TRUE); }
 
 static void RumblePak_reset(void)
 {
+	old_val_rumble = 0;
+	if (!FeedbackON) return;
+	FeedbackON(false);
 }
 
 static void RumblePak_close(void) {}
@@ -42,7 +47,10 @@ static void RumblePak_write08(u32 adr, u8 val)
 static void RumblePak_write16(u32 adr, u16 val)
 {
 	if (!FeedbackON) return;
+	
+	if (old_val_rumble == val) return;
 
+	old_val_rumble = val;
 	// CrazyMax 17/01/2009
 	// i don't know how send to feedback (PC) impulse with small latency.
 	if (adr == 0x08000000) 
@@ -57,7 +65,7 @@ static void RumblePak_write32(u32 adr, u32 val)
 
 static u8   RumblePak_read08(u32 adr)
 {
-	return (0);
+	return (0xFF);
 }
 
 static u16  RumblePak_read16(u32 adr)
@@ -70,7 +78,7 @@ static u16  RumblePak_read16(u32 adr)
 
 static u32  RumblePak_read32(u32 adr)
 {
-	return (0);
+	return (0xFFFFFFFF);
 }
 
 static void RumblePak_info(char *info)
