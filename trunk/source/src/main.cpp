@@ -758,8 +758,7 @@ void ShowCredits() {
 	printf("scanff\n");
 	printf("firnis\n");
 	printf("baby.lueshi\n");
-	printf("Dancingninja\n");
-	printf("With contributions from Cyan\n\n");
+	printf("With contributions from Cyan and Dancing Ninja\n\n");
 	printf("Press A to return to the menu.");
 	
 	while(true){ 

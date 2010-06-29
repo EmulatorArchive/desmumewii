@@ -17,6 +17,8 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
+//Need to convert INFO's into gecko printf()s
+
 #include "firmware.h"
 #include "NDSSystem.h"
 
@@ -355,7 +357,7 @@ bool CFIRMWARE::load()
 #if 1
 	if (size == 512*1024)
 	{
-// 		INFO("ERROR: 32Mbit (512Kb) firmware not supported\n");
+//		INFO("ERROR: 32Mbit (512Kb) firmware not supported\n");
 		fclose(fp);
 		return false;
 	}
@@ -452,7 +454,7 @@ bool CFIRMWARE::load()
 
 	if (crc16_mine != header.part12_boot_crc16)
 	{
-// 		INFO("Firmware: ERROR: the boot code CRC16 (0x%04X) doesn't match the value in the firmware header (0x%04X)", crc16_mine, header.part12_boot_crc16);
+//		INFO("Firmware: ERROR: the boot code CRC16 (0x%04X) doesn't match the value in the firmware header (0x%04X)", crc16_mine, header.part12_boot_crc16);
 		delete [] tmp_data9;
 		delete [] tmp_data7;
 		delete [] data;
@@ -481,23 +483,23 @@ bool CFIRMWARE::load()
 	if (data[0x17C] != 0xFF)
 		patched = true;
 
-// 	INFO("Firmware:\n");
-// 	INFO("- path: %s\n", CommonSettings.Firmware);
-// 	INFO("- size: %i bytes (%i Mbit)\n", size, size/1024/8);
-// 	INFO("- CRC : 0x%04X\n", header.part12_boot_crc16);
-// 	INFO("- header: \n");
-// 	INFO("   * size firmware %i\n", ((header.shift_amounts >> 12) & 0xF) * 128 * 1024);
-// 	INFO("   * ARM9 boot code address:     0x%08X\n", part1addr);
-// 	INFO("   * ARM9 boot code RAM address: 0x%08X\n", ARM9bootAddr);
-// 	INFO("   * ARM9 unpacked size:         0x%08X (%i) bytes\n", size9, size9);
-// 	INFO("   * ARM9 GUI code address:      0x%08X\n", part3addr);
-// 	INFO("\n");
-// 	INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
-// 	INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
-// 	INFO("   * ARM7 WiFi code address:     0x%08X\n", part4addr);
-// 	INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
-// 	INFO("\n");
-// 	INFO("   * Data/GFX address:           0x%08X\n", part5addr);
+//	INFO("Firmware:\n");
+	//INFO("- path: %s\n", CommonSettings.Firmware);
+	//INFO("- size: %i bytes (%i Mbit)\n", size, size/1024/8);
+	//INFO("- CRC : 0x%04X\n", header.part12_boot_crc16);
+	//INFO("- header: \n");
+	//INFO("   * size firmware %i\n", ((header.shift_amounts >> 12) & 0xF) * 128 * 1024);
+	//INFO("   * ARM9 boot code address:     0x%08X\n", part1addr);
+	//INFO("   * ARM9 boot code RAM address: 0x%08X\n", ARM9bootAddr);
+	//INFO("   * ARM9 unpacked size:         0x%08X (%i) bytes\n", size9, size9);
+	//INFO("   * ARM9 GUI code address:      0x%08X\n", part3addr);
+	//INFO("\n");
+	//INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
+//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
+	//INFO("   * ARM7 WiFi code address:     0x%08X\n", part4addr);
+	//INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
+	//INFO("\n");
+	//INFO("   * Data/GFX address:           0x%08X\n", part5addr);
 
 	if (patched)
 	{
@@ -554,15 +556,15 @@ bool CFIRMWARE::load()
 		delete [] tmp_data7;
 		delete [] tmp_data9;
 
-// 		INFO("\nFlashme:\n");
-// 		INFO("- header: \n");
-// 		INFO("   * ARM9 boot code address:     0x%08X\n", part1addr);
-// 		INFO("   * ARM9 boot code RAM address: 0x%08X\n", ARM9bootAddr);
-// 		INFO("   * ARM9 unpacked size:         0x%08X (%i) bytes\n", size9, size9);
-// 		INFO("\n");
-// 		INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
-// 		INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
-// 		INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
+		//INFO("\nFlashme:\n");
+		//INFO("- header: \n");
+		//INFO("   * ARM9 boot code address:     0x%08X\n", part1addr);
+		//INFO("   * ARM9 boot code RAM address: 0x%08X\n", ARM9bootAddr);
+		//INFO("   * ARM9 unpacked size:         0x%08X (%i) bytes\n", size9, size9);
+		//INFO("\n");
+		//INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
+		//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
+		//INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
 	}
 
 	// TODO: add 512Kb support

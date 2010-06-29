@@ -225,8 +225,8 @@ static INLINE void setIF(int PROCNUM, u32 flag)
 
 	extern void NDS_Reschedule();
 	NDS_Reschedule();
-	
-	//generate the interrupt if enabled
+
+    //generate the interrupt if enabled
 	if ((MMU.reg_IE[PROCNUM] & (flag)) && MMU.reg_IME[PROCNUM])
 	{
 		if(PROCNUM==0)
