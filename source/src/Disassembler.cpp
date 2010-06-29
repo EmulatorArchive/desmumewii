@@ -2735,6 +2735,7 @@ static char * OP_STRB_M_ROR_IMM_OFF_POSTIND(u32 adr, u32 i, char * txt)
 return txt;}
 
 //-----------------------LDRBT-------------------------------------
+
 #if 0
 static char * OP_LDRBT_P_IMM_OFF_POSTIND(u32 adr, u32 i, char * txt)
 {
@@ -2838,6 +2839,7 @@ static char * OP_STRBT_M_ROR_IMM_OFF_POSTIND(u32 adr, u32 i, char * txt)
      LDRSTR_ROR_IMM(STRBT, "-", "]", "");
 return txt;}
 #endif
+
 //---------------------LDM-----------------------------
 
 static char * OP_LDMIA(u32 adr, u32 i, char * txt)

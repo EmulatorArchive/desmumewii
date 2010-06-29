@@ -21,12 +21,29 @@
 #ifndef TYPES_HPP
 #define TYPES_HPP
 
-//--DCN: We already have types defined in "gctypes.h" in libogc
-// So I'm going to comment out any redeclarations
-
-//todo - everyone will want to support this eventually, I suppose
+//analyze microsoft compilers
 #ifdef _MSC_VER
+	#ifdef _XBOX
+		//#define _XBOX //already defined
+	#else
+		#define _WINDOWS
+		#ifdef _M_X64
+			//#define _WIN64 //already defined in x64 compiler
+		#else
+			//#define _WIN32 //already defined
+		#endif
+	#endif
+#endif
+
+//todo - everyone will want to support this eventually, i suppose
+#ifdef _WINDOWS
 #include "config.h"
+#endif
+
+//xbox needs to include this to resemble windows
+#ifdef _XBOX
+	#include <xtl.h>
+	#include <io.h>
 #endif
 
 #ifdef DEVELOPER
@@ -35,9 +52,14 @@
 #define IF_DEVELOPER(X)
 #endif
 
-#ifdef _MSC_VER
-#define ENABLE_SSE
-#define ENABLE_SSE2
+#ifdef _WINDOWS
+	//#define HAVE_WX //not useful yet....
+	#define HAVE_LIBAGG
+	#define ENABLE_SSE
+	#define ENABLE_SSE2
+	#ifdef DEVELOPER
+		#define HAVE_LUA
+	#endif
 #endif
 
 #ifdef __GNUC__
@@ -57,7 +79,7 @@
 #undef ENABLE_SSE2
 #endif
 
-#ifdef _WIN32
+#ifdef _MSC_VER 
 #define strcasecmp(x,y) _stricmp(x,y)
 #define snprintf _snprintf
 #else
@@ -73,6 +95,13 @@
 #endif
 #endif
 
+
+#ifdef _XBOX
+#define MAX_PATH 1024
+#define PATH_MAX 1024
+#endif
+
+
 #if defined(_MSC_VER) || defined(__INTEL_COMPILER)
 #define ALIGN(X) __declspec(align(X))
 #elif __GNUC__
@@ -87,15 +116,15 @@
 #define FAST_ALIGN ALIGN(4)
 
 #ifndef FASTCALL
-#	ifdef __MINGW32__
-#		define FASTCALL __attribute__((fastcall))
-#	elif defined (__i386__)
-#		define FASTCALL __attribute__((regparm(3)))
-#	elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#		define FASTCALL
-#	else
-#		define FASTCALL
-#	endif
+#ifdef __MINGW32__
+#define FASTCALL __attribute__((fastcall))
+#elif defined (__i386__) && !defined(__clang__)
+#define FASTCALL __attribute__((regparm(3)))
+#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#define FASTCALL
+#else
+#define FASTCALL
+#endif
 #endif
 
 #ifdef _MSC_VER
@@ -113,16 +142,13 @@
 #endif
 
 #ifndef FORCEINLINE
-#	if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#		define FORCEINLINE __forceinline
-#		define MSC_FORCEINLINE __forceinline
-#	elif defined(GEKKO)
-#		define FORCEINLINE INLINE
-#		define MSC_FORCEINLINE INLINE
-#	else
-#		define FORCEINLINE inline __attribute__((always_inline)) 
-#		define MSC_FORCEINLINE
-#	endif
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#define FORCEINLINE __forceinline
+#define MSC_FORCEINLINE __forceinline
+#else
+#define FORCEINLINE inline __attribute__((always_inline)) 
+#define MSC_FORCEINLINE
+#endif
 #endif
 
 #if defined(__LP64__)
@@ -166,13 +192,11 @@ typedef u32 uint32;
 
 /*---------- GPU3D fixed-points types -----------*/
 
-//--DCN
-typedef s32 fixed32;
 //typedef s32 f32;
-#define inttofixed32(n)      ((n) << 12)
-#define fixed32toint(n)      ((n) >> 12)
-#define floattofixed32(n)    ((int32)((n) * (1 << 12)))
-#define fixed32tofloat(n)    (((float)(n)) / (float)(1<<12))
+#define inttof32(n)          ((n) << 12)
+#define f32toint(n)          ((n) >> 12)
+#define floattof32(n)        ((int32)((n) * (1 << 12)))
+#define f32tofloat(n)        (((float)(n)) / (float)(1<<12))
 
 typedef s16 t16;
 #define f32tot16(n)          ((t16)(n >> 8))
@@ -198,9 +222,7 @@ typedef s16 v10;
 /*----------------------*/
 
 #ifndef OBJ_C
-//--DCN
 typedef unsigned int BOOL;
-//typedef int BOOL;
 #else
 //apple also defines BOOL
 typedef int desmume_BOOL;
@@ -423,5 +445,14 @@ char (*BLAHBLAHBLAH( UNALIGNED T (&)[N] ))[N];
 #ifndef CTASSERT
 #define	CTASSERT(x)		typedef char __assert ## y[(x) ? 1 : -1]
 #endif
+
+static const char hexValid[23] = {"0123456789ABCDEFabcdef"};
+
+
+template<typename T> inline void reconstruct(T* t) { 
+	t->~T();
+	new(t) T();
+}
+
 
 #endif

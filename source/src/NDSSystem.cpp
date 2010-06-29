@@ -212,7 +212,7 @@ void NDS_DeInit(void) {
 	gpu3D->NDS_3D_Close();
 
 	WIFI_DeInit();
-	cheatsSearchClose();
+//	cheatsSearchClose();
 }
 
 BOOL NDS_SetROM(u8 * rom, u32 mask)
@@ -566,7 +566,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #endif
 
 
-	cheatsSearchClose();
+//	cheatsSearchClose();
 	MMU_unsetRom();
 	NDS_SetROM(data, mask);
 	
@@ -589,7 +589,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	path.getpathnoext(path.CHEATS, buf);
 	
 	strcat(buf, ".dct");							// DeSmuME cheat		:)
-	cheatsInit(buf);
+//	cheatsInit(buf);
 
 	gameInfo.populate();
 	//gameInfo.crc = crc32(0,data,size);
@@ -1803,7 +1803,7 @@ void NDS_exec(s32 nb)
 #ifdef _MOVIETIME_
 	currFrameCounter++;
 #endif	
-	cheatsProcess();
+//	cheatsProcess();
 }
 
 void execHardware_interrupts()
