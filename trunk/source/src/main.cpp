@@ -38,6 +38,7 @@
 #include "FrontEnd.h"
 #include "version.h"
 #include "log_console.h"
+#include "GXRender.h"
 #include "rasterize.h"
 #include "filebrowser.h"
 #include <ogcsys.h>
@@ -76,7 +77,7 @@ static u16 CursorData[16] __attribute__((aligned(32))) = {
 };
 static int drawcursor = 1;
 static lwp_t vidthread = LWP_THREAD_NULL;
-static mutex_t vidmutex = LWP_MUTEX_NULL;
+mutex_t vidmutex = LWP_MUTEX_NULL;
 static u8 abort_thread = 0;
 
 static float nds_screen_size_ratio = 1.0f;
@@ -88,6 +89,9 @@ static int SkipFrame = 0;
 static int SkipFrameTracker = 0;
 static u32 pad, wpad;
 
+// Which rendering core we are using (SoftRast or GX)
+static u8 current3Dcore = 1;
+
 SoundInterface_struct *SNDCoreList[] = {
 	&SNDDummy,
 	//&SNDFile,
@@ -97,7 +101,7 @@ SoundInterface_struct *SNDCoreList[] = {
 
 GPU3DInterface *core3DList[] = {
 	&gpu3DNull,
-//	&gpu3Dgl,
+	&gpu3Dgx,
 	&gpu3DRasterize,
 	NULL
 };
@@ -118,6 +122,7 @@ static void *draw_thread(void*);
 void Execute();
 void create_dummy_firmware();
 bool CheckBios(bool);
+static bool FindIOS(u32 ios);
 
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -233,7 +238,7 @@ int main(int argc, char **argv)
 	NDS_Init();
 	create_dummy_firmware(); // Must do for some games!
 
-	NDS_3D_ChangeCore(1);
+	NDS_3D_ChangeCore(current3Dcore);
 	printf("Initialization successful!\n");
 
 	enable_sound = true;
@@ -364,6 +369,9 @@ void init(){
 
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
 
+	// In order to render the scene, we are taking all of the 
+	// pixels and transforming them into a "texture" for the 
+	// two quads that serve as our DS screens.
 	GX_InitTexObj(&TopTex, TopScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GX_InitTexObj(&BottomTex, BottomScreen, 256, 192, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GX_InitTexObj(&CursorTex, CursorData, 4, 4, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
@@ -386,23 +394,35 @@ static void Draw(void) {
 	u16 *dTop = TopScreen;
 	u16 *dBottom = BottomScreen;
 	LWP_MutexLock(vidmutex);
-	for (int y = 0; y < 48; y++) {
-		for (int h = 0; h < 4; h++) {
-			for (int x = 0; x < 64; x++) {
-				for (int w = 0; w < 4; w++) {
-					*dTop++ = RGB15_REVERSE(sTop[w]);
-					*dBottom++ = RGB15_REVERSE(sBottom[w]);
-				}
-				dTop+=12;     // next tile
-				dBottom+=12;
-				sTop+=4;
-				sBottom+=4;
-			}
-			dTop-=1020;     // next line
-			dBottom-=1020;
+	//*
+	// Comment out to see sprites magically work.
+	if(current3Dcore == 1){
+		// If we want to use GX, don't go converting anything:
+		for(int w = 0; w < 256*192; w++){
+			*dTop++ = sTop[w];
+			*dBottom++ = sBottom[w];
 		}
-		dTop+=1008;       // next row
-		dBottom+=1008;
+	}else
+	//*/
+	{	
+		for (int y = 0; y < 48; y++) {
+			for (int h = 0; h < 4; h++) {
+				for (int x = 0; x < 64; x++) {
+					for (int w = 0; w < 4; w++) {
+						*dTop++ = RGB15_REVERSE(sTop[w]);
+						*dBottom++ = RGB15_REVERSE(sBottom[w]);
+					}
+					dTop+=12;     // next tile
+					dBottom+=12;
+					sTop+=4;
+					sBottom+=4;
+				}
+				dTop-=1020;     // next line
+				dBottom-=1020;
+			}
+			dTop+=1008;       // next row
+			dBottom+=1008;
+		}
 	}
 
 	DCFlushRange(TopScreen, 256*192*2);
@@ -718,6 +738,8 @@ void Pause(){
 
 bool PickDevice(){
 	bool device = false;
+	bool useGX = false;
+	current3Dcore = 2; //Soft Raster
 
 	while(true){
 		PAD_ScanPads();
@@ -728,14 +750,24 @@ bool PickDevice(){
 		printf("Welcome to DeSmuME Wii!!!\n\n");
 		printf("Select Device: << ");
 		printf("%s", device ? "USB >>" : "SD >>");
+		printf("\nSelect Renderer \\/ ");
+		printf("%s", useGX ? " GX  /\\" : "Soft /\\");
 		printf("\n\nPress B to see the credits.");
 
 		if(GetInput(LEFT, LEFT, LEFT) || GetInput(RIGHT, RIGHT, RIGHT)) {
 			device = !device;
 		}
 
-		if(GetInput(A, A, A))
+		if(GetInput(UP, UP, UP) || GetInput(DOWN, DOWN, DOWN)) {
+			useGX = !useGX;
+		}
+
+		if(GetInput(A, A, A)){
+			if(useGX){
+				current3Dcore = 1; // We want to use GX!
+			}
 			break;
+		}
 			
 		if(GetInput(B, B, B))
 		    ShowCredits();
@@ -758,7 +790,9 @@ void ShowCredits() {
 	printf("scanff\n");
 	printf("firnis\n");
 	printf("baby.lueshi\n");
-	printf("With contributions from Cyan and Dancing Ninja\n\n");
+	printf("Dancinninja\n");
+	printf("With contributions from Cyan\n\n");
+
 	printf("Press A to return to the menu.");
 	
 	while(true){ 
