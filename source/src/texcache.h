@@ -39,7 +39,8 @@ public:
 	u32 sizeX, sizeY;
 	float invSizeX, invSizeY;
 
-	u64 texid; //used by ogl renderer for the texid
+	//--DCN: Changed to u32, maybe this will be better?
+	u32 texid; //used by gx renderer for the texid
 	void (*deleteCallback)(TexCacheItem*);
 
 	TexCache_TexFormat cacheFormat;
