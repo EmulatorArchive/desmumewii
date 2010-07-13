@@ -115,8 +115,7 @@ CACHE_ALIGN u16 fadeOutColors[17][0x8000];
 //this should be public, because it gets used somewhere else
 CACHE_ALIGN u8 gpuBlendTable555[17][17][32][32];
 
-// optimized check variables
-static u16 last_backdrop_color  = 0;
+
 
 /*****************************************************************************/
 //			INITIALIZATION
@@ -2078,33 +2077,28 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	//we need to write backdrop colors in the same way as we do BG pixels in order to do correct window processing
 	//this is currently eating up 2fps or so. it is a reasonable candidate for optimization. 
 	gpu->currBgNum = 5;
-
-	if (last_backdrop_color != backdrop_color) // check before doing this ...
-	{
-		
-		last_backdrop_color = backdrop_color;
-
-		switch(gpu->setFinalColorBck_funcNum) {
-			case 0: case 1: //for backdrops, (even with window enabled) none and blend are both the same: just copy the color
-				memset_u16_le<256>(gpu->currDst,backdrop_color); 
-				break;
-			case 2:
-				//for non-windowed fade, we can just fade the color and fill
-				memset_u16_le<256>(gpu->currDst,gpu->currentFadeInColors[backdrop_color]);
-				break;
-			case 3:
-				//likewise for non-windowed fadeout
-				memset_u16_le<256>(gpu->currDst,gpu->currentFadeOutColors[backdrop_color]);
-				break;
-
-			//windowed fades need special treatment
-			case 4: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,4>(backdrop_color,x,1); break;
-			case 5: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,5>(backdrop_color,x,1); break;
-			case 6: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,6>(backdrop_color,x,1); break;
-			case 7: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,7>(backdrop_color,x,1); break;
-		}
 	
+
+	switch(gpu->setFinalColorBck_funcNum) {
+		case 0: case 1: //for backdrops, (even with window enabled) none and blend are both the same: just copy the color
+			memset_u16_le<256>(gpu->currDst,backdrop_color); 
+			break;
+		case 2:
+			//for non-windowed fade, we can just fade the color and fill
+			memset_u16_le<256>(gpu->currDst,gpu->currentFadeInColors[backdrop_color]);
+			break;
+		case 3:
+			//likewise for non-windowed fadeout
+			memset_u16_le<256>(gpu->currDst,gpu->currentFadeOutColors[backdrop_color]);
+			break;
+
+		//windowed fades need special treatment
+		case 4: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,4>(backdrop_color,x,1); break;
+		case 5: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,5>(backdrop_color,x,1); break;
+		case 6: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,6>(backdrop_color,x,1); break;
+		case 7: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,7>(backdrop_color,x,1); break;
 	}
+	
 	
 	memset(gpu->bgPixels,5,256);
 
