@@ -394,35 +394,24 @@ static void Draw(void) {
 	u16 *dTop = TopScreen;
 	u16 *dBottom = BottomScreen;
 	LWP_MutexLock(vidmutex);
-	//*
-	// Comment out to see sprites magically work.
-	if(current3Dcore == 1){
-		// If we want to use GX, don't go converting anything:
-		for(int w = 0; w < 256*192; w++){
-			*dTop++ = sTop[w];
-			*dBottom++ = sBottom[w];
-		}
-	}else
-	//*/
-	{	
-		for (int y = 0; y < 48; y++) {
-			for (int h = 0; h < 4; h++) {
-				for (int x = 0; x < 64; x++) {
-					for (int w = 0; w < 4; w++) {
-						*dTop++ = RGB15_REVERSE(sTop[w]);
-						*dBottom++ = RGB15_REVERSE(sBottom[w]);
-					}
-					dTop+=12;     // next tile
-					dBottom+=12;
-					sTop+=4;
-					sBottom+=4;
+
+	for (int y = 0; y < 48; y++) {
+		for (int h = 0; h < 4; h++) {
+			for (int x = 0; x < 64; x++) {
+				for (int w = 0; w < 4; w++) {
+					*dTop++ = RGB15_REVERSE(sTop[w]);
+					*dBottom++ = RGB15_REVERSE(sBottom[w]);
 				}
-				dTop-=1020;     // next line
-				dBottom-=1020;
+				dTop+=12;     // next tile
+				dBottom+=12;
+				sTop+=4;
+				sBottom+=4;
 			}
-			dTop+=1008;       // next row
-			dBottom+=1008;
+			dTop-=1020;     // next line
+			dBottom-=1020;
 		}
+		dTop+=1008;       // next row
+		dBottom+=1008;
 	}
 
 	DCFlushRange(TopScreen, 256*192*2);
@@ -505,6 +494,14 @@ static void do_screen_layout()
 			topY = bottomY = int((rmode->viHeight /2) - (height / 2));
 			scaley = scalex = 1.0;
 			break;
+
+		case SCREEN_VERT_SEPARATED_ROT_90:
+			topX =    int((rmode->viWidth / 2) - (width / 2.0f));
+			topY =    int((rmode->viHeight / 2) - ((height * 2.0f) / 2) - 24);
+			bottomX = topX;
+			bottomY = topY+height+48;
+			scaley = scalex = 1.0;
+			break;
 	}
 };
 
@@ -520,14 +517,20 @@ static void *draw_thread(void*)
 		
 		LWP_MutexLock(vidmutex);
 		
-		// Transform for scaling
+		// Transform for scaling and rotate
 
-		Mtx m1, mv;
+		Mtx m, m1, m2, mv;
 
 		guMtxIdentity (m1);
 		guMtxScaleApply(m1, m1, scalex, scaley, 1.0f);
-		guMtxTransApply(m1, m1,0, 0, -1.0f);
-		guMtxConcat (GXmodelView2D, m1, mv);
+		
+		guVector axis =(guVector){0, 0, 1};
+		guMtxRotAxisDeg (m2, &axis, rotate_angle);
+		guMtxConcat(m2, m1, m);
+
+		guMtxTransApply(m, m, 0, 0, 0);
+		guMtxConcat (GXmodelView2D, m, mv);
+
 		GX_LoadPosMtxImm (mv, GX_PNMTX0);
 
 		// TOP SCREEN

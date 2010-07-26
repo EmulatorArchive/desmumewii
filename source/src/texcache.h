@@ -7,7 +7,7 @@
 enum TexCache_TexFormat
 {
 	TexFormat_None, //used when nothing yet is cached
-	TexFormat_32bpp, //used by ogl renderer
+	TexFormat_32bpp, //used by gx renderer
 	TexFormat_15bpp //used by rasterizer
 };
 
@@ -26,7 +26,7 @@ public:
 		, cacheFormat(TexFormat_None)
 	{}
 	~TexCacheItem() {
-		delete[] decoded;
+		free(decoded);
 		if(deleteCallback) deleteCallback(this);
 	}
 	u32 decode_len;
@@ -50,7 +50,7 @@ public:
 			delete[] texture;
 		}
 		int textureSize, indexSize;
-		static const int maxTextureSize=4*1024;
+		static const int maxTextureSize = 128*1024;
 		u8* texture;
 		u8 palette[256*2];
 	} dump;

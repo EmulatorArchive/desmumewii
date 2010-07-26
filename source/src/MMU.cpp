@@ -962,8 +962,6 @@ void MMU_Init()
 	
 	SetUp_Lookups();
 
-	printf("Wooooot.... MMU is here !!! \n");
-
 	MMU.CART_ROM = MMU.UNUSED_RAM;
 
     for(i = 0x80; i<0xA0; ++i)

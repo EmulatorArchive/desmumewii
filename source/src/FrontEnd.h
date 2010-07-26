@@ -29,6 +29,7 @@ enum {
 	SCREEN_SUB_NORMAL,
 	SCREEN_MAIN_STRETCH,
 	SCREEN_SUB_STRETCH,
+	SCREEN_VERT_SEPARATED_ROT_90,
 	SCREEN_MAX
 };
 
@@ -39,6 +40,7 @@ int bottomX, bottomY, topX, topY;
 float scalex, scaley;
 float width = 256;
 float height = 192;
+float rotate_angle = 0.0f;
 
 void DoConfig();
 
