@@ -362,7 +362,7 @@ public:
 		newitem->invSizeY=1.0f/((float)(sizeY));
 		newitem->decode_len = sizeX*sizeY*4;
 		newitem->mode = textureMode;
-		newitem->decoded = new u8[newitem->decode_len];
+		newitem->decoded = (u8*)memalign(32,newitem->decode_len);
 		list_push_front(newitem);
 		//printf("allocating: up to %d with %d items\n",cache_size,index.size());
 

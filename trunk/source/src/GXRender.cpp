@@ -1,15 +1,16 @@
 /*
 	Copyright (C) 2006 yopyop
 	Copyright (C) 2006-2007 shash
+	Copyright (C) 2010 DesmumeWii team
 
-    This file is part of DeSmuME
+    This file is part of DesmumeWii
 
-    DeSmuME is free software; you can redistribute it and/or modify
+    DesmumeWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DeSmuME is distributed in the hope that it will be useful,
+    DesmumeWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
@@ -41,10 +42,9 @@ extern mutex_t vidmutex;
 // We need to reset all the variables for video when we're done with 3D
 extern GXRModeObj *rmode;
 
-extern Mtx44 perspective;
 // ----------------------------------------------------------
-// OGLRender declared variables (relic)
 static CACHE_ALIGN u8 GPU_screen3D[256*192*4];
+static CACHE_ALIGN u8 tmp_texture[128*1024*4]; // Needed for temp. GX AAAARRRRGGGGBBB texture
 
 static const unsigned short map3d_cull[4] = {GX_CULL_ALL, GX_CULL_FRONT, GX_CULL_BACK, GX_CULL_NONE};
 static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
@@ -62,26 +62,6 @@ static bool alphaDepthWrite;
 static bool isTranslucent;
 
 static std::queue<u32> freeTextureIds;
-
-u32 oglToonTableTextureID;
-
-//--DCN: We will end up eliminating "shaders" entirely at some point.
-// Right now these sections are here for reference.
-
-#ifdef WII_SHADERS
-
-bool hasShaders = false;
-u32 vertexShaderID;
-u32 fragmentShaderID;
-u32 shaderProgram;
-
-static u32 hasTexLoc;
-static u32 texBlendLoc;
-static bool hasTexture = false;
-static u32 lastEnvMode = 0;
-
-#endif
-
 static TexCacheItem* currTexture = NULL;
 
 bool depthupdate;
@@ -93,7 +73,6 @@ static Mtx textureView; // When we need to apply a texture, we use this matrix
 
 #define MAX_MIP_LEVEL 10
 
-//#define MAX_ARRAY 32 
 #define MAX_ARRAY 128
 GXTexObj gxtextures[MAX_ARRAY]; // TODO: Make dynamic
 
@@ -113,13 +92,13 @@ typedef struct _gxTex{
 	s32 height;
 	size_t size;
 
-	u32 glFormat;
-	
-	u8 min_filter;
+	//u32 glFormat;
+	//u8 min_filter;
 	u8 base_level;
-	u8 max_level;
 
-	bool level[MAX_MIP_LEVEL+1];
+	u8 max_level;
+	
+	bool level[MAX_MIP_LEVEL];
 	
 } gxTex;
 
@@ -376,17 +355,24 @@ void gxGenTextures( s32 n, u32 *textures ){
 //----------------------------------------
 
 static void expandFreeTextures(){
+
+	for(u32 i = 0; i < 128; i++)
+		freeTextureIds.push(i);
+	
+	//--DCN: You can try to push gxTextureID,
+	//  but I think this is just a remnant of OGL:
+	/*
 	const s32 kInitTextures = 128;
 	u32 gxTextureID[kInitTextures];
 
-	//--DCN: You can try to push gxTextureID,
-	//  I think this is just a remnant of OGL
 	gxGenTextures(kInitTextures, &gxTextureID[0]);
+
 	for(s32 i=0;i<kInitTextures;i++){
-		freeTextureIds.push(i);
-		//freeTextureIds.push(gxTextureID[i]);
+		freeTextureIds.push(gxTextureID[i]);
 	}
+	//*/
 }
+
 
 //----------------------------------------
 //
@@ -402,7 +388,6 @@ static void expandFreeTextures(){
 static void texDeleteCallback(TexCacheItem* item){
 	freeTextureIds.push((u32)item->texid);
 	if(currTexture == item){
-		//--DCN: Should we delete it?
 		currTexture = NULL;
 	}
 }
@@ -421,15 +406,6 @@ static void texDeleteCallback(TexCacheItem* item){
 //----------------------------------------
 
 static void GXReset(){
-
-#ifdef WII_SHADERS
-
-	//GX:
-	hasTexLoc = 0;
-	hasTexture = false;
-	texBlendLoc = 0;
-		
-#endif
 
 	TexCache_Reset();
 	if (currTexture) 
@@ -458,32 +434,6 @@ static char GXInit(){
 
 	expandFreeTextures();
 	
-#ifdef WII_SHADERS
-	u32 loc = 0;
-	/* Create the shaders */
-	createShaders();
-
-	/* Assign the texture units : 0 for main textures, 1 for toon table */
-	/* Also init the locations for some variables in the shaders */
-
-	loc = glGetUniformLocation(shaderProgram, "tex2d");
-	glUniform1i(loc, 0);
-
-	loc = glGetUniformLocation(shaderProgram, "toonTable");
-	glUniform1i(loc, 1);
-
-	hasTexLoc = glGetUniformLocation(shaderProgram, "hasTexture");
-
-	texBlendLoc = glGetUniformLocation(shaderProgram, "texBlending");
-
-	glGenTextures (1, &oglToonTableTextureID);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_1D, oglToonTableTextureID);
-	glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP); //clamp so that we don't run off the edges due to 1.0 -> [0,31] math
-#endif
-
 	GXReset();
 
 	return 1;
@@ -504,20 +454,7 @@ static char GXInit(){
 
 static void GXClose(){
 
-#ifdef WII_SHADERS
-		glUseProgram(0);
-
-		glDetachShader(shaderProgram, vertexShaderID);
-		glDetachShader(shaderProgram, fragmentShaderID);
-
-		glDeleteProgram(shaderProgram);
-		glDeleteShader(vertexShaderID);
-		glDeleteShader(fragmentShaderID);
-
-		hasShaders = false;
-#endif
-
-	//kill the tex cache to free all the texture ids
+	// Kill the texture cache to free all of the texture ids
 	TexCache_Reset();
 
 	while(!freeTextureIds.empty()){
@@ -526,13 +463,6 @@ static void GXClose(){
 
 		deleteTex(&texMan, temp);
 	}
-	
-#ifdef WII_SHADERS
-	//Specific to WII_SHADERS
-	deleteTex(&texMan, &oglToonTableTextureID);
-
-#endif
-	
 }
 
 //----------------------------------------
@@ -549,32 +479,11 @@ static void GXClose(){
 //
 //----------------------------------------
 
+
 static void setTexture(unsigned int format, unsigned int texpal){
+
 	textureFormat = format;
 	texturePalette = texpal;
-
-#ifdef WII_SHADERS
-
-	u32 textureMode = (unsigned short)((format>>26)&0x07);	
-	
-	//GX:
-	if (format == 0 || textureMode == 0){
-		if(hasShaders && hasTexture) { 
-			hasTexLoc = 0; 
-			hasTexture = false; 
-		}
-		return;
-	}
-	if(hasShaders){
-		if(!hasTexture) { 
-			hasTexLoc = 1; 
-			hasTexture = true; 
-		}
-#ifdef TODO
-		glActiveTexture(GL_TEXTURE0);
-#endif
-	}
-#endif
 
 	TexCacheItem* newTexture = TexCache_SetTexture(TexFormat_32bpp, format, texpal);
 	
@@ -589,70 +498,30 @@ static void setTexture(unsigned int format, unsigned int texpal){
 
 			activateTex(&texMan, (u32)currTexture->texid);
 
-#ifndef REVERSE_TEXTURE_SHIFTING
+			// We must convert the texture into a GX-friendly format
+			u8* src = currTexture->decoded;
 
-			// Here is the very basic "working" conversion
-			u32 i = 0;
-			for(u32 x = 0; x < currTexture->sizeX; x++){
-				for(u32 y = 0; y < currTexture->sizeY; y++){
-								
-					const u32 t = i << 2;
+			u32 curTexSizeY = currTexture->sizeY;
+			u32 curTexSizeX = currTexture->sizeX;
+			for(u32 y = 0; y < curTexSizeY; y++){
+				for(u32 x = 0; x < curTexSizeX; x++){
+					const u8 a = *src++;
+					const u8 b = *src++;
+					const u8 g = *src++;
+					const u8 r = *src++;
 
-					const u8 r = currTexture->decoded[t+3];
-					const u8 g = currTexture->decoded[t+2];
-					const u8 b = currTexture->decoded[t+1];
-					const u8 a = currTexture->decoded[t+0];
+				    const u32 offset = (((y >> 2)<<4)*currTexture->sizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
 
-					currTexture->decoded[t+1] = a;
-					currTexture->decoded[t+0] = r;
-					currTexture->decoded[t+3] = g;
-					currTexture->decoded[t+2] = b;
+					tmp_texture[offset]    = a;
+					tmp_texture[offset+1]  = r;
+					tmp_texture[offset+32] = g;
+					tmp_texture[offset+33] = b;
 				
-					i++;
 				}
 			}
-#else			
-			//--DCN: Check it. Until we figure out how the
-			// textures are actually stored (and re-write that to
-			// jive with GX), let's convert the textures here.
 
-#define RGB15_REVERSE(col) ( 0x8000 | (((col) & 0x001F) << 10) | ((col) & 0x03E0)  | (((col) & 0x7C00) >> 10) )
-			// reverse engineered from Draw:
-			u32 curX4 = currTexture->sizeX/4;
-			u32 curY4 = currTexture->sizeY/4;
-
-			u16* tempTex = new u16[currTexture->decode_len/2];
-			u16* curTex = (u16*)currTexture->decoded;
-
-			for (u32 y = 0; y < curY4; y++) {
-				for (u32 h = 0; h < 4; h++) {
-					for (u32 x = 0; x < curX4; x++) {
-						for (int w = 0; w < 2; w++) {
-							*tempTex++ = (curTex[w]);
-						}
-						const u8 a = curTex[0];
-						const u8 r = curTex[1];
-						const u8 g = curTex[2];
-						const u8 b = curTex[3];
+			memcpy(currTexture->decoded,tmp_texture,currTexture->decode_len);
 					
-						*tempTex++ = a;
-						*tempTex++ = r;
-						*tempTex++ = g;
-						*tempTex++ = b;
-						
-						tempTex += 12;
-						curTex += 4;
-					}
-
-					
-					tempTex -= 4*curX4 - 4;
-				}
-				tempTex += 4*curX4 - 4*4;
-			}
-			// Copy it back to the original
-			memcpy(currTexture->decoded, tempTex, currTexture->decode_len* sizeof(u8));
-			
-#endif			
 			// Make sure everything is finished before we move on.
 			DCFlushRange(currTexture->decoded, currTexture->decode_len);
 			
@@ -671,17 +540,15 @@ static void setTexture(unsigned int format, unsigned int texpal){
 			GX_LoadTexObj(&gxtextures[(u32)currTexture->texid], GX_TEXMAP0);
 			
 		}else{
-			// Otherwise, just bind it
-			//--DCN: I think that this is unnecessary!
-			//activateTex(&texMan, (u32)currTexture->texid);
-			// And load it
+			// It's already been created, just load it
 			GX_LoadTexObj(&gxtextures[(u32)currTexture->texid], GX_TEXMAP0);
-			
 		}
 
 		// Configure the texture matrix 
 		guMtxIdentity(textureView);
 		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);
+		GX_LoadTexMtxImm(textureView,GX_TEXMTX0,GX_MTX3x4);
+		GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
 	
 	}
 
@@ -703,11 +570,10 @@ static void setTexture(unsigned int format, unsigned int texpal){
 static void BeginRenderPoly(){
 	bool enableDepthWrite = true;
 
+	//GX_SetZMode(GX_ENABLE,depthFuncMode,GX_TRUE);
+
 	if (cullingMask != 0xC0){
-		//--DCN: I'm just setting it to this so it will DEFINITELY show something
-		// I believe the map3d_cull array is incorrect
-		GX_SetCullMode(GX_CULL_NONE);
-		//GX_SetCullMode(map3d_cull[cullingMask>>6]);
+		GX_SetCullMode(map3d_cull[cullingMask>>6]);
 	}
 	else{
 		GX_SetCullMode(GX_CULL_NONE);
@@ -795,20 +661,6 @@ static void BeginRenderPoly(){
 
 #endif
 
-
-#ifdef WII_SHADERS
-		if(envMode != lastEnvMode){
-			lastEnvMode = envMode;
-
-			int _envModes[4] = {0, 1, (2 + gfx3d.shading), 0};
-
-			//GX:
-			texBlendLoc = _envModes[envMode];
-			//OGL:
-			//glUniform1i(texBlendLoc, _envModes[envMode]);
-		}
-#endif
-
 	depthupdate = enableDepthWrite ? GX_TRUE : GX_FALSE;
 
 }
@@ -827,6 +679,11 @@ static void BeginRenderPoly(){
 //
 //----------------------------------------
 static void InstallPolygonAttrib(unsigned long val){
+
+	//--DCN: Culling is the only thing that we use right now,
+	// But when I comment out all of them (except culling)
+	// the colors change in SM64DS. WHY?
+	//*
 	// Light enable/disable
 	lightMask = (val&0xF);
 
@@ -846,89 +703,7 @@ static void InstallPolygonAttrib(unsigned long val){
 
 	// polyID
 	polyID = (val>>24)&0x3F;
-}
-
-//----------------------------------------
-//
-// Function: Set3DVideoSettings (formerly "Control")
-//
-// Sets the variables specific to the polygon (texture, for example)
-//
-// @pre     -
-// @post    -
-// @param   -
-// @return  -
-//
-//----------------------------------------
-static void Set3DVideoSettings(){
-
-	Mtx44 projection; // Projection matrix
-
-	// Set up the viewpoint (one screen)
-	GX_SetViewport(0,0,256,192,0,1);
-	GX_SetScissor(0,0,256,192);
-
-	guPerspective(projection, 45, 256/192, 1, 1000);
-	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-	
-	
-	//--DCN: Experimenting:
-	//*
-	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
-	GX_SetZCompLoc(GX_TRUE);
-	
-	//Perhaps altering these variables would result in something
-	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-
-	GX_InvVtxCache();
-	GX_InvalidateTexAll();
 	//*/
-
-	
-	GX_ClearVtxDesc();
-
-	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
-	GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
-
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
-
-
-	if(gfx3d.enableTexturing){
-
-		GX_SetNumTexGens(1);
-
-		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_VA_TEX0, GX_IDENTITY); 
-		//GX_SetTexCoordGen(GX_VA_TEX0, GX_TG_MTX2x4, GX_TEXCOORD0, GX_IDENTITY);
-		
-		GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
-		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-
-		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
-
-	}else{
-		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);			
-	}
-	
-	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
-
-	if(gfx3d.enableAlphaTest){
-	
-		// OGLRender comment: FIXME: alpha test should pass gfx3d.alphaTestRef==poly->getAlpha
-	
-		// This is a hack (sorta), we need two comparisons! What's up with that?
-		GX_SetAlphaCompare(GX_GREATER, gfx3d.alphaTestRef/31.f, GX_AOP_OR , GX_LESS, 0);
-
-	}else{		
-		// Also a hack: Just doing the same thing twice
-		GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND , GX_GREATER, 0);
-	}
-	if(gfx3d.enableAlphaBlending){
-		GX_SetAlphaUpdate(GX_TRUE);
-	}else{
-		GX_SetAlphaUpdate(GX_FALSE);
-	}
-
 }
 
 //----------------------------------------
@@ -951,71 +726,46 @@ static void ReadFramebuffer(){
 	GX_SetTexCopySrc(0, 0, 256, 192); 
 	GX_SetTexCopyDst(256, 192, GX_TF_RGBA8, GX_FALSE);
 
+	// Turn off vertical de-flicker filter temporary
+    // (to avoid filtering during the framebuffer-to-texture copy)
+	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+
+	// Copy the screen into a texture
+	GX_CopyTex((void*)GPU_screen3D, GX_TRUE);
+	GX_PixModeSync();
+	DCFlushRange(GPU_screen3D, 256*192*4);
+
 	// Bleh, another "conversion" problem. In order to make our GX scene
 	// jive with Desmume, we need to convert it OUT of its native format.
-	
-#ifndef NEED_3D_SCREEN_CONVERSION	
-	// If we ever get to the point where we don't need to convert the colors,
-	// THIS is how simple (and fast!) our solution will be. It's good to dream.
-	GX_CopyTex(gfx3d_convertedScreen, GX_FALSE);
-	GX_PixModeSync();
-#else
-
-	GX_CopyTex((void*)GPU_screen3D, GX_FALSE);
-	GX_PixModeSync();
-
 	u8* dst = gfx3d_convertedScreen;
 
-	
-	//*
-	// "Working" version:
+	u8 *truc = (u8*)GPU_screen3D;
+	u8 r, g, b, a;
+    u32 offset;
 
-	for(int i = 0, y = 0; y < 192; y++){
-		for(int x = 0; x < 256; x++, i++){
-		
-			const int t = i << 2;
-			const u8 a = GPU_screen3D[t+1];
-			const u8 r = GPU_screen3D[t+0];
-			const u8 g = GPU_screen3D[t+3];
-			const u8 b = GPU_screen3D[t+2];
+	for(int y = 0; y < 192; y++){
+		for(int x = 0; x < 256; x++){
+	        
+			offset = ((y >> 2)<< 12) + ((x >> 2)<<6) + ((((y%4) << 2) + (x%4)) << 1);
 
-			*dst++ = r;
-			*dst++ = g;
-			*dst++ = b;
-			*dst++ = a;
-	
+			a = *(truc+offset);
+			r = *(truc+offset+1);
+			g = *(truc+offset+32);
+			b = *(truc+offset+33);
+
+			*dst++ = (a >> 3) & 0x1F; // 5 bits
+			*dst++ = (b >> 2) & 0x3F; // 6 bits
+			*dst++ = (g >> 2) & 0x3F; // 6 bits
+			*dst++ = (r >> 2) & 0x3F; // 6 bits
+
 		}
 	}
-	//*/
-
-	/*
-
-	// My hack (BLEH!) to "unconvert" the rendered data OUT 
-	// of native format, because we "convert" it again in main
-	u16 *sTop = (u16*)&GPU_screen3D;
-	u16 *dTop = (u16*)gfx3d_convertedScreen;	
-	
-	//TODO: Make this the OPPOSITE of main.cpp, this is almost verbatim:
-	for (int y = 0; y < 48; y++) {
-		for (int h = 0; h < 4; h++) {
-			for (int x = 0; x < 64; x++) {
-				for (int w = 0; w < 4; w++) {
-					*dTop++ = RGB15_REVERSE(sTop[w]);
-				}
-				dTop+=12;     // next tile
-				sTop+=4;
-			}
-			dTop-=1020;     // next line
-		}
-		dTop+=1008;       // next row
-	}
-	//*/
-
-
-#endif
 
 	DCFlushRange(gfx3d_convertedScreen, 256*192*4);
-	
+
+    // Restore vertical de-flicker filter mode
+	GX_SetCopyFilter(rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter);
+
 }
 
 //----------------------------------------
@@ -1033,49 +783,23 @@ static void ReadFramebuffer(){
 
 static void GXRender(){
 
-	Mtx modelView;    // Model view matrix
-	Mtx modelTex;     // Model texture matrix
-
 	// Lock our drawing thread
 	LWP_MutexLock(vidmutex);
-
-#ifdef WII_SHADERS
-		//TODO - maybe this should only happen if the toon table is stale (for a slight speedup)
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_1D, oglToonTableTextureID);
-		
-		//generate a 8888 toon table from the ds format one and store it in a texture
-		u32 rgbToonTable[32];
-		for(int i=0;i<32;i++) rgbToonTable[i] = RGB15TO32(gfx3d.u16ToonTable[i], 255);
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbToonTable);
-#endif
 
 	// Set our video settings for 3D.
 	Set3DVideoSettings();
 
-	guMtxIdentity(modelView);
-	GX_LoadPosMtxImm(modelView, GX_PNMTX0);
+	u32 lastTextureFormat = 0, lastTexturePalette = 0, lastPolyAttr = 0,
+		polyListCount = gfx3d.polylist->count, lastViewport = 0xFFFFFFFF;
 
-	/*
-	// Reserved for normals, usually:
-	guMtxInverse(modelView, modelTex);
-	guMtxTranspose(modelTex, modelTex);
-	guMtxConcat(modelTex, textureView, modelTex);
-	//*/
-	guMtxConcat(modelView, textureView, modelTex);
-	GX_LoadTexMtxImm(modelTex, GX_TEXMTX0, GX_MTX2x4);
-	
-	
-	
-	u32 lastTextureFormat = 0, lastTexturePalette = 0, 
-		lastPolyAttr = 0, polyListCount = gfx3d.polylist->count;
-	
 	for(u32 i = 0; i < polyListCount; ++i) {
-	
+
 		POLY *poly = &gfx3d.polylist->list[gfx3d.indexlist[i]];
 		
-		// If we have a new polygon...
+		int type = poly->type;
+		u8 alpha = (poly->getAlpha() << 3);	
+
+		// If we have a new polygon texture...
 		if( lastTextureFormat != poly->texParam || 
 			lastTexturePalette != poly->texPalette || 
 			lastPolyAttr != poly->polyAttr || i == 0 ){
@@ -1087,20 +811,27 @@ static void GXRender(){
 			BeginRenderPoly();
 
 		}
-		
-		int type = poly->type;
-		u8 alphaU8 = poly->getAlpha();
 
-		GX_Begin((type == 3 ? GX_TRIANGLES : GX_QUADS), GX_VTXFMT0, type);
+		//--DCN: I still don't see the point of this:
+		//*
+		if(lastViewport != poly->viewport){
+			VIEWPORT viewport;
+			viewport.decode(poly->viewport);
+			GX_SetViewport((f32)viewport.x, (f32)viewport.y, (f32)viewport.width, (f32)viewport.height, 0.0f, 1.0f);
+			lastViewport = poly->viewport;
+		}
+		//*/
+
+		//GX_Begin((type == 3 ? GX_TRIANGLES : GX_QUADS), GX_VTXFMT0, type);
+		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
 			int j = type - 1;
 			do{
-
 				VERT *vert = &gfx3d.vertlist->list[poly->vertIndexes[j]];
 
 				// Have to flip the z coord
-				GX_Position3f32(vert->x, vert->y, -vert->z);			
-				GX_Color4u8(vert->color[0], vert->color[1], vert->color[2], alphaU8);
+				GX_Position3f32(vert->x, vert->y, -vert->z);
+				GX_Color4u8(vert->color[0], vert->color[1], vert->color[2], alpha);
 				GX_TexCoord2f32(vert->u, vert->v);
 				
 				--j;
@@ -1124,11 +855,12 @@ static void GXRender(){
 		
 }
 
+
 //----------------------------------------
 //
-// Function: ResetVideoSettings
+// Function: Set3DVideoSettings
 //
-// Reset the video settings to what main.cpp needs
+// Sets the variables specific to our 3D scene
 //
 // @pre     -
 // @post    -
@@ -1137,24 +869,122 @@ static void GXRender(){
 //
 //----------------------------------------
 
-static void ResetVideoSettings(){
-		
-		GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
-		GX_SetScissor(0,0,rmode->fbWidth,rmode->efbHeight);
+static void Set3DVideoSettings(){
 
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
-		GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);		
-		
-		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+	Mtx44 projection; // Projection matrix
+
+	// Set up the viewpoint (one screen)
+	GX_SetViewport(0,0,256,192,0,1);
+	GX_SetScissor(0,0,256,192);
+
+	//*
+	// Our "not-quite" perspective projection. Needs tweaking/replacing.
+	guPerspective(projection, 48.0f, 256.0f/192.0f, 1.0f, 1000.0f);
+	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
+	//*/
+	/*
+	// No perspective projection at all; a different approach.
+	guMtxIdentity(projection);
+	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
+	GX_LoadPosMtxImm(projection,GX_PNMTX0)
+	//*/
+
+	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
+	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
+
+	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+
+	GX_InvVtxCache();
+	GX_InvalidateTexAll();
+	GX_ClearVtxDesc();
+
+	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+	GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+
+
+	if(gfx3d.enableTexturing){
+
+		GX_SetNumTexGens(1);
+
+		GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
 		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
-		GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
-		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);	
-		
-		guOrtho(perspective,0,479,0,639,0,300);
-		GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);
+		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_VA_TEX0, GX_IDENTITY); 
+
+		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+
+	}else{
+		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);			
+	}
+
+	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+
+	if(gfx3d.enableAlphaTest){
 	
+		// OGLRender comment: FIXME: alpha test should pass gfx3d.alphaTestRef==poly->getAlpha
+		
+		// We need two comparisons, so we ignore the second parameter (for now)
+		GX_SetAlphaCompare(GX_GREATER, gfx3d.alphaTestRef/31.f, GX_AOP_OR, GX_NEVER, 0);
+
+	}else{		
+		// We might be able to just ignore this instruction,
+		// since we're not alpha blending.
+		GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_OR , GX_NEVER, 0);
+	}
+	if(gfx3d.enableAlphaBlending){
+		GX_SetAlphaUpdate(GX_TRUE);
+	}else{
+		GX_SetAlphaUpdate(GX_FALSE);
+	}
+
+	// In general, if alpha compare is enabled, Z-buffering 
+	// should occur AFTER texture lookup.
+	// This fixes the black-instead-of-alpha problem, but 
+	// introduces its own problem: black is ALWAYS clear.
+	//GX_SetZCompLoc(GX_FALSE);
+}
+
+
+//----------------------------------------
+//
+// Function: ResetVideoSettings
+//
+// Reset the video settings to what main.cpp needs
+//
+// @pre     -
+// @post    The video settings are reset back to what they were
+// @param   -
+// @return  -
+//
+//----------------------------------------
+
+static void ResetVideoSettings(){
+
+	Mtx44 perspective;
+	
+	GX_SetViewport(0,0,rmode->fbWidth,rmode->efbHeight,0,1);
+	GX_SetScissor(0,0,rmode->fbWidth,rmode->efbHeight);
+
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+
+	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);	
+	
+	guOrtho(perspective,0,479,0,639,0,300);
+	GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);
+
+	GX_SetCullMode(GX_CULL_NONE);
+	GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_IDENTITY);
+
+	//GX_SetZCompLoc(GX_TRUE);
+	//GX_SetZMode(GX_DISABLE, GX_EQUAL, GX_TRUE);
 }
 
 static void GXVramReconfigureSignal(){
