@@ -16,22 +16,22 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
+    along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include <queue>
 #include <gctypes.h>
 #include <gccore.h>
-#include "debug.h"
 
 #include "types.h"
 #include "debug.h"
+#include "GXRender.h"
 #include "MMU.h"
 #include "bits.h"
 #include "matrix.h"
 #include "NDSSystem.h"
-#include "GXRender.h"
+#include "GXTexManager.h"
 #include "gfx3d.h"
 #include "shaders.h"
 #include "texcache.h"
@@ -46,7 +46,7 @@ extern GXRModeObj *rmode;
 static CACHE_ALIGN u8 GPU_screen3D[256*192*4];
 static CACHE_ALIGN u8 tmp_texture[128*1024*4]; // Needed for temp. GX AAAARRRRGGGGBBB texture
 
-static const unsigned short map3d_cull[4] = {GX_CULL_ALL, GX_CULL_FRONT, GX_CULL_BACK, GX_CULL_NONE};
+static const u8  map3d_cull[4] = {GX_CULL_ALL, GX_CULL_FRONT, GX_CULL_BACK, GX_CULL_NONE};
 static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
 static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
@@ -64,67 +64,26 @@ static bool isTranslucent;
 static std::queue<u32> freeTextureIds;
 static TexCacheItem* currTexture = NULL;
 
-bool depthupdate;
-
 //------------------------------------------------------------
-// Texture Variables (Special thanks to the fine people at gl2gx!)
+// Texture Variables 
+//------------------------------------------------------------
 
-static Mtx textureView; // When we need to apply a texture, we use this matrix
+// The number that we expand our texture array by
+#define EXPAND_FREE_TEX_NUM 128
 
-#define MAX_MIP_LEVEL 10
+// Our texture manager (keeps track of which textures we're using)
+TexManager* texMan;	
 
-#define MAX_ARRAY 128
-GXTexObj gxtextures[MAX_ARRAY]; // TODO: Make dynamic
-
-// Controls the number of texture units allowed.  Minimum is 8
-#define MAX_NO_TEXTURES 8
-// Defines the initial number of gxTex slots.  If more than this are needed the memory will be realloc-ed
-#define NUM_INIT_TEXT 128
-//--DCN: Original number seemed too high:
-//#define NUM_INIT_TEXT 4000
-
-typedef struct _gxTex{
-	GXTexObj gxObj;
-	void *pixels;
-	u32 format;
-
-	s32 width;
-	s32 height;
-	size_t size;
-
-	//u32 glFormat;
-	//u8 min_filter;
-	u8 base_level;
-
-	u8 max_level;
-	
-	bool level[MAX_MIP_LEVEL];
-	
-} gxTex;
-
-// Texture Manager
-typedef struct _texManager{
-	gxTex * textures;
-	u8 * used;
-	size_t nTexs;
-	size_t usedTexs;
-} TexManager;
-
-TexManager texMan;
+// When we need to apply a texture, we use this matrix
+static Mtx textureView; 
 
 //------------------------------------------------------------
 // Function Prototypes
 //------------------------------------------------------------
-static bool resizeMan(TexManager *texMan, size_t n);
-static void initTexManager();
-
-static void activateTex(TexManager *texMan, u32 texID);
-static void deleteTex(TexManager *texMan, u32 texID);
-static void gxGenTextures( s32 n, u32 *textures );
 static void expandFreeTextures();
 static void texDeleteCallback(TexCacheItem* item);
 
-static void setTexture(unsigned int format, unsigned int texpal);
+static void setTexture(u32 format, u32 texpal);
 static void BeginRenderPoly();
 static void InstallPolygonAttrib(unsigned long val);
 static void Set3DVideoSettings();
@@ -143,212 +102,12 @@ static void ResetVideoSettings();
 
 //----------------------------------------
 //
-// Function: resizeMan
-//
-// Change the capacity of the texture manager
-//
-// @pre     Make sure there's space to hold the extra textures!
-// @post    Extra texture slots will be added to the manager
-// @param   texMan: The texture manager to change
-// @param   n: The number of textures we want it to hold
-// @return  bool: true if everything went well, false if not.
-//
-//----------------------------------------
-
-bool resizeMan(TexManager *texMan, size_t n){
-		
-	// Sanity check
-	if(texMan->nTexs < 0){
-		// If it fails the sanity check, just initialize and move on
-		texMan->nTexs = 0;
-		texMan->usedTexs = 0;
-		texMan->used = NULL;
-		texMan->textures = NULL;		
-	}
-	size_t texManTexs = texMan->nTexs;
-
-	if(texMan->usedTexs > texManTexs){
-		texMan->usedTexs = 0;
-		for(size_t i = 0; i < texManTexs; i++){
-			if(texMan->used[i])
-				++texMan->usedTexs;
-		}
-	}
-	
-	// If we have NULL pointers, we have no textures
-	if(!texMan->textures || !texMan->used){
-		texManTexs = texMan->nTexs = 0;
-		texMan->usedTexs = 0;
-	}
-	
-	// Manager has more than enough, just return
-	if(n < texManTexs){
-		return true;
-	}
-	
-	gxTex* new_arr = (gxTex*)realloc(texMan->textures, sizeof(gxTex)*n);
-	if(!new_arr){
-		//ERROR(OUT_OF_MEMORY);
-		return false;
-	}
-	
-	u8* new_used = (u8*)realloc(texMan->used, sizeof(u8)*n);
-	
-	if(!new_used){
-		texMan->textures = new_arr;
-		
-		//ERROR(OUT_OF_MEMORY);
-		return false;
-	}
-	
-	// Mark the new spots as unused
-	for(size_t i = texManTexs; i < n; ++i){
-		new_used[i] = 0;
-	}
-	
-	texMan->nTexs = n;
-	texMan->textures = new_arr;
-	texMan->used = new_used;
-	
-	return true;
-}
-
-//----------------------------------------
-//
-// Function: initTexManager
-//
-// Initialize and allocate space for our texture manager
-//
-// @pre     -
-// @post    The texture manager has been initialized
-// @param   -
-// @return  -
-//
-//----------------------------------------
-
-void initTexManager(){
-
-	texMan = (TexManager){NULL, NULL, 0, 0};
-	
-	//--DCN: This is a HACK! I am not sure why but if we don't allocate some
-	// memory for this beforehand, used will be an uninitialized pointer. 
-	// Perhaps I missed something from gl2gx?
-	texMan.used = (u8*)malloc(sizeof(u8)*NUM_INIT_TEXT);
-	resizeMan(&texMan, NUM_INIT_TEXT);
-}
-
-//----------------------------------------
-//
-// Function: activateTex
-//
-// Set the texture as being in use and prep it for loading
-//
-// @pre     -
-// @post    The texture is now being "used"
-// @param   texMan: The texture manager to add the texture to
-// @param   texID: The texture ID of the texture to to add
-// @return  -
-//
-//----------------------------------------
-
-void activateTex(TexManager *texMan, u32 texID){
-	size_t i = texID - 1;
-	
-	if(texMan->used[i])
-		return;
-	
-	texMan->used[i] = 1;
-
-	memset(&texMan->textures[i], 0, sizeof(gxTex));
-	
-	texMan->textures[i].pixels = NULL;
-	texMan->textures[i].width = 0;
-	texMan->textures[i].height = 0;
-	texMan->textures[i].max_level = 0;
-
-	for(s32 j = 0; j < MAX_MIP_LEVEL; ++j){
-		texMan->textures[i].level[j] = false;
-	}
-
-	++(texMan->usedTexs);
-}
-
-//----------------------------------------
-//
-// Function: deleteTex
-//
-// Delete the texture and adjust the texture manager
-//
-// @pre     -
-// @post    The texture is gone! 
-// @param   texMan: The texture manager to delete the texture from
-// @param   texID: The texture ID of the texture to to delete
-// @return  -
-//
-//----------------------------------------
-
-void deleteTex(TexManager *texMan, u32 texID){
-
-	u32 i = texID - 1;
-	
-	if(!texMan->used[i])
-		return;
-	
-	gxTex * tex = texMan->textures+i;
-	
-	if(tex->pixels){
-		//TODO: Change to "delete"
-		free(tex->pixels);
-	}
-		
-	tex->pixels = NULL;
-	tex->width = 0;
-	tex->height = 0;
-
-	for(s32 j = 0; j < MAX_MIP_LEVEL; ++j){
-		tex->level[j] = false;
-	}
-		
-	texMan->used[i] = 0;
-	--(texMan->usedTexs);
-	
-}
-
-//----------------------------------------
-//
-// Function: gxGenTextures
-//
-// Remnant of OGLRender/gl2gx. Generates texture IDs
-// NOTE: It might be possible to remove this!
-//
-// @pre     -
-// @post    The texture manager has been initialized
-// @param   -
-// @return  -
-//
-//----------------------------------------
-
-void gxGenTextures( s32 n, u32 *textures ){
-	//TODO: Change this to "new"
-	textures = (u32*)malloc(sizeof(u32)*n);	
-	--n;
-	do{
-		textures[n] = n;
-		--n;
-	}while(n >= 0);
-
-};
-
-//----------------------------------------
-//
 // Function: expandFreeTextures
 //
 // Increases the number of free texture IDs that we can use
-// NOTE: Using gxGenTextures and pushing gxTextureID[i] results
-//       in complications; gxGenTextures may be unneeded.
 //
 // @pre     -
-// @post    More texture IDs are added to freeTextureIds
+// @post    The available number of textures we can use has incresed
 // @param   -
 // @return  -
 //
@@ -356,21 +115,14 @@ void gxGenTextures( s32 n, u32 *textures ){
 
 static void expandFreeTextures(){
 
-	for(u32 i = 0; i < 128; i++)
+	u32 i = texMan->size();
+	u32 newMax = i + EXPAND_FREE_TEX_NUM;
+	for(; i < newMax; i++)
 		freeTextureIds.push(i);
-	
-	//--DCN: You can try to push gxTextureID,
-	//  but I think this is just a remnant of OGL:
-	/*
-	const s32 kInitTextures = 128;
-	u32 gxTextureID[kInitTextures];
 
-	gxGenTextures(kInitTextures, &gxTextureID[0]);
-
-	for(s32 i=0;i<kInitTextures;i++){
-		freeTextureIds.push(gxTextureID[i]);
-	}
-	//*/
+	// Resize our texture array to account for the new size
+	if(!texMan->resize(newMax))
+		printf("\n -- expandFreeTextures(): No more memory --\n");
 }
 
 
@@ -386,7 +138,7 @@ static void expandFreeTextures(){
 //----------------------------------------
 
 static void texDeleteCallback(TexCacheItem* item){
-	freeTextureIds.push((u32)item->texid);
+	freeTextureIds.push(item->texid);
 	if(currTexture == item){
 		currTexture = NULL;
 	}
@@ -412,7 +164,9 @@ static void GXReset(){
 		delete currTexture;
 	currTexture = NULL;
 
-	memset(GPU_screen3D,0,sizeof(GPU_screen3D));
+	texMan->reset();
+
+	memset(GPU_screen3D, 0, sizeof(GPU_screen3D));
 }
 
 //----------------------------------------
@@ -430,7 +184,8 @@ static void GXReset(){
 
 static char GXInit(){
 
-	initTexManager();
+	// Create our Texture Manager
+	texMan = new TexManager();
 
 	expandFreeTextures();
 	
@@ -458,11 +213,13 @@ static void GXClose(){
 	TexCache_Reset();
 
 	while(!freeTextureIds.empty()){
-		u32 temp = freeTextureIds.front();
-		freeTextureIds.pop();
-
-		deleteTex(&texMan, temp);
+		//u32 temp = freeTextureIds.front();
+		freeTextureIds.pop();	
 	}
+	// Kill our texture manager
+	if(texMan)
+		delete texMan;
+	texMan = NULL;
 }
 
 //----------------------------------------
@@ -474,13 +231,12 @@ static void GXClose(){
 // @pre     -
 // @post    The texture is locked and loaded
 // @param   format: The texture format (if we want to clamp or mirror it)
-// @param   texpal:
+// @param   texpal: The texture palette
 // @return  -
 //
 //----------------------------------------
 
-
-static void setTexture(unsigned int format, unsigned int texpal){
+static void setTexture(u32 format, u32 texpal){
 
 	textureFormat = format;
 	texturePalette = texpal;
@@ -493,10 +249,10 @@ static void setTexture(unsigned int format, unsigned int texpal){
 		if(!currTexture->deleteCallback){
 			currTexture->deleteCallback = texDeleteCallback;
 			if(freeTextureIds.empty()) expandFreeTextures();
-			currTexture->texid = (u64)freeTextureIds.front();
+			currTexture->texid = freeTextureIds.front();
 			freeTextureIds.pop();
 
-			activateTex(&texMan, (u32)currTexture->texid);
+			texMan->activateTex(currTexture->texid);
 
 			// We must convert the texture into a GX-friendly format
 			u8* src = currTexture->decoded;
@@ -510,7 +266,7 @@ static void setTexture(unsigned int format, unsigned int texpal){
 					const u8 g = *src++;
 					const u8 r = *src++;
 
-				    const u32 offset = (((y >> 2)<<4)*currTexture->sizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
+				    const u32 offset = (((y >> 2)<<4)*curTexSizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
 
 					tmp_texture[offset]    = a;
 					tmp_texture[offset+1]  = r;
@@ -520,34 +276,30 @@ static void setTexture(unsigned int format, unsigned int texpal){
 				}
 			}
 
-			memcpy(currTexture->decoded,tmp_texture,currTexture->decode_len);
+			memcpy(currTexture->decoded, tmp_texture, currTexture->decode_len);
 					
 			// Make sure everything is finished before we move on.
 			DCFlushRange(currTexture->decoded, currTexture->decode_len);
 			
 			// Put that data into a texture
-			GX_InitTexObj(&gxtextures[(u32)currTexture->texid],
+			GX_InitTexObj(texMan->gxObj(currTexture->texid),
 				currTexture->decoded, 
-				currTexture->sizeX, 
-				currTexture->sizeY, 
+				curTexSizeX, 
+				curTexSizeY, 
 				GX_TF_RGBA8,
 				(BIT16(currTexture->texformat) ? (BIT18(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP), 
 				(BIT17(currTexture->texformat) ? (BIT19(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP), 
 				GX_FALSE
 			);
-
-			// Now load it!
-			GX_LoadTexObj(&gxtextures[(u32)currTexture->texid], GX_TEXMAP0);
-			
 		}else{
-			// It's already been created, just load it
-			GX_LoadTexObj(&gxtextures[(u32)currTexture->texid], GX_TEXMAP0);
+			// It's already been created, continue.
 		}
+		GX_LoadTexObj(texMan->gxObj(currTexture->texid), GX_TEXMAP0);
 
 		// Configure the texture matrix 
 		guMtxIdentity(textureView);
 		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);
-		GX_LoadTexMtxImm(textureView,GX_TEXMTX0,GX_MTX3x4);
+		GX_LoadTexMtxImm(textureView, GX_TEXMTX0,GX_MTX3x4);
 		GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
 	
 	}
@@ -569,8 +321,6 @@ static void setTexture(unsigned int format, unsigned int texpal){
 
 static void BeginRenderPoly(){
 	bool enableDepthWrite = true;
-
-	//GX_SetZMode(GX_ENABLE,depthFuncMode,GX_TRUE);
 
 	if (cullingMask != 0xC0){
 		GX_SetCullMode(map3d_cull[cullingMask>>6]);
@@ -661,8 +411,7 @@ static void BeginRenderPoly(){
 
 #endif
 
-	depthupdate = enableDepthWrite ? GX_TRUE : GX_FALSE;
-
+	GX_SetZMode(GX_ENABLE, depthFuncMode, (enableDepthWrite ? GX_ENABLE : GX_DISABLE));
 }
 
 //----------------------------------------
@@ -680,30 +429,28 @@ static void BeginRenderPoly(){
 //----------------------------------------
 static void InstallPolygonAttrib(unsigned long val){
 
-	//--DCN: Culling is the only thing that we use right now,
-	// But when I comment out all of them (except culling)
-	// the colors change in SM64DS. WHY?
-	//*
+	//--DCN: Variables are not used (yet)
+	/*
 	// Light enable/disable
 	lightMask = (val&0xF);
 
-	// texture environment
+	// Texture environment
 	envMode = (val&0x30)>>4;
-
-	// overwrite depth on alpha pass
-	alphaDepthWrite = BIT11(val)!=0;
-
-	// depth test function
-	depthFuncMode = depthFunc[BIT14(val)];
-
-	// back face culling
-	cullingMask = (val&0xC0);
-
 	alpha31 = ((val>>16)&0x1F)==31;
 
-	// polyID
+	// Polygon ID (for shadows)
 	polyID = (val>>24)&0x3F;
 	//*/
+
+	// Overwrite depth on alpha pass
+	alphaDepthWrite = BIT11(val) != 0;
+
+	// Depth test function
+	depthFuncMode = depthFunc[BIT14(val)];
+
+	// Back face culling
+	cullingMask = (val & 0xC0);
+
 }
 
 //----------------------------------------
@@ -733,7 +480,8 @@ static void ReadFramebuffer(){
 	// Copy the screen into a texture
 	GX_CopyTex((void*)GPU_screen3D, GX_TRUE);
 	GX_PixModeSync();
-	DCFlushRange(GPU_screen3D, 256*192*4);
+	//--DCN: PixModeSync should take care of flushing.
+	//DCFlushRange(GPU_screen3D, 256*192*4);
 
 	// Bleh, another "conversion" problem. In order to make our GX scene
 	// jive with Desmume, we need to convert it OUT of its native format.
@@ -743,8 +491,8 @@ static void ReadFramebuffer(){
 	u8 r, g, b, a;
     u32 offset;
 
-	for(int y = 0; y < 192; y++){
-		for(int x = 0; x < 256; x++){
+	for(u32 y = 0; y < 192; y++){
+		for(u32 x = 0; x < 256; x++){
 	        
 			offset = ((y >> 2)<< 12) + ((x >> 2)<<6) + ((((y%4) << 2) + (x%4)) << 1);
 
@@ -822,7 +570,6 @@ static void GXRender(){
 		}
 		//*/
 
-		//GX_Begin((type == 3 ? GX_TRIANGLES : GX_QUADS), GX_VTXFMT0, type);
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
 			int j = type - 1;
@@ -879,14 +626,15 @@ static void Set3DVideoSettings(){
 
 	//*
 	// Our "not-quite" perspective projection. Needs tweaking/replacing.
-	guPerspective(projection, 48.0f, 256.0f/192.0f, 1.0f, 1000.0f);
+	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
 	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
 	//*/
-	/*
+
 	// No perspective projection at all; a different approach.
+	/*
 	guMtxIdentity(projection);
 	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-	GX_LoadPosMtxImm(projection,GX_PNMTX0)
+	GX_LoadPosMtxImm(projection,GX_PNMTX0);
 	//*/
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
@@ -927,8 +675,7 @@ static void Set3DVideoSettings(){
 		// OGLRender comment: FIXME: alpha test should pass gfx3d.alphaTestRef==poly->getAlpha
 		
 		// We need two comparisons, so we ignore the second parameter (for now)
-		GX_SetAlphaCompare(GX_GREATER, gfx3d.alphaTestRef/31.f, GX_AOP_OR, GX_NEVER, 0);
-
+		GX_SetAlphaCompare(GX_GREATER, s32(s32(gfx3d.alphaTestRef)/31.f), GX_AOP_OR, GX_NEVER, 0);
 	}else{		
 		// We might be able to just ignore this instruction,
 		// since we're not alpha blending.
@@ -940,11 +687,48 @@ static void Set3DVideoSettings(){
 		GX_SetAlphaUpdate(GX_FALSE);
 	}
 
+	//--DCN: For reasons that I could not find, "Vanilla" does not
+	// have any fog in its OpenGL implementation.
+
+	if(gfx3d.enableFog && CommonSettings.GFX3D_Fog){
+
+		//TODO: Make fogColor a GXColor so we won't have to convert it
+		GXColor col = {
+			GFX3D_5TO6((gfx3d.fogColor)&0x1F),
+			GFX3D_5TO6((gfx3d.fogColor>>5)&0x1F),
+			GFX3D_5TO6((gfx3d.fogColor>>10)&0x1F),
+			(gfx3d.fogColor>>16)&0x1F
+		};
+
+		//--DCN: I just picked random numbers here.
+		GX_SetFog(GX_FOG_LIN, 16.0f, 1000.0f, 0.0f, 1.0f, col);
+
+		/*
+		// There is no function to initialize the GXFogAdjTable.
+		// If it DID exist, we would call it like so:
+		GXFogAdjTbl table;
+		//
+		// Function: GX_InitFogAdjTable
+		//
+		// @param: GXFogAdjTable* table: The Fog adjustment table
+		// @param: u16 width:     The width of our current viewport
+		// @param: Mtx44 projmtx: The projection matrix that we're using
+		GX_InitFogAdjTable(&table, 256, projection);
+		// 
+		// I believe that GX_SetFogRangeAdj does not do
+		// what it is supposed to do, seeing as how none of 
+		// the variables passed are used in the function.
+		GX_SetFogRangeAdj(GX_ENABLE, 256/2 , &table);
+		//*/
+	}
+
+
 	// In general, if alpha compare is enabled, Z-buffering 
 	// should occur AFTER texture lookup.
 	// This fixes the black-instead-of-alpha problem, but 
 	// introduces its own problem: black is ALWAYS clear.
-	//GX_SetZCompLoc(GX_FALSE);
+	GX_SetZCompLoc(GX_FALSE);
+
 }
 
 
@@ -983,8 +767,9 @@ static void ResetVideoSettings(){
 	GX_SetCullMode(GX_CULL_NONE);
 	GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_IDENTITY);
 
-	//GX_SetZCompLoc(GX_TRUE);
-	//GX_SetZMode(GX_DISABLE, GX_EQUAL, GX_TRUE);
+	GX_SetZCompLoc(GX_TRUE);
+	GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+
 }
 
 static void GXVramReconfigureSignal(){
