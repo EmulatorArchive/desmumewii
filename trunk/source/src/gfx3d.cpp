@@ -624,7 +624,22 @@ static void SetVertex()
         //so that we only have to multiply one matrix here
         //(we could lazy cache the concatenated clip matrix and only generate it
         //when we need to)
-        MatrixMultVec4x4_M2(mtxCurrent[0], coordTransformed);
+
+		// do projection
+		extern u8 current3Dcore; // in main
+		switch(current3Dcore) 
+		{
+			case 1: //GX
+				MatrixMultVec4x4 (mtxCurrent[1], coordTransformed);  
+				break;
+
+			case 2: // raster
+				MatrixMultVec4x4_M2(mtxCurrent[0], coordTransformed); 
+				break;
+			
+			default:
+				break;
+		};
 
         //TODO - culling should be done here.
         //TODO - viewport transform?
@@ -743,6 +758,8 @@ static void SetVertex()
                 {
                         POLY &poly = polylist->list[polylist->count];
 
+						MatrixCopy(poly.projMatrix,mtxCurrent[0]); 
+						MatrixCopy(poly.mvMatrix,mtxCurrent[1]); 
                         poly.polyAttr = polyAttr;
                         poly.texParam = textureFormat;
                         poly.texPalette = texturePalette;
@@ -918,7 +935,12 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
         GFX_DELAY(19);
 
-        vector_fix2float<4>(mtxCurrent[mode], 4096.f);
+		/*
+			Not sure why this is 4096.f.  Seems to calculate Wc Z as !-1
+			This is fine with OGL but GX seems to have a fixed Wc matrix
+			and Wc is expected to be -1 for perspective and 1 for ortho
+		*/
+        vector_fix2float<4>(mtxCurrent[mode], -mtxCurrent[mode][10]);//4096.f);
 
         if (mode == 2)
                 MatrixCopy (mtxCurrent[1], mtxCurrent[2]);

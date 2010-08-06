@@ -52,7 +52,7 @@ static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
 //Derived values extracted from polyattr etc
 static u32 polyID = 0;
-static u32 depthFuncMode = GX_EQUAL;
+static u32 depthFuncMode = GX_LESS;
 static u32 envMode = 0;
 static u32 cullingMask = 0;
 static u32 lightMask = 0;
@@ -570,14 +570,67 @@ static void GXRender(){
 		}
 		//*/
 
+
+		// .... create our own projection
+
+		Mtx44 projection;
+
+		float* m = poly->projMatrix;
+		for(int j = 0; j < 4; ++j)
+			for(int i = 0; i < 4; ++i)
+				projection[i][j] = *m++;
+		
+
+		// Convert the z clipping planes to -1/0 from -1/1
+		projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
+		projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
+
+		if(projection[3][2] != 1) 
+		{
+	
+			//Frustum or perspective ?
+			/* -- do we need this? just comment for now to remind me in future
+
+			if(projection[0][2] != 0) 
+			{
+				//frustrum
+								
+				printf("frustrum\n");
+				
+			}
+			
+			// ... else
+
+				//prespective
+			*/
+				
+
+			GX_LoadProjectionMtx(projection, GX_PERSPECTIVE); 
+		}else{
+			GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
+			//printf("ortho\n");
+		}
+
+		Mtx view,modelview, model;
+
+		//guMtxIdentity(view);
+		//guMtxIdentity(model);
+		guMtxIdentity(modelview);
+
+		//guLookAt(view, &cam, &up, &look);
+		//guMtxConcat(model,view,modelview);
+
+
+		// Modelview matrix
+		GX_LoadPosMtxImm(modelview,GX_PNMTX0);
+
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
 			int j = type - 1;
 			do{
 				VERT *vert = &gfx3d.vertlist->list[poly->vertIndexes[j]];
 
-				// Have to flip the z coord
-				GX_Position3f32(vert->x, vert->y, -vert->z);
+				GX_Position3f32(vert->x, vert->y, vert->z);
 				GX_Color4u8(vert->color[0], vert->color[1], vert->color[2], alpha);
 				GX_TexCoord2f32(vert->u, vert->v);
 				
@@ -626,8 +679,8 @@ static void Set3DVideoSettings(){
 
 	//*
 	// Our "not-quite" perspective projection. Needs tweaking/replacing.
-	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
-	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
+//	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
+//	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
 	//*/
 
 	// No perspective projection at all; a different approach.
