@@ -141,6 +141,8 @@ struct POLY {
         u32 polyAttr, texParam, texPalette; //the hardware rendering params
         u32 viewport;
         float miny, maxy;
+		float projMatrix[16]; // current 3D projection mtx
+		float mvMatrix[16]; // current 3D modelview mtx
 
         void setVertIndexes(int a, int b, int c, int d=-1)
         {

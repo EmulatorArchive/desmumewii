@@ -90,7 +90,7 @@ static int SkipFrameTracker = 0;
 static u32 pad, wpad;
 
 // Which rendering core we are using (SoftRast or GX)
-static u8 current3Dcore = 1;
+u8 current3Dcore = 1;
 
 SoundInterface_struct *SNDCoreList[] = {
 	&SNDDummy,
