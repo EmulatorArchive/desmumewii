@@ -594,8 +594,17 @@ static void GXRender(){
 		projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
 		projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
 
-		if(projection[3][2] != 1) 
+		if(projection[3][2]) 
 		{
+			/*  move to gfx3d_glLoadMatrix4x4 for now
+			// need to remove these nasty loops
+			for(int j = 0; j < 4; ++j)
+			{	
+				for(int i = 0; i < 4; ++i)
+				{
+					projection[j][i] /= -projection[3][2];
+				}
+			}*/
 	
 			//Frustum or perspective ?
 			/* -- do we need this? just comment for now to remind me in future
@@ -616,6 +625,17 @@ static void GXRender(){
 
 			GX_LoadProjectionMtx(projection, GX_PERSPECTIVE); 
 		}else{
+			/* move to gfx3d_glLoadMatrix4x4 for now
+			// need to remove these nasty loops
+			for(int j = 0; j < 4; ++j)
+			{	
+				for(int i = 0; i < 4; ++i)
+				{
+					projection[j][i] /= projection[3][3];
+				}
+			}
+			*/
+
 			GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
 			//printf("ortho\n");
 		}
