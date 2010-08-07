@@ -468,6 +468,15 @@ static void InstallPolygonAttrib(unsigned long val){
 
 static void ReadFramebuffer(){ 
 
+	/*
+		If we don't restore the clear color to black before draw done
+		we will get a flicker of the DS clear in the corner 256x192 copy area
+		or the whole background will be the DS clear color.
+	*/
+
+	GXColor background = { 0,0,0,0 };
+	GX_SetCopyClear(background, 0x00ffffff);
+
 	GX_DrawDone();
 
 	GX_SetTexCopySrc(0, 0, 256, 192); 
@@ -677,18 +686,9 @@ static void Set3DVideoSettings(){
 	GX_SetViewport(0,0,256,192,0,1);
 	GX_SetScissor(0,0,256,192);
 
-	//*
-	// Our "not-quite" perspective projection. Needs tweaking/replacing.
-//	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
-//	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-	//*/
-
-	// No perspective projection at all; a different approach.
-	/*
-	guMtxIdentity(projection);
-	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-	GX_LoadPosMtxImm(projection,GX_PNMTX0);
-	//*/
+	// clear color of the FB
+	GXColor background = { gfx3d.clearColor >> 24, gfx3d.clearColor >> 16, gfx3d.clearColor >> 8, gfx3d.clearColor  };
+	GX_SetCopyClear(background, 0xffffffff);
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
 	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
@@ -781,6 +781,8 @@ static void Set3DVideoSettings(){
 	// This fixes the black-instead-of-alpha problem, but 
 	// introduces its own problem: black is ALWAYS clear.
 	GX_SetZCompLoc(GX_FALSE);
+
+
 
 }
 
