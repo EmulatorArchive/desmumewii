@@ -935,12 +935,9 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
         GFX_DELAY(19);
 
-		/*
-			Not sure why this is 4096.f.  Seems to calculate Wc Z as !-1
-			This is fine with OGL but GX seems to have a fixed Wc matrix
-			and Wc is expected to be -1 for perspective and 1 for ortho
-		*/
-        vector_fix2float<4>(mtxCurrent[mode], -mtxCurrent[mode][10]);//4096.f);
+		if (!mode) vector_fix2float<4>(mtxCurrent[mode], (mtxCurrent[mode][15] ? mtxCurrent[mode][15] : -mtxCurrent[mode][10]));
+		else  vector_fix2float<4>(mtxCurrent[mode], 4096.f); 
+//		vector_fix2float<4>(mtxCurrent[mode], 4096.f);
 
         if (mode == 2)
                 MatrixCopy (mtxCurrent[1], mtxCurrent[2]);
