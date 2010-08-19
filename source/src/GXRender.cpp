@@ -468,15 +468,6 @@ static void InstallPolygonAttrib(unsigned long val){
 
 static void ReadFramebuffer(){ 
 
-	/*
-		If we don't restore the clear color to black before draw done
-		we will get a flicker of the DS clear in the corner 256x192 copy area
-		or the whole background will be the DS clear color.
-	*/
-
-	GXColor background = { 0,0,0,0 };
-	GX_SetCopyClear(background, 0x00ffffff);
-
 	GX_DrawDone();
 
 	GX_SetTexCopySrc(0, 0, 256, 192); 
@@ -486,6 +477,10 @@ static void ReadFramebuffer(){
     // (to avoid filtering during the framebuffer-to-texture copy)
 	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
 
+#ifdef GX_3D_FUNCTIONS
+	GX_CopyTex(gfx3d_convertedScreen, GX_TRUE);
+	GX_PixModeSync();
+#else
 	// Copy the screen into a texture
 	GX_CopyTex((void*)GPU_screen3D, GX_TRUE);
 	GX_PixModeSync();
@@ -517,7 +512,7 @@ static void ReadFramebuffer(){
 
 		}
 	}
-
+#endif
 	DCFlushRange(gfx3d_convertedScreen, 256*192*4);
 
     // Restore vertical de-flicker filter mode
@@ -566,7 +561,42 @@ static void GXRender(){
 			lastTextureFormat = textureFormat = poly->texParam;
 			lastTexturePalette = texturePalette = poly->texPalette;
 			BeginRenderPoly();
+#ifndef GX_3D_FUNCTIONS
+			// Create our own, DS-to-Wii specific projection matrix
+			Mtx44 projection;
 
+			float* m = poly->projMatrix;
+			// Copy the matrix from Column-Major to Row-Major format
+			for(int j = 0; j < 4; ++j)
+				for(int i = 0; i < 4; ++i)
+					projection[i][j] = *m++;
+			
+			// Convert the z clipping planes from -1/1 to -1/0
+			projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
+			projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
+
+			if(projection[3][2] != 1) 
+			{		
+				//Frustum or perspective ?
+				/* -- do we need this? just comment for now to remind me in future
+
+				if(projection[0][2] != 0)
+					//frustrum
+				else
+					//prespective
+				//*/
+					
+				GX_LoadProjectionMtx(projection, GX_PERSPECTIVE); 
+			}else{
+				GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
+			}
+			/*
+			Mtx modelview;
+			guMtxIdentity(modelview);
+			// Load in an identity matrix to be our position matrix
+			GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+			//*/
+#endif
 		}
 
 		//--DCN: I still don't see the point of this:
@@ -578,80 +608,6 @@ static void GXRender(){
 			lastViewport = poly->viewport;
 		}
 		//*/
-
-
-		// .... create our own projection
-
-		Mtx44 projection;
-
-		float* m = poly->projMatrix;
-		for(int j = 0; j < 4; ++j)
-			for(int i = 0; i < 4; ++i)
-				projection[i][j] = *m++;
-		
-
-		// Convert the z clipping planes to -1/0 from -1/1
-		projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
-		projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
-
-		if(projection[3][2]) 
-		{
-			/*  move to gfx3d_glLoadMatrix4x4 for now
-			// need to remove these nasty loops
-			for(int j = 0; j < 4; ++j)
-			{	
-				for(int i = 0; i < 4; ++i)
-				{
-					projection[j][i] /= -projection[3][2];
-				}
-			}*/
-	
-			//Frustum or perspective ?
-			/* -- do we need this? just comment for now to remind me in future
-
-			if(projection[0][2] != 0) 
-			{
-				//frustrum
-								
-				printf("frustrum\n");
-				
-			}
-			
-			// ... else
-
-				//prespective
-			*/
-				
-
-			GX_LoadProjectionMtx(projection, GX_PERSPECTIVE); 
-		}else{
-			/* move to gfx3d_glLoadMatrix4x4 for now
-			// need to remove these nasty loops
-			for(int j = 0; j < 4; ++j)
-			{	
-				for(int i = 0; i < 4; ++i)
-				{
-					projection[j][i] /= projection[3][3];
-				}
-			}
-			*/
-
-			GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
-			//printf("ortho\n");
-		}
-
-		Mtx view,modelview, model;
-
-		//guMtxIdentity(view);
-		//guMtxIdentity(model);
-		guMtxIdentity(modelview);
-
-		//guLookAt(view, &cam, &up, &look);
-		//guMtxConcat(model,view,modelview);
-
-
-		// Modelview matrix
-		GX_LoadPosMtxImm(modelview,GX_PNMTX0);
 
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
@@ -701,14 +657,20 @@ static void GXRender(){
 static void Set3DVideoSettings(){
 
 	Mtx44 projection; // Projection matrix
+	Mtx modelview;
 
 	// Set up the viewpoint (one screen)
 	GX_SetViewport(0,0,256,192,0,1);
 	GX_SetScissor(0,0,256,192);
 
-	// clear color of the FB
-	GXColor background = { gfx3d.clearColor >> 24, gfx3d.clearColor >> 16, gfx3d.clearColor >> 8, gfx3d.clearColor  };
-	GX_SetCopyClear(background, 0xffffffff);
+	guMtxIdentity(modelview);
+	// Load in an identity matrix to be our position matrix
+	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+	/*
+	// Our "not-quite" perspective projection. Needs tweaking/replacing.
+	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
+	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
+	//*/
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
 	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
@@ -724,7 +686,6 @@ static void Set3DVideoSettings(){
 
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
-
 
 	if(gfx3d.enableTexturing){
 
@@ -798,11 +759,7 @@ static void Set3DVideoSettings(){
 
 	// In general, if alpha compare is enabled, Z-buffering 
 	// should occur AFTER texture lookup.
-	// This fixes the black-instead-of-alpha problem, but 
-	// introduces its own problem: black is ALWAYS clear.
 	GX_SetZCompLoc(GX_FALSE);
-
-
 
 }
 
