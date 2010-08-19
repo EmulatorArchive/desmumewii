@@ -754,17 +754,17 @@ bool PickDevice(){
 		printf("Select Device: << ");
 		printf("%s", device ? "USB >>" : "SD >>");
 		printf("\nSelect Renderer \\/ ");
-		printf("%s", useGX ? " GX  /\\" : "Soft /\\");
+		printf(" GX EXPERIMENTAL ");
 		printf("\n\nPress B to see the credits.");
 
 		if(GetInput(LEFT, LEFT, LEFT) || GetInput(RIGHT, RIGHT, RIGHT)) {
 			device = !device;
 		}
-
+/*
 		if(GetInput(UP, UP, UP) || GetInput(DOWN, DOWN, DOWN)) {
 			useGX = !useGX;
 		}
-
+//*/
 		if(GetInput(A, A, A)){
 			if(useGX){
 				current3Dcore = 1; // We want to use GX!
