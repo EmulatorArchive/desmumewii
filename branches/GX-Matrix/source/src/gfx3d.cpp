@@ -1,9 +1,41 @@
 
 //-------------------------------------------------------
-//--DCN: Enable native GX/GU functions instead!
-#define GX_3D_FUNCTIONS
+//#define EXPERIMENTAL_GX
+/*
+// This is in OGLRender:
+// When envMode = 3, then we're shadowing; writing to the stencil buffer
+envMode =	(val&0x30)>>4;
+		=	(val&0x30)>>4	== 3
+		= (poly->polyAttr & 0x30) >> 4	== 3
 
+//for(int i=0;i<gfx3d.polylist->count;i++) { // For each polygon...
+//	POLY *poly = &gfx3d.polylist->list[gfx3d.indexlist.list[i]];
+
+		= (gfx3d.polylist->list[gfx3d.indexlist.list[i]].polyAttr & 0x30) >> 4 == 3
+
+// gfx3d.polylist = polylist;
+		= (polylist->list[...[i]] ... == 3
+
+// In SetVertex():
+//polylist->list[polylist->count].vertIndexes[ii] = tempVertInfo.map[nn];
+	//if(polygonListCompleted == 1){
+		//	POLY &poly = polylist->list[polylist->count];
+		//	poly.polyAttr = polyAttr; // (!)
+		//	polylist->count++;
+
+// In gfx3d_glBegin:
+//polyAttr = polyAttrPending;
+
+//In gfx3d_glPolygonAttrib(val):
+//	polyAttrPending = val;
+
+// In summary, gfx3d_glPolygonAttrib sets whether or not this is a shadow
+
+		= (polyAttrPending & 0x30) >> 4	== 3
+
+//*/
 /*  Copyright (C) 2006 yopyop
+
     yopyop156@ifrance.com
     yopyop156.ifrance.com
 
@@ -893,9 +925,9 @@ static void SetVertex()
                                 if(tempVertInfo.count!=3)
                                         break;
                                 polygonListCompleted = 1;
-//polylist->list[polylist->count].vertIndexes[ii] 
-//											= tempVertInfo.map[nn];
 								SUBMITVERTEX(0,0);
+								SUBMITVERTEX(0,0);
+
                                 SUBMITVERTEX(1,1);
                                 SUBMITVERTEX(2,2);
                                 vertlist->count+=3;
@@ -962,27 +994,16 @@ static void SetVertex()
                 {
                         POLY &poly = polylist->list[polylist->count];
 						
-						//--DCN: Let's try this...
-						/*
-						switch(current3Dcore){
-							case 1: //GX
-								MatrixCopyGX(poly.projMatrix,mtxCurrent[0]); 
-								MatrixCopyGX(poly.mvMatrix,mtxCurrent[1]); 
-								break;
+#ifdef GX_3D_FUNCTIONS
 
-							case 2: // raster
-								MatrixCopy(poly.projMatrix,mtxCurrent[0]); 
-								MatrixCopy(poly.mvMatrix,mtxCurrent[1]); 
-								break;
-							
-							default:
-								break;
-						};
-						//*/
-						/*
+						guMtx44Copy(mtxCurrent[0], poly.projMatrix);
+						guMtx44Copy(mtxCurrent[1], poly.mvMatrix);
+						guMtx44Copy(mtxCurrent[3], poly.texMatrix);
+#else
+
 						MatrixCopy(poly.projMatrix,mtxCurrent[0]); 
 						MatrixCopy(poly.mvMatrix,mtxCurrent[1]); 
-						//*/		
+#endif
 
                         poly.polyAttr = polyAttr;
                         poly.texParam = textureFormat;
@@ -1115,9 +1136,12 @@ static void gfx3d_glPopMatrix(u32 _i)
         //this was necessary to fix sims apartment pets
         i = (i<<26)>>26;
         
-#ifdef GX_3D_FUNCTIONS
 
+#ifdef GX_3D_FUNCTIONS
+		//--DCN: If they commented it out, why bother?
+		/*
         if (i > mtxStack[mymode].position())
+
         {
                 //was commented out before zero sep modifications
                 //handled in matrix now
@@ -1125,15 +1149,19 @@ static void gfx3d_glPopMatrix(u32 _i)
         //      T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600, gxstat);
         //      return;
         }
+		//*/
+
+
 
 		// WARNING! This is really, really different than the original! 
 		// It uses NO size (i) in order to pop from the stack!
-		guMtx44Copy(mtxCurrent[mymode], *mtxStack[mymode].pop());
+		//Mtx44* mtemp = mtxStack[mymode].pop();
+		guMtx44Copy(mtxStack[mymode].pop(), mtxCurrent[mymode]);
 
         GFX_DELAY(36);
 
         if (mymode == 2)
-			guMtx44Copy(mtxCurrent[1], *mtxStack[1].pop());
+			guMtx44Copy(mtxStack[1].pop(), mtxCurrent[1]);
 
 #else
 
@@ -1166,16 +1194,20 @@ static void gfx3d_glStoreMatrix(u32 v)
         if(mymode==0 || mymode==3)
                 v = 0;
 
-        if (v > 31) return;
+		//--DCN: Shouldn't this be: 
+		if (v >= 31) return;
+		//Orignal:
+        //if (v > 31) return;
+
 
 #ifdef GX_3D_FUNCTIONS
 
-	guMtx44Copy(*mtxStack[mymode].getStackPtr(v), mtxCurrent[mymode]);
+	guMtx44Copy(mtxCurrent[mymode], mtxStack[mymode].getStackPtr(v));
 
     GFX_DELAY(17);
 
     if(mymode==2)
-		guMtx44Copy(*mtxStack[1].getStackPtr(v), mtxCurrent[1]);
+		guMtx44Copy(mtxCurrent[1], mtxStack[1].getStackPtr(v));
 
 #else
         MatrixStackLoadMatrix (&mtxStack[mymode], v, mtxCurrent[mymode]);
@@ -1199,16 +1231,20 @@ static void gfx3d_glRestoreMatrix(u32 v)
         if(mymode==0 || mymode==3)
                 v = 0;
 
-        if (v > 31) return;
+        //--DCN: Shouldn't this be: 
+		if (v >= 31) return;
+		//Orignal:
+        //if (v > 31) return;
+
 
 #ifdef GX_3D_FUNCTIONS
 
-	guMtx44Copy (mtxCurrent[mymode], *mtxStack[mymode].getStackPtr(v));
+	guMtx44Copy (mtxStack[mymode].getStackPtr(v), mtxCurrent[mymode]);
 	       
     GFX_DELAY(36);
 
     if (mymode == 2)
-		guMtx44Copy (mtxCurrent[1], *mtxStack[1].getStackPtr(v));
+		guMtx44Copy (mtxStack[1].getStackPtr(v), mtxCurrent[1]);
 
 #else
 
@@ -1247,6 +1283,7 @@ static void gfx3d_glLoadIdentity(u32 pad)
 static void gfx3d_glLoadMatrix4x4(u32 v)
 {
 
+
 #ifdef GX_3D_FUNCTIONS
 
 	GFX_DELAY(19);
@@ -1254,7 +1291,7 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 	fix2floatGX(mtxCurrent[mode], 4096.f);
 
 	if (mode == 2){
-		guMtx44Copy (mtxCurrent[1], mtxCurrent[2]);
+		guMtx44Copy (mtxCurrent[2], mtxCurrent[1]);
 	}
 
 #else
@@ -1287,6 +1324,7 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 static void gfx3d_glLoadMatrix4x3(u32 v)
 {
 
+
 #ifdef GX_3D_FUNCTIONS
 
     GFX_DELAY(35);
@@ -1300,7 +1338,7 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
     GFX_DELAY(30);
 
 	if (mode == 2){
-		guMtx44Copy (mtxCurrent[1], mtxCurrent[2]);
+		guMtx44Copy(mtxCurrent[2], mtxCurrent[1]);
 	}
 
 
@@ -1554,9 +1592,9 @@ static void gfx3d_glNormal(u32 v)
 
 #ifdef GX_3D_FUNCTIONS	
 
-	guVector normal = { normalTable[v&1023],
+	guQuaternion normal = { normalTable[v&1023],
                         normalTable[(v>>10)&1023],
-                        normalTable[(v>>20)&1023]
+                        normalTable[(v>>20)&1023], 1
 					  };
 
 	if (texCoordinateTransform == 2){
@@ -1576,8 +1614,7 @@ static void gfx3d_glNormal(u32 v)
 
 		//GX_SetCurrentMtx(GX_PNMTX0);
 
-
-		GX_LoadNrmMtxImm(mtxCurrent[3], GX_PNMTX0, GX_MTX3x4);
+		GX_LoadNrmMtxImm(mtxCurrent[3], GX_PNMTX0);
 		// Then, we just do this:
 		last_s = _s;
 		last_t = _t;
@@ -1609,7 +1646,7 @@ static void gfx3d_glNormal(u32 v)
 	// Use the current normal transform matrix
 
 	//--DCN: should this be guMtx44MultVec? Or MultVec?
-	guMtx44MultVec (mtxCurrent[2], &normal, &normal);
+	guMtx44MultQuat(mtxCurrent[2], &normal, &normal);
 
 #else
 		ALIGN(16) float normal[4] = { normalTable[v&1023],
@@ -1738,6 +1775,7 @@ static void gfx3d_glTexCoord(u32 val)
 		if (texCoordinateTransform == 1)
         {
 
+
 #ifdef GX_3D_FUNCTIONS	
 
 
@@ -1747,8 +1785,8 @@ static void gfx3d_glTexCoord(u32 val)
 
 			//--DCN: How about this:
 			// Generate coordinates based on input coordinate 0
-			GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0);
-			GX_SetCurrentMtx(GX_PNMTX0);
+			GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
+			//GX_SetCurrentMtx(GX_PNMTX0);
 
 
 			GX_LoadTexMtxImm(mtxCurrent[3], GX_TEXMTX0, GX_MTX3x4);
@@ -1777,7 +1815,6 @@ static void gfx3d_glTexCoord(u32 val)
 #endif    
 
 #else
-        
                 last_s =_s*mtxCurrent[3][0] + _t*mtxCurrent[3][4] +
                                 0.0625f*mtxCurrent[3][8] + 0.0625f*mtxCurrent[3][12];
                 last_t =_s*mtxCurrent[3][1] + _t*mtxCurrent[3][5] +
@@ -2378,9 +2415,10 @@ s32 gfx3d_GetDirectionalMatrix (unsigned int index)
 
 void gfx3d_ClearStack()
 {
+
 #ifdef GX_3D_FUNCTIONS
-	mtxStack[0].adjustPosition(-5);
-	mtxStack[3].adjustPosition(-5);
+	mtxStack[0].clear();
+	mtxStack[3].clear();
 #else
         MatrixStackSetStackPosition(&mtxStack[0], -5);
         //MatrixStackSetStackPosition(&mtxStack[1], -55);
@@ -2754,11 +2792,16 @@ void gfx3d_VBlankEndSignal(bool skipFrame)
         drawPending = FALSE;
 
         //if the null 3d core is chosen, then we need to clear out the 3d buffers to keep old data from being rendered
-        if(gpu3D == &gpu3DNull || !CommonSettings.showGpu.main)
+        
+		
+		//--DCN: The null 3d core is never chosen
+		/*
+		if(gpu3D == &gpu3DNull || !CommonSettings.showGpu.main)
         {
                 memset(gfx3d_convertedScreen,0,sizeof(gfx3d_convertedScreen));
                 return;
         }
+		//*/
 
         gpu3D->NDS_3D_Render();
 }
@@ -2838,7 +2881,9 @@ void gfx3d_sendCommand(u32 cmd, u32 param)
 
 void gfx3d_Control(u32 v)
 {
+
 	/*
+	//--DCN:
 	if(v&1){
 		glEnable (GL_TEXTURE_2D);
 	}
@@ -2865,6 +2910,7 @@ void gfx3d_Control(u32 v)
 		printlog("Enabled BITMAP background mode\n");
 	}
 	//*/
+
         control = v;
 }
 
@@ -3257,14 +3303,14 @@ private:
                 float* vert0coord = vert0->coord;
                 float* vert1coord = vert1->coord;
                 bool out0, out1;
-                if(which==-1)
+
+				if(which == -1){
                         out0 = vert0coord[coord] < -vert0coord[3];
-                else
+						out1 = vert1coord[coord] < -vert1coord[3];
+				}else{
                         out0 = vert0coord[coord] > vert0coord[3];
-                if(which==-1)
-                        out1 = vert1coord[coord] < -vert1coord[3];
-                else
-                        out1 = vert1coord[coord] > vert1coord[3];
+						out1 = vert1coord[coord] > vert1coord[3];
+				}                        
 
                 //CONSIDER: should we try and clip things behind the eye? does this code even successfully do it? not sure.
                 //if(coord==2 && which==1) {

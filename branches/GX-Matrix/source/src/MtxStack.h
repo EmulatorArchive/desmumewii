@@ -1,3 +1,24 @@
+/*
+	Copyright (C) 2006 yopyop
+	Copyright (C) 2006-2007 shash
+	Copyright (C) 2010 DesmumeWii team
+
+    This file is part of DesmumeWii
+
+    DesmumeWii is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    DesmumeWii is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
 
 #ifndef _DesmumeWii_MtxStack_
 #define _DesmumeWii_MtxStack_
@@ -15,26 +36,21 @@ public:
 	~MtxStack();
 
 	void init();
-	Mtx44* pop();
-	Mtx44* pushInvXpose(Mtx44 m);
-	Mtx44* pushInv(Mtx44 m);
-	Mtx44* pushFwd(Mtx44 m);
-	Mtx44* push(Mtx44 m);
+	Mtx44P pop();
+	Mtx44P push(Mtx44 m);
 
-	Mtx44* getStackPtr();
-	Mtx44* getStackPtr(u32 index);
+	void clear();
+	void setPosition(u32 pos);
+
+	Mtx44P getStackPtr();
+	Mtx44P getStackPtr(u32 index);
 
 	u32 position();
 	u32 size();
-
-	// Copied:
-	void adjustPosition(s32 pos);
-	float GetMultipliedIndex (int index, float *matrix, float *rightMatrix);
-	void setPosition(u32 pos);
 	
 private:
 	Mtx44* stackBase;
-	u8 maxMtx;			// The maximum number of matrices that we can use
+	const u8 maxMtx;	// The maximum number of matrices that we can use
 	u8 curMtx;			// The number currently being used.
 };
 
@@ -68,14 +84,11 @@ MtxStack::MtxStack(): stackBase(NULL), maxMtx(0), curMtx(0){
 //
 //----------------------------------------
 
-
-MtxStack::MtxStack(u32 max){
-
-	stackBase = new Mtx44[max]; 
-	//stackBase = new Mtx[max-1];
-    maxMtx   = max;
-	curMtx   = 0;
-
+MtxStack::MtxStack(u32 max):  
+	// There is actually an extra, secret, unusable array.
+	stackBase(new Mtx44[max + 1]),
+	maxMtx(max + 1),
+	curMtx(0){
 }
 
 //----------------------------------------
@@ -89,12 +102,11 @@ MtxStack::MtxStack(u32 max){
 //
 //----------------------------------------
 
-
 MtxStack::~MtxStack(){
     
-	if(stackBase){
+	//if(stackBase)
 		delete[] stackBase;
-	}
+	
 	stackBase = NULL;
 }
 
@@ -102,7 +114,7 @@ MtxStack::~MtxStack(){
 //
 // Function: init
 //
-//	Initialize the matrix stack
+//    Initialize the matrix stack
 //
 // @pre     -
 // @post    All the matrices are initialized with guMtx44Identity
@@ -111,26 +123,23 @@ MtxStack::~MtxStack(){
 //
 //----------------------------------------
 
-
 void MtxStack::init(){
 
-	s32 i = maxMtx - 1;
-	do{
-		guMtx44Identity(stackBase[i]);
-		--i;
-	}while(i >= 0);
+    s32 i = maxMtx - 1;
+    do{
+        guMtx44Identity(stackBase[i]);
+        --i;
+    }while(i >= 0);
 
-	// We have an "empty" matrix stack
-	curMtx   = 0;
-
+    // We have an "empty" matrix stack
+    curMtx = 0;
 }
-
 
 //----------------------------------------
 //
 // Function: push
 //
-//	Copy a matrix to stack pointer + 1.
+//    Copy a matrix to stack pointer.
 //
 // @pre     -
 // @post    The matrix is pushed onto the stack
@@ -139,124 +148,25 @@ void MtxStack::init(){
 //
 //----------------------------------------
 
-Mtx44* MtxStack::push(Mtx44 m){
+Mtx44P MtxStack::push(Mtx44 m){
+    ++curMtx;
 	// Check for stack overflow
-	if(curMtx >= maxMtx){
-		// We have TOO MANY matrices! 
-		// PANIC! PANIIIIIIIC!
-		return NULL;	
-	}
-	guMtx44Copy(m, stackBase[curMtx]);
-	curMtx++;
+    if(curMtx >= maxMtx){
+        // We have TOO MANY matrices! 
+        //return NULL; 
+		curMtx = maxMtx - 1;
+    }
+    
+    guMtx44Copy(m, stackBase[curMtx]);
 
-    return (&stackBase[curMtx-1]);
-}
-
-//----------------------------------------
-//
-// Function: pushFwd
-//
-//	Concatenate a matrix with the current top of the stack.
-//	This is intended for use in building forward transformations.
-//
-// @pre     -
-// @post    The matrix is pushed onto the stack
-// @param   m: The matrix to copy into the current location 
-// @return  Pointer to the top of the stack
-//
-//----------------------------------------
-
-Mtx44* MtxStack::pushFwd(Mtx44 m){
-
-	// Check for stack overflow
-	if(curMtx >= maxMtx){
-		// We have TOO MANY matrices! 
-		// PANIC! PANIIIIIIIC!
-		return NULL;	
-	}
-	guMtx44Concat(m, stackBase[curMtx], stackBase[curMtx]);
-	curMtx++;
-
-    return (&stackBase[curMtx-1]);
-}
-
-//----------------------------------------
-//
-// Function: pushInv
-//
-//	Concatenate an inverted matrix with the current top of the stack.
-//	This is intended for use in building inverse transformations.
-//
-// @pre     -
-// @post    The matrix is pushed onto the stack
-// @param   m: The matrix to copy into the current location 
-// @return  Pointer to the top of the stack
-//
-//----------------------------------------
-
-
-Mtx44* MtxStack::pushInv(Mtx44 m){
-
-    Mtx mInv;
-
-    guMtxInverse(m, mInv);
-
-	// Check for stack overflow
-	if(curMtx >= maxMtx){
-		// We have TOO MANY matrices! 
-		// PANIC! PANIIIIIIIC!
-		return NULL;	
-	}
-	guMtx44Concat(mInv, stackBase[curMtx], stackBase[curMtx]);
-	curMtx++;
-
-    return (&stackBase[curMtx-1]);
-}
-
-//----------------------------------------
-//
-// Function: pushInvXpose
-//
-//	Concatenate an inverse-transposed matrix with the current top of the stack.
-//	This is intended for use in building inverse transformations.
-//
-// @pre     -
-// @post    The matrix is pushed onto the stack
-// @param   m: The matrix to copy into the current location 
-// @return  Pointer to the top of the stack
-//
-//----------------------------------------
-
-
-Mtx44* MtxStack::pushInvXpose(Mtx44 m){
-
-    Mtx mIT;
-
-	//guMtxInvXPose(m, mIT);
-	//*
-    guMtxInverse(     m, mIT );
-    guMtxTranspose( mIT, mIT );
-	//*/
-
-	// Check for stack overflow
-	if(curMtx >= maxMtx){
-		// We have TOO MANY matrices! 
-		// PANIC! PANIIIIIIIC!
-		return NULL;
-	}
-	guMtx44Concat(mIT, stackBase[curMtx], stackBase[curMtx]);
-	curMtx++;
-
-	return (&stackBase[curMtx-1]);
-	//--DCN: What about this?
-	//return (&stackBase[curMtx++]);
+    return (stackBase[curMtx]);
 }
 
 //----------------------------------------
 //
 // Function: pop
 //
-//	Decrement the stack and return the matrix on top
+//    Decrement the stack and return the matrix on top
 //
 // @pre     -
 // @post    The top of the stack has been decremented
@@ -265,145 +175,47 @@ Mtx44* MtxStack::pushInvXpose(Mtx44 m){
 //
 //----------------------------------------
 
+Mtx44P MtxStack::pop(){
+	
+    if(curMtx == 0){
+        //return NULL;
 
-Mtx44* MtxStack::pop(){
-
-	if(curMtx == 0){
-		return NULL;
-	}else{
-		--curMtx;
-		return (&stackBase[curMtx]);
-	}
+        // Nothing to pop! Return something, maybe? 
+        return (stackBase[0]);
+    }
+    --curMtx;
+    return (stackBase[curMtx]);
 }
 
 //----------------------------------------
 //
-// Function: getStackPtr
+// Function: clear
 //
-//	Get the top of the stack (but don't pop)
+//    Clears the stack
 //
 // @pre     -
-// @post    -
+// @post    All matrices are now unused.
 // @param   -
-// @return  Pointer to the top of the stack
-//
-//----------------------------------------
-
-
-Mtx44* MtxStack::getStackPtr(){
-    return (&stackBase[curMtx]);
-}
-
-//----------------------------------------
-//
-// Function: getStackPtr
-//
-//	Get the matrix at the specified point (but don't pop)
-//
-// @pre     -
-// @post    -
-// @param   index: Which matrix in the stack to return
-// @return  Pointer to the specific matrix
-//
-//----------------------------------------
-
-
-Mtx44* MtxStack::getStackPtr(u32 index){
-	if(index >= curMtx){
-		// Oops, we're out of bounds
-		return NULL;
-	}
-    return (&stackBase[index]);
-}
-
-//----------------------------------------
-//
-// Function: position
-//
-//	Get the index of the current matrix
-//
-// @pre     -
-// @post    -
-// @param   -
-// @return  Index number of current matrix
-//
-//----------------------------------------
-
-
-u32 MtxStack::position(){
-	return curMtx;
-}
-
-//----------------------------------------
-//
-// Function: size
-//
-//	Get the total size of the stack
-//
-// @pre     -
-// @post    -
-// @param   -
-// @return  Maximum number of matrices we can have in the stack
-//
-//----------------------------------------
-
-
-u32 MtxStack::size(){
-	return maxMtx;
-}
-
-//----------------------------------------
-//
-// Function: adjustPosition
-//
-//	Add or subtract to the current position
-//
-// @pre     -
-// @post    -
-// @param   pos: The number we add/sub to the current stack position
 // @return  -
 //
 //----------------------------------------
 
+void MtxStack::clear(){
 
-void MtxStack::adjustPosition(s32 pos){
+    if(curMtx != 0)
+        MMU_new.gxstat.se = 1;
+	// Should we initialize them all?
+	init();
 
-	s32 newPosition = curMtx + pos;
-
-	//--DCN: Do tests, see if this will work on a u32:
-	// (Or maybe just change it to a s32...)
-	/*
-	// Wraparound behavior
-	s32 newPosition = curMtx;
-	newPosition &= maxMtx;
-	//*/
-
-	//In the mean time, let's do it the old fashioned way:
-	if(newPosition < 0){
-		newPosition += maxMtx;
-	}
-	else if(u32(newPosition) >= maxMtx){
-		newPosition -= maxMtx;
-	}
-
-
-	if(u32(newPosition) != curMtx)
-		MMU_new.gxstat.se = 1;
-
-	curMtx = u32(newPosition);
-/*
-	stack->position += pos;
-	s32 newpos = stack->position;
-	stack->position &= (stack->size);
-//*/
-
+    //curMtx = 0;
+	
 }
 
 //----------------------------------------
 //
 // Function: setPosition
 //
-//	Set the current position
+//    Set the current position
 //
 // @pre     -
 // @post    -
@@ -412,32 +224,86 @@ void MtxStack::adjustPosition(s32 pos){
 //
 //----------------------------------------
 
-
 void MtxStack::setPosition(u32 pos){
-
-	curMtx = pos;
-
+	if(pos >= maxMtx){
+		curMtx = maxMtx - 1;
+	}else{
+		curMtx = pos;
+	}
 }
 
 //----------------------------------------
 //
-// Function: GetMultipliedIndex [NOT USED]
+// Function: getStackPtr
 //
-//	I don't know what this does.
+//    Get the top of the stack (but don't pop)
 //
 // @pre     -
 // @post    -
-// @param   
-// @return  -
+// @param   -
+// @return  Pointer to the top of the stack
 //
 //----------------------------------------
-float MtxStack::GetMultipliedIndex (int index, float *matrix, float *rightMatrix){
-	int iMod = index%4, iDiv = (index>>2)<<2;
 
-	return	 (matrix[iMod   ]*rightMatrix[iDiv  ])
-			+(matrix[iMod+ 4]*rightMatrix[iDiv+1])
-			+(matrix[iMod+ 8]*rightMatrix[iDiv+2])
-			+(matrix[iMod+12]*rightMatrix[iDiv+3]);
+Mtx44P MtxStack::getStackPtr(){
+    return (stackBase[curMtx]);
+}
+
+//----------------------------------------
+//
+// Function: getStackPtr
+//
+//    Get the matrix at the specified point (but don't pop)
+//
+// @pre     -
+// @post    -
+// @param   index: Which matrix in the stack to return
+// @return  Pointer to the specific matrix
+//
+//----------------------------------------
+
+Mtx44P MtxStack::getStackPtr(u32 index){
+	if(index > curMtx){
+        // Oops, we're out of bounds
+		return (stackBase[curMtx]);
+
+        //return NULL;
+    }
+    return (stackBase[index]);
+}
+
+//----------------------------------------
+//
+// Function: position
+//
+//    Get the index of the current matrix
+//
+// @pre     -
+// @post    -
+// @param   -
+// @return  Index number of current matrix
+//
+//----------------------------------------
+
+u32 MtxStack::position(){
+    return curMtx;
+}
+
+//----------------------------------------
+//
+// Function: size
+//
+//    Get the total size of the stack
+//
+// @pre     -
+// @post    -
+// @param   -
+// @return  Maximum number of matrices we can have in the stack
+//
+//----------------------------------------
+
+u32 MtxStack::size(){
+    return maxMtx;
 }
 
 #endif
