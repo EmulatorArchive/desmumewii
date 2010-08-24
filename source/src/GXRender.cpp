@@ -477,7 +477,8 @@ static void ReadFramebuffer(){
     // (to avoid filtering during the framebuffer-to-texture copy)
 	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
 
-#ifdef GX_3D_FUNCTIONS
+
+#ifdef USE_CONVERTER
 	GX_CopyTex(gfx3d_convertedScreen, GX_TRUE);
 	GX_PixModeSync();
 #else
@@ -486,7 +487,6 @@ static void ReadFramebuffer(){
 	GX_PixModeSync();
 	//--DCN: PixModeSync should take care of flushing.
 	//DCFlushRange(GPU_screen3D, 256*192*4);
-
 	// Bleh, another "conversion" problem. In order to make our GX scene
 	// jive with Desmume, we need to convert it OUT of its native format.
 	u8* dst = gfx3d_convertedScreen;
@@ -561,7 +561,16 @@ static void GXRender(){
 			lastTextureFormat = textureFormat = poly->texParam;
 			lastTexturePalette = texturePalette = poly->texPalette;
 			BeginRenderPoly();
-#ifndef GX_3D_FUNCTIONS
+
+#ifdef GX_3D_FUNCTIONS	
+			if(poly->projMatrix[3][2] != 1){					
+				GX_LoadProjectionMtx(poly->projMatrix, GX_PERSPECTIVE); 
+			}else{
+				GX_LoadProjectionMtx(poly->projMatrix, GX_ORTHOGRAPHIC); 
+			}
+
+			GX_LoadPosMtxImm(poly->mvMatrix, GX_PNMTX0);
+#else
 			// Create our own, DS-to-Wii specific projection matrix
 			Mtx44 projection;
 

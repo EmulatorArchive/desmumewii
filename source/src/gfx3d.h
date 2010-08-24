@@ -1,3 +1,8 @@
+
+//--DCN: Enable native GX/GU functions instead!
+#define GX_3D_FUNCTIONS
+
+
 /*      Copyright (C) 2006 yopyop
     yopyop156@ifrance.com
     yopyop156.ifrance.com
@@ -30,6 +35,12 @@
 #include "types.h"
 #include "emufile.h"
 
+#ifdef GX_3D_FUNCTIONS	
+
+#include <ogcsys.h>
+#include <gccore.h>
+
+#endif
 
 //geometry engine command numbers
 #define GFX3D_NOP 0x00
@@ -141,9 +152,14 @@ struct POLY {
         u32 polyAttr, texParam, texPalette; //the hardware rendering params
         u32 viewport;
         float miny, maxy;
+#ifdef GX_3D_FUNCTIONS	
+		Mtx44 projMatrix; // Current 3D projection mtx
+		Mtx44 mvMatrix;   // Current 3D modelview mtx
+		Mtx44 texMatrix;   // Current 3D texture mtx
+#else
 		float projMatrix[16]; // current 3D projection mtx
 		float mvMatrix[16]; // current 3D modelview mtx
-
+#endif
         void setVertIndexes(int a, int b, int c, int d=-1)
         {
                 vertIndexes[0] = a;

@@ -1,4 +1,4 @@
-/* Condition Register Bit Fields */
+// Condition Register Bit Fields
 
 #define	cr0	0
 #define	cr1	1
@@ -9,8 +9,7 @@
 #define	cr6	6
 #define	cr7	7
 
-
-/* General Purpose Registers (GPRs) */
+// General Purpose Registers (GPRs)
 
 #define	r0	0
 #define	r1	1
@@ -47,8 +46,7 @@
 #define	r30	30
 #define	r31	31
 
-
-/* Floating Point Registers (FPRs) */
+// Floating Point Registers (FPRs)
 
 #define	fr0		0
 #define	fr1		1
@@ -117,44 +115,26 @@
 #define	vr31	31
 
 //////////////////
-	
-	
-	.globl ps_guMtxMultQuat
-	//r3 = Mtx, r4 = quat, r5 = dstQuat
-ps_guMtxMultQuat:
-	psq_l		fr0,0(r4),0,0
-	psq_l		fr2,0(r3),0,0
-	psq_l		fr1,8(r4),1,0	// THE ONLY CHANGE!
-	ps_mul		fr4,fr2,fr0
-	psq_l		fr3,8(r3),0,0
-	ps_madd		fr5,fr3,fr1,fr4
-	psq_l		fr8,16(r3),0,0
-	ps_sum0		fr6,fr5,fr6,fr5
-	psq_l		fr9,24(r3),0,0
-	ps_mul		fr10,fr8,fr0
-	psq_st		fr6,0(r5),1,0
-	ps_madd		fr11,fr9,fr1,fr10
-	psq_l		fr2,32(r3),0,0
-	ps_sum0		fr12,fr11,fr12,fr11
-	psq_l		fr3,40(r3),0,0
-	ps_mul		fr4,fr2,fr0
-	psq_st		fr12,4(r5),1,0
-	ps_madd		fr5,fr3,fr1,fr4
-	psq_l		fr8, 48(r3), 0, 0
-	ps_sum0		fr6,fr5,fr6,fr5
-	psq_l		fr9, 56(r3), 0, 0
-	ps_mul		fr10, fr8, fr0
-	psq_st		fr6,8(r5),1,0
-	ps_madd		fr11, fr9, fr1, fr10
-	ps_sum0		fr12, fr11, fr12, fr11
-	psq_st		fr12, 12(r5), 1, 0
+
+	.globl ps_guMtx44Identity
+	//r3 == mtx44
+ps_guMtx44Identity:
+	lis			r9,Unit01@ha
+	addi		r9,r9,Unit01@l
+	lfs			fr0,0(r9)
+	lfs			fr1,4(r9)
+	psq_st		fr0,8(r3),0,0
+	ps_merge01	fr2,fr0,fr1
+	psq_st		fr0,24(r3),0,0
+	ps_merge10	fr3,fr1,fr0
+	psq_st		fr0,32(r3),0,0
+	psq_st		fr2,16(r3),0,0
+	psq_st		fr3,0(r3),0,0
+	psq_st		fr3,40(r3),0,0
+	psq_st		fr0,48(r3),0,0
+	psq_st		fr2,56(r3),0,0
 	blr
 	
-	
-
-//---------------------------------------------
-//-- DCN: -------------------------------------
-//---------------------------------------------
 	.globl ps_guMtx44Copy
 	//r3 = src, r4 = dst
 ps_guMtx44Copy:
@@ -311,14 +291,15 @@ ps_guMtx44MultQuat:
 	ps_sum0		fr12, fr11, fr12, fr11
 	psq_st		fr12, 12(r5), 1, 0
 	blr
-
 	
-	.globl ps_guMtx44MultVec
-	//r3 = Mtx44, r4 = vec, r5 = dstVec
-ps_guMtx44MultVec:
+	////////////////////////////////////
+	
+	.globl ps_guMtxMultQuat
+	//r3 = Mtx, r4 = quat, r5 = dstQuat
+ps_guMtxMultQuat:
 	psq_l		fr0,0(r4),0,0
 	psq_l		fr2,0(r3),0,0
-	psq_l		fr1,8(r4),1,0	// THE ONLY CHANGE!
+	psq_l		fr1,8(r4),1,0
 	ps_mul		fr4,fr2,fr0
 	psq_l		fr3,8(r3),0,0
 	ps_madd		fr5,fr3,fr1,fr4
@@ -344,7 +325,8 @@ ps_guMtx44MultVec:
 	psq_st		fr12, 12(r5), 1, 0
 	blr
 	
-	
+	////////////////////////////////////
+		
 	.globl ps_guMtx44Transpose
 	//r3 = src, r4 = xpose
 ps_guMtx44Transpose:
@@ -376,7 +358,6 @@ ps_guMtx44Transpose:
 	ps_merge11	fr5,fr2,fr3		
 	psq_st		fr5,56(r4),0,0
 	//*/
-
 	/*
 	// Would the end be better this way? 
 	psq_l		fr3,56(r3),0,0
@@ -389,6 +370,7 @@ ps_guMtx44Transpose:
 	
 	blr
 	
+	////////////////////////////////////
 	
 	.globl ps_guMtx44Concat
 	//r3 = a, r4 = b, r5 = ab
@@ -499,22 +481,19 @@ ps_guMtx44ApplyTrans:
 	psq_l		fr7,56(r3),0,0
 	psq_st		fr6,48(r4),0,0
 	ps_mul		fr4, fr6, fr10
-	ps_madd	fr5, fr7, fr11, fr4
-	ps_sum1	fr10, fr5, fr6, fr5
+	ps_madd		fr5, fr7, fr11, fr4
+	ps_sum1		fr10, fr5, fr7, fr5
 	psq_st		fr10,56(r4),0,0	
 	
 	blr
 	
-	
 	.globl ps_guMtx44Scale
 	//r3 = mtx44, fr1 = xS, fr2 = yS, fr3 = zS
 ps_guMtx44Scale:
-
 	lis			r9,Unit01@ha
-
 	addi		r9,r9,Unit01@l
-	// VERIFIED:
-	// fr0(0) = 0, fr0(1) = 1
+	// r9(0) = 0 , r9(1) = 1
+	// fr0(0) = 0, fr0(0) = 0
 	lfs			fr0,0(r9)
 	stfs		fr1,0(r3)
 	psq_st		fr0,4(r3),0,0
@@ -529,20 +508,105 @@ ps_guMtx44Scale:
     psq_st      fr0, 52(r3), 0, 0
     stfs        fr4, 60(r3)
 	blr
-	//---------------------------
-	//---------------------------
 
-
+	
+	
+	
+	////////////////////////////////////
+	
+	//TODO: This is acting up
+	
+	.globl ps_guMtx44MultVec
+	//r3 = Mtx44, r4 = vec, r5 = dstVec
+ps_guMtx44MultVec:
+	psq_l		fr0,0(r4),0,0
+	psq_l		fr2,0(r3),0,0
+	psq_l		fr1,8(r4),1,0	// THE ONLY CHANGE!
+	ps_mul		fr4,fr2,fr0
+	psq_l		fr3,8(r3),0,0
+	ps_madd		fr5,fr3,fr1,fr4
+	psq_l		fr8,16(r3),0,0
+	ps_sum0		fr6,fr5,fr6,fr5
+	psq_l		fr9,24(r3),0,0
+	ps_mul		fr10,fr8,fr0
+	psq_st		fr6,0(r5),1,0
+	ps_madd		fr11,fr9,fr1,fr10
+	psq_l		fr2,32(r3),0,0
+	ps_sum0		fr12,fr11,fr12,fr11
+	psq_l		fr3,40(r3),0,0
+	ps_mul		fr4,fr2,fr0
+	psq_st		fr12,4(r5),1,0
+	ps_madd		fr5,fr3,fr1,fr4
+	psq_l		fr8, 48(r3), 0, 0
+	ps_sum0		fr6,fr5,fr6,fr5
+	psq_l		fr9, 56(r3), 0, 0
+	ps_mul		fr10, fr8, fr0
+	psq_st		fr6,8(r5),1,0
+	ps_madd		fr11, fr9, fr1, fr10
+	ps_sum0		fr12, fr11, fr12, fr11
+	psq_st		fr12, 12(r5), 1, 0
+	blr
+	
+	
+	
+	// TAKE OUT!
+	.globl ps_guMtxInvXpose_copyFromLibogc
+	//r3 = src, r4 = invx
+ps_guMtxInvXpose_copyFromLibogc:
+	psq_l       fr0, 0(r3), 1, 0
+	psq_l       fr1, 4(r3), 0, 0
+	psq_l       fr2, 16(r3), 1, 0
+	ps_merge10  fr6, fr1, fr0
+	psq_l       fr3, 20(r3), 0, 0
+	psq_l       fr4, 32(r3), 1, 0
+	ps_merge10  fr7, fr3, fr2
+	psq_l       fr5, 36(r3), 0, 0
+	ps_mul      fr11, fr3, fr6
+	ps_merge10  fr8, fr5, fr4
+	ps_mul      fr13, fr5, fr7
+	ps_msub     fr11, fr1, fr7, fr11
+	ps_mul      fr12, fr1, fr8
+	ps_msub     fr13, fr3, fr8, fr13
+	ps_msub     fr12, fr5, fr6, fr12
+	ps_mul      fr10, fr3, fr4
+	ps_mul      fr9,  fr0, fr5
+	ps_mul      fr8,  fr1, fr2
+	ps_msub     fr10, fr2, fr5, fr10
+	ps_msub     fr9,  fr1, fr4, fr9
+	ps_msub     fr8,  fr0, fr3, fr8
+	ps_mul      fr7, fr0, fr13
+	ps_sub      fr1, fr1, fr1
+	ps_madd     fr7, fr2, fr12, fr7
+	ps_madd     fr7, fr4, fr11, fr7
+	ps_cmpo0    cr0, fr7, fr1
+	bne         0f
+	addi        r3, 0, 0
+	blr
+0:	fres        fr0, fr7
+	psq_st      fr1,  12(r4), 1, 0
+	ps_add      fr6, fr0, fr0
+	ps_mul      fr5, fr0, fr0
+	psq_st      fr1,  28(r4), 1, 0
+	ps_nmsub    fr0, fr7, fr5, fr6
+	psq_st      fr1,  44(r4), 1, 0
+	ps_muls0    fr13, fr13, fr0
+	ps_muls0    fr12, fr12, fr0
+	ps_muls0    fr11, fr11, fr0
+	psq_st      fr13,  0(r4), 0, 0
+	psq_st      fr12,  16(r4), 0, 0
+	ps_muls0    fr10, fr10, fr0
+	ps_muls0    fr9,  fr9,  fr0
+	psq_st      fr11,  32(r4), 0, 0
+	psq_st      fr10,  8(r4), 1, 0
+	ps_muls0    fr8,  fr8,  fr0
+	addi        r3, 0, 1
+	psq_st      fr9,   24(r4), 1, 0
+	psq_st      fr8,   40(r4), 1, 0
+	blr
+	
+	
 	.section .data
 	.balign 4
-QuatEpsilon:
-	.float	0.00001
 Unit01:
-	.float	0.0, 1.0	
-	
-	
-	
-	
-	
-	
+	.float	0.0, 1.0
 	
