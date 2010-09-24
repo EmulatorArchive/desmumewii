@@ -153,8 +153,9 @@ struct POLY {
         u32 viewport;
         float miny, maxy;
 #ifdef GX_3D_FUNCTIONS	
-		Mtx44 projMatrix; // Current 3D projection mtx
-		Mtx44 mvMatrix;   // Current 3D modelview mtx
+		Mtx44 projMatrix;  // Current 3D projection mtx
+		Mtx44 mvMatrix;    // Current 3D modelview mtx
+		Mtx44 normMatrix;  // Current 3D normal mtx
 		Mtx44 texMatrix;   // Current 3D texture mtx
 #else
 		float projMatrix[16]; // current 3D projection mtx
@@ -333,35 +334,54 @@ private:
 //used to communicate state to the renderer
 struct GFX3D
 {
-        GFX3D()
-                : enableTexturing(true)
-                , enableAlphaTest(true)
-                , enableAlphaBlending(true)
-                , enableAntialiasing(false)
-                , enableEdgeMarking(false)
-                , enableClearImage(false)
-                , enableFog(false)
-                , enableFogAlphaOnly(false)
-                , fogShift(0)
-                , shading(TOON)
-                , polylist(0)
-                , vertlist(0)
-                , alphaTestRef(0)
-                , clearDepth(1)
-                , clearColor(0)
-                , fogColor(0)
-                , fogOffset(0)
-                , frameCtr(0)
-                , frameCtrRaw(0)
-        {
-                int i = ARRAY_SIZE(u16ToonTable) - 1;
-                do{
-                        u16ToonTable[i] = 0;
-                        --i;
-                }while(i >= 0);
+	GFX3D() :
+#ifdef EXPERIMENTAL_GX       
+		  clearColor((GXColor){0x00,0x00,0x00,0xff})
+		, fogColor((GXColor){0x00,0x00,0x00,0xff})
+#else 
+		  clearColor(0)	
+		, fogColor(0)
+#endif
+		, enableTexturing(true)
+		, enableAlphaTest(true)
+		, enableAlphaBlending(true)
+		, enableAntialiasing(false)
+		, enableEdgeMarking(false)
+		, enableClearImage(false)
+		, enableFog(false)
+		, enableFogAlphaOnly(false)
+		, fogShift(0)
+		, shading(TOON)
+		, polylist(0)
+		, vertlist(0)
+		, alphaTestRef(0)
+		, clearDepth(1)
+		, fogOffset(0)
+		, frameCtr(0)
+		, frameCtrRaw(0){
+
+			int i = ARRAY_SIZE(u16ToonTable) - 1;
+			do{
+				u16ToonTable[i] = 0;
+				--i;
+			}while(i >= 0);
         }
+#ifdef EXPERIMENTAL_GX
+		GXColor clearColor;
+		GXColor fogColor;
+#else
+		u32 clearColor; 
+		#include "PACKED.h"
+        struct {
+                u32 fogColor;
+                u32 pad[3]; //for savestate compatibility as of 26-jul-09
+        };
+        #include "PACKED_END.h"
+#endif
+
         BOOL enableTexturing, enableAlphaTest, enableAlphaBlending,
-                enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
+             enableAntialiasing, enableEdgeMarking, enableClearImage, 
+			 enableFog, enableFogAlphaOnly;
 
         u32 fogShift;
 
@@ -378,13 +398,7 @@ struct GFX3D
         u8 alphaTestRef;
 
         u32 clearDepth;
-        u32 clearColor;
-        #include "PACKED.h"
-        struct {
-                u32 fogColor;
-                u32 pad[3]; //for savestate compatibility as of 26-jul-09
-        };
-        #include "PACKED_END.h"
+
         u32 fogOffset;
 
         //ticks every time flush() is called
