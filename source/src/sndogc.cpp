@@ -17,6 +17,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include <gccore.h>
 #include <gctypes.h>
 #include <stdlib.h>
@@ -29,6 +30,15 @@
 #include "debug.h"
 #include <unistd.h>
 
+#define NEW_SOUND_SYSTEM
+
+
+#ifdef NEW_SOUND_SYSTEM
+#include <asndlib.h>
+#endif
+
+
+
 int SNDOGCInit(int buffersize);
 void SNDOGCDeInit();
 void SNDOGCUpdateAudio(s16 *buffer, u32 num_samples);
@@ -38,15 +48,15 @@ void SNDOGCUnMuteAudio();
 void SNDOGCSetVolume(int volume);
 
 SoundInterface_struct SNDOGC = {
-SNDCORE_OGC,
-"OGC Sound Interface",
-SNDOGCInit,
-SNDOGCDeInit,
-SNDOGCUpdateAudio,
-SNDOGCGetAudioSpace,
-SNDOGCMuteAudio,
-SNDOGCUnMuteAudio,
-SNDOGCSetVolume
+	SNDCORE_OGC,
+	"OGC Sound Interface",
+	SNDOGCInit,
+	SNDOGCDeInit,
+	SNDOGCUpdateAudio,
+	SNDOGCGetAudioSpace,
+	SNDOGCMuteAudio,
+	SNDOGCUnMuteAudio,
+	SNDOGCSetVolume
 };
 
 static u8 *stereodata16[2] = {NULL, NULL};
@@ -94,10 +104,16 @@ static void *audio_thread(void*)
 
 static void MixAudio()
 {
+
+#ifdef NEW_SOUND_SYSTEM
+	DCFlushRange(stereodata16[whichab], soundbufsize);
+	AUDIO_InitDMA((u32) stereodata16[whichab], soundbufsize);
+#else
 	AUDIO_StopDMA();
 	DCFlushRange(stereodata16[whichab], soundbufsize);
 	AUDIO_InitDMA((u32) stereodata16[whichab], soundbufsize);
 	AUDIO_StartDMA();
+#endif
 
 	LWP_ThreadSignal(audioqueue);
 }
@@ -107,12 +123,17 @@ static void MixAudio()
 int SNDOGCInit(int buffersize)
 {
 	whichab = 0;
-	AUDIO_Init(NULL);
 
+#ifdef NEW_SOUND_SYSTEM
+	ASND_Init();
+#else
+	AUDIO_Init(NULL);
 	AUDIO_SetDSPSampleRate(AI_SAMPLERATE_48KHZ);
 	AUDIO_SetStreamSampleRate(AI_SAMPLERATE_48KHZ);
 	AUDIO_SetStreamVolLeft(sndogcvolume);
 	AUDIO_SetStreamVolRight(sndogcvolume);
+#endif
+	
 
 	soundoffset = 0;
 	soundbufsize = buffersize;
@@ -126,6 +147,15 @@ int SNDOGCInit(int buffersize)
 	memset(stereodata16[0], 0, soundbufsize);
 	memset(stereodata16[1], 0, soundbufsize);
 	memset(tmpbuffer,       0, soundbufsize);
+
+
+#ifdef NEW_SOUND_SYSTEM
+
+	DCFlushRange(stereodata16[0], soundbufsize);
+	DCFlushRange(stereodata16[1], soundbufsize);
+	AUDIO_InitDMA((u32)stereodata16[whichab],soundbufsize);
+	AUDIO_StartDMA();
+#endif
 
 	if (audiomutex == LWP_MUTEX_NULL)
 		LWP_MutexInit(&audiomutex, false);
@@ -225,13 +255,18 @@ void SNDOGCSetVolume(int volume)
 	
 	sndogcvolume = volume;
 	
-/*	#define AVE_AI_VOLUME 0x71
+#ifdef NEW_SOUND_SYSTEM
 
-	VIWriteI2CRegister8(AVE_AI_VOLUME, clamp(volume.left, 0x00, 0xFF));
-    VIWriteI2CRegister8(AVE_AI_VOLUME + 1, clamp(volume.right, 0x00, 0xFF));
-*/
+	// TODO: The closest I found was: 
+	// ASND_ChangeVolumeVoice(s32 voice, s32 volume_l, s32 volume_r)
+
+	ASND_ChangeVolumeVoice(0, sndogcvolume, sndogcvolume);
+#else
+
 	AUDIO_SetStreamVolLeft(sndogcvolume);
 	AUDIO_SetStreamVolRight(sndogcvolume);
+
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
