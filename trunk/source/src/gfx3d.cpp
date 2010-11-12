@@ -480,12 +480,11 @@ struct tmpVertInfo {
 
 
 static void twiddleLists() {
-        listTwiddle++;
-        listTwiddle &= 1;
-        polylist = &polylists[listTwiddle];
-        vertlist = &vertlists[listTwiddle];
-        polylist->count = 0;
-        vertlist->count = 0;
+	listTwiddle ^= 1;
+    polylist = &polylists[listTwiddle];
+    vertlist = &vertlists[listTwiddle];
+    polylist->count = 0;
+    vertlist->count = 0;
 }
 
 static void gfx3d_null(u32 pad) {
@@ -550,20 +549,6 @@ void gfx3d_init()
 {
         gxf_hardware.reset();
         //gxf_hardware.test();
-
-        //DWORD start = timeGetTime();
-        //for(int i=0;i<1000000000;i++)
-        //      MatrixMultVec4x4(mtxCurrent[0],mtxCurrent[1]);
-        //DWORD end = timeGetTime();
-        //DWORD diff = end-start;
-
-        //start = timeGetTime();
-        //for(int i=0;i<1000000000;i++)
-        //      MatrixMultVec4x4_b(mtxCurrent[0],mtxCurrent[1]);
-        //end = timeGetTime();
-        //DWORD diff2 = end-start;
-
-        //printf("SPEED TEST %d %d\n",diff,diff2);
 
         if(polylists == NULL) { polylists = new POLYLIST[2]; polylist = &polylists[0]; }
         if(vertlists == NULL) { vertlists = new VERTLIST[2]; vertlist = &vertlists[0]; }
@@ -804,17 +789,7 @@ static void SetVertex()
         }
         VERT &vert = vertlist->list[vertIndex];
 
-        //printf("%f %f %f\n",coordTransformed[0],coordTransformed[1],coordTransformed[2]);
-        //if(coordTransformed[1] > 20)
-        //      coordTransformed[1] = 20;
 
-        //printf("y-> %f\n",coord[1]);
-
-        //if(mtxCurrent[1][14]>15) {
-        //      printf("ACK!\n");
-        //      printf("----> modelview 1 state for that ack:\n");
-        //      //MatrixPrint(mtxCurrent[1]);
-        //}
 #ifdef GX_3D_FUNCTIONS	
 		//--DCN: This is the ONLY place where last_s and last_t are used!
         vert.texcoord[0] = last_s;
@@ -1210,6 +1185,20 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
 #ifdef GX_3D_FUNCTIONS
 
+	//--DCN: I guess we do several iterations of this function,
+	// and when we're ready (MM4x4ind >= 16) THEN we divide and such.
+
+	int a = MM4x4ind / 4;
+	int b = MM4x4ind % 4;
+
+	mtxCurrent[mode][a][b] = (float)((s32)v);
+
+	MM4x4ind++;
+    if(MM4x4ind<16) return;
+    MM4x4ind = 0;
+
+
+
 	GFX_DELAY(19);
 
 	fix2floatGX(mtxCurrent[mode], 4096.f);
@@ -1249,6 +1238,17 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
 
 
 #ifdef GX_3D_FUNCTIONS
+
+	int a = ML4x3ind / 4;
+	int b = ML4x3ind % 4;
+
+	mtxCurrent[mode][a][b] = (float)((s32)v);
+
+    ML4x3ind++;
+    if((ML4x3ind & 0x03) == 3) ML4x3ind++;
+    if(ML4x3ind<16) return;
+    ML4x3ind = 0;
+
 
     GFX_DELAY(35);
 
@@ -1296,6 +1296,18 @@ static void gfx3d_glMultMatrix4x4(u32 v)
 
 #ifdef GX_3D_FUNCTIONS
 
+
+	
+	int a = MM4x4ind / 4;
+	int b = MM4x4ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM4x4ind++;
+    if(MM4x4ind<16) return;
+    MM4x4ind = 0;
+
+
 	GFX_DELAY(35);
 
 	fix2floatGX(mtxTemporal, 4096.f);
@@ -1336,6 +1348,18 @@ static void gfx3d_glMultMatrix4x3(u32 v)
 #ifdef GX_3D_FUNCTIONS
 
 	GFX_DELAY(31);
+
+	
+	int a = MM4x3ind / 4;
+	int b = MM4x3ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM4x3ind++;
+    if((MM4x3ind & 0x03) == 3) MM4x3ind++;
+    if(MM4x3ind<16) return;
+    MM4x3ind = 0;
+
 
 	fix2floatGX(mtxTemporal, 4096.f);
 
@@ -1378,7 +1402,6 @@ static void gfx3d_glMultMatrix4x3(u32 v)
         }
 		//printf("mult4x3: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
 
-        //does this really need to be done?
         MatrixIdentity (mtxTemporal);
 #endif
         return;
@@ -1387,6 +1410,18 @@ static void gfx3d_glMultMatrix4x3(u32 v)
 static void gfx3d_glMultMatrix3x3(u32 v)
 {
 #ifdef GX_3D_FUNCTIONS
+
+	int a = MM3x3ind / 4;
+	int b = MM3x3ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM3x3ind++;
+    if((MM3x3ind & 0x03) == 3) MM3x3ind++;
+    if(MM3x3ind<12) return;
+    MM3x3ind = 0;
+
+
 
 	GFX_DELAY(28);
 
@@ -1438,7 +1473,8 @@ static void gfx3d_glScale(u32 v)
 {
 	//--DCN: This is just weird, we only scale one value at a time.
 	// I bet that this is called three times for each x,y,z value. 
-
+	//--DCN: Update, it is. If we have called it 3 times,
+	// (see scaleind) THEN it will do the scaling. 
         scale[scaleind] = fix2float(v);
 
         ++scaleind;
@@ -1669,9 +1705,9 @@ static void gfx3d_glTexCoord(u32 val)
                                 0.0625f*mtxCurrent[3][0][2] + 0.0625f*mtxCurrent[3][0][3];
             last_t =_s * mtxCurrent[3][1][0] + _t*mtxCurrent[3][1][1] +
                                 0.0625f*mtxCurrent[3][1][2] + 0.0625f*mtxCurrent[3][1][3];
-//*/
+			//*/
 
-			//--DCN: Uuuuh, what do we put here?
+			//--DCN: What do we put here?
 			//guMtxTrans(mtxCurrent[3], normal.x, normal.y, normal.z);
 #else
                 last_s =_s*mtxCurrent[3][0] + _t*mtxCurrent[3][4] +
