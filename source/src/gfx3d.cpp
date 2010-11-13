@@ -1,41 +1,4 @@
-
-//-------------------------------------------------------
-//#define EXPERIMENTAL_GX
-/*
-// This is in OGLRender:
-// When envMode = 3, then we're shadowing; writing to the stencil buffer
-envMode =	(val&0x30)>>4;
-		=	(val&0x30)>>4	== 3
-		= (poly->polyAttr & 0x30) >> 4	== 3
-
-//for(int i=0;i<gfx3d.polylist->count;i++) { // For each polygon...
-//	POLY *poly = &gfx3d.polylist->list[gfx3d.indexlist.list[i]];
-
-		= (gfx3d.polylist->list[gfx3d.indexlist.list[i]].polyAttr & 0x30) >> 4 == 3
-
-// gfx3d.polylist = polylist;
-		= (polylist->list[...[i]] ... == 3
-
-// In SetVertex():
-//polylist->list[polylist->count].vertIndexes[ii] = tempVertInfo.map[nn];
-	//if(polygonListCompleted == 1){
-		//	POLY &poly = polylist->list[polylist->count];
-		//	poly.polyAttr = polyAttr; // (!)
-		//	polylist->count++;
-
-// In gfx3d_glBegin:
-//polyAttr = polyAttrPending;
-
-//In gfx3d_glPolygonAttrib(val):
-//	polyAttrPending = val;
-
-// In summary, gfx3d_glPolygonAttrib sets whether or not this is a shadow
-
-		= (polyAttrPending & 0x30) >> 4	== 3
-
-//*/
-/*  Copyright (C) 2006 yopyop
-
+/*      Copyright (C) 2006 yopyop
     yopyop156@ifrance.com
     yopyop156.ifrance.com
 
@@ -370,8 +333,6 @@ CACHE_ALIGN u8 gfx3d_convertedScreen[256*192*4];
 
 
 
-//#define GX_3D_FUNCTIONS
-
 #ifdef GX_3D_FUNCTIONS
 
 #include <gctypes.h>
@@ -389,15 +350,23 @@ CACHE_ALIGN MtxStack mtxStack[4] = {
 };
 
 //--DCN: I don't like hacks...
-int _hack_getMatrixStackLevel(int which) { return mtxStack[which].position(); }
+int _hack_getMatrixStackLevel(int which){ 
+	return mtxStack[which].position(); 
+}
+
+#ifdef EXPERIMENTAL_GX
+	// There's four lights, we change these instead of
+	// the multitude of arrays. Neato!
+	GXLightObj lights[4];
+#endif
 
 #else  // Non-GX functions
 
 // Matrix stack handling
 CACHE_ALIGN MatrixStack mtxStack[4] = {
         MatrixStack(1), // Projection stack
-        MatrixStack(31), // Coordinate stack
-        MatrixStack(31), // Directional stack
+        MatrixStack(31), // Coordinate stack	(Modelview)
+        MatrixStack(31), // Directional stack	(For lighting --normals)
         MatrixStack(1), // Texture stack
 };
 
@@ -511,12 +480,11 @@ struct tmpVertInfo {
 
 
 static void twiddleLists() {
-        listTwiddle++;
-        listTwiddle &= 1;
-        polylist = &polylists[listTwiddle];
-        vertlist = &vertlists[listTwiddle];
-        polylist->count = 0;
-        vertlist->count = 0;
+	listTwiddle ^= 1;
+    polylist = &polylists[listTwiddle];
+    vertlist = &vertlists[listTwiddle];
+    polylist->count = 0;
+    vertlist->count = 0;
 }
 
 static void gfx3d_null(u32 pad) {
@@ -582,20 +550,6 @@ void gfx3d_init()
         gxf_hardware.reset();
         //gxf_hardware.test();
 
-        //DWORD start = timeGetTime();
-        //for(int i=0;i<1000000000;i++)
-        //      MatrixMultVec4x4(mtxCurrent[0],mtxCurrent[1]);
-        //DWORD end = timeGetTime();
-        //DWORD diff = end-start;
-
-        //start = timeGetTime();
-        //for(int i=0;i<1000000000;i++)
-        //      MatrixMultVec4x4_b(mtxCurrent[0],mtxCurrent[1]);
-        //end = timeGetTime();
-        //DWORD diff2 = end-start;
-
-        //printf("SPEED TEST %d %d\n",diff,diff2);
-
         if(polylists == NULL) { polylists = new POLYLIST[2]; polylist = &polylists[0]; }
         if(vertlists == NULL) { vertlists = new VERTLIST[2]; vertlist = &vertlists[0]; }
         makeTables();
@@ -637,6 +591,7 @@ void gfx3d_reset()
         memset(&tempVertInfo, 0, sizeof(tempVertInfo));
 
 #ifdef GX_3D_FUNCTIONS
+
 		guMtx44Identity (mtxCurrent[0]);
         guMtx44Identity (mtxCurrent[1]);
         guMtx44Identity (mtxCurrent[2]);
@@ -713,42 +668,14 @@ static void SetVertex()
 
 	if (texCoordinateTransform == 3){
 
-#ifdef EXPERIMENTAL_GX
-
-		//--DCN: How about this:
-		// Generate coordinates based on input coordinate 0
-		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0);
-
+		guMtxTrans(mtxCurrent[3],
+					coordTransformed.x,
+					coordTransformed.y,
+					coordTransformed.z);
+		// This may solve the problem, but look
+		// at the "normal" function below,
+		// It also uses mtxCurrent[3].
 		/*
-		GX_LoadPosMtxImm(identity_matrix,GX_PNMTX0);
-		GX_LoadNrmMtxImm(identity_matrix,GX_PNMTX0);
-		GX_SetCurrentMtx(GX_PNMTX0);
-		GX_LoadTexMtxImm(identity_matrix,GX_DTTIDENTITY,GX_MTX3x4);
-		//*/
-
-		GX_SetCurrentMtx(GX_PNMTX0);
-
-
-		GX_LoadTexMtxImm(mtxCurrent[3], GX_TEXMTX0, GX_MTX3x4);
-		// Then, we just do this:
-		last_s = _s;
-		last_t = _t;
-
-#else
-		//Row-column order: 
-		/*
-		fmtx[4] = Mtx[1][0]		fmtx[8] = Mtx[2][0]
-		fmtx[5] = Mtx[1][1]		fmtx[9] = Mtx[2][1]
-		//*/
-		//Original:
-		/*
-        last_s =((coordTransformed[0]*mtxCurrent[3][0][0] +
-                  coordTransformed[1]*mtxCurrent[3][1][0] +
-                  coordTransformed[2]*mtxCurrent[3][2][0]) + _s * 16.0f) / 16.0f;
-        last_t =((coordTransformed[0]*mtxCurrent[3][0][1] +
-                  coordTransformed[1]*mtxCurrent[3][1][1] +
-                  coordTransformed[2]*mtxCurrent[3][2][1]) + _t * 16.0f) / 16.0f;
-		//*/
 		//Rotated for GX:
 		last_s =((coordTransformed.x*mtxCurrent[3][0][0] +
                   coordTransformed.y*mtxCurrent[3][0][1] +
@@ -756,12 +683,11 @@ static void SetVertex()
         last_t =((coordTransformed.x*mtxCurrent[3][1][0] +
                   coordTransformed.y*mtxCurrent[3][1][1] +
                   coordTransformed.z*mtxCurrent[3][1][2]) + _t * 16.0f) / 16.0f;
-
-#endif    
+		//*/
+   
 	}
 
 #else
-
         float coord[3] = {
                         float16table[u16coord[0]],
                         float16table[u16coord[1]],
@@ -772,23 +698,12 @@ static void SetVertex()
 
         if (texCoordinateTransform == 3)
         {
-			//--DCN: This is calculating the inverse-transform
-			//       if I'm not mistaken. Done in GX with:
-			/*
-				//mv: modelview matrix
-			    GX_LoadPosMtxImm(mv, GX_PNMTX0);
-				guMtxInverse(mv, mv);
-				guMtxTranspose(mv, mv);
-				GX_LoadNrmMtxImm(mv, GX_PNMTX0);
-			//*/
-			// Yes, I think I am mistaken. Whatever it is, this 
-			// is storing the results in individual S and T values.
-                last_s =((coordTransformed[0]*mtxCurrent[3][0] +
-                          coordTransformed[1]*mtxCurrent[3][4] +
-                          coordTransformed[2]*mtxCurrent[3][8]) + _s * 16.0f) / 16.0f;
-                last_t =((coordTransformed[0]*mtxCurrent[3][1] +
-                          coordTransformed[1]*mtxCurrent[3][5] +
-                          coordTransformed[2]*mtxCurrent[3][9]) + _t * 16.0f) / 16.0f;
+                last_s =((coord[0]*mtxCurrent[3][0] +
+                                        coord[1]*mtxCurrent[3][4] +
+                                        coord[2]*mtxCurrent[3][8]) + _s * 16.0f) / 16.0f;
+                last_t =((coord[0]*mtxCurrent[3][1] +
+                                        coord[1]*mtxCurrent[3][5] +
+                                        coord[2]*mtxCurrent[3][9]) + _t * 16.0f) / 16.0f;
         }
 #endif
         
@@ -804,9 +719,6 @@ static void SetVertex()
 
 #ifdef GX_3D_FUNCTIONS	
 
-	//guVecMultiply(mtxCurrent[0], (guVector*)coordTransformed);
-	//guVecMultiply(mtxCurrent[1], (guVector*)coordTransformed);
-
 	// Here's the contents of MatrixMultVec4x4_M2:
 	//MatrixMultVec4x4(matrix+16,vecPtr);
 	//MatrixMultVec4x4(matrix,vecPtr);
@@ -819,7 +731,15 @@ static void SetVertex()
 		switch(current3Dcore) 
 		{
 			case 1: //GX
-				guMtx44MultQuat(mtxCurrent[1], &coordTransformed, &coordTransformed);  
+				// Here's something: This is transforming the
+				// coordinate by the modelview matrix.
+				// Something that is normally done in hardware (GX)
+				//
+				// What if we just took it out, and passed 
+				// the modelview matrix to GX?
+
+				//guMtx44MultQuat(mtxCurrent[1], &coordTransformed, &coordTransformed);  
+				
 				break;
 
 			case 2: // raster
@@ -856,15 +776,10 @@ static void SetVertex()
         //TODO - viewport transform?
 
         int continuation = 0;
-		if(!tempVertInfo.first && (vtxFormat==2 || vtxFormat==3) ){
-			continuation = 2;
-		}
-		/*
         if(vtxFormat==2 && !tempVertInfo.first)
                 continuation = 2;
         else if(vtxFormat==3 && !tempVertInfo.first)
                 continuation = 2;
-		//*/
 
         //record the vertex
         //VERT &vert = tempVertList.list[tempVertList.count];
@@ -874,17 +789,7 @@ static void SetVertex()
         }
         VERT &vert = vertlist->list[vertIndex];
 
-        //printf("%f %f %f\n",coordTransformed[0],coordTransformed[1],coordTransformed[2]);
-        //if(coordTransformed[1] > 20)
-        //      coordTransformed[1] = 20;
 
-        //printf("y-> %f\n",coord[1]);
-
-        //if(mtxCurrent[1][14]>15) {
-        //      printf("ACK!\n");
-        //      printf("----> modelview 1 state for that ack:\n");
-        //      //MatrixPrint(mtxCurrent[1]);
-        //}
 #ifdef GX_3D_FUNCTIONS	
 		//--DCN: This is the ONLY place where last_s and last_t are used!
         vert.texcoord[0] = last_s;
@@ -904,18 +809,12 @@ static void SetVertex()
         vert.coord[1] = coordTransformed[1];
         vert.coord[2] = coordTransformed[2];
 		vert.coord[3] = coordTransformed[3];
-        vert.coord[3] = 1.0f;
         vert.color[0] = GFX3D_5TO6(colorRGB[0]);
         vert.color[1] = GFX3D_5TO6(colorRGB[1]);
         vert.color[2] = GFX3D_5TO6(colorRGB[2]);
 #endif
         tempVertInfo.map[tempVertInfo.count] = vertlist->count + tempVertInfo.count - continuation;
         tempVertInfo.count++;
-
-		//--DCN: This will complete a polygon if enough vertices have
-		// been submitted. Couldn't we just do the rendering here? 
-		// Bypass a LOT of needless software-computing in favor 
-		// of GX? I think that would be best.
 
         //possibly complete a polygon
         {
@@ -925,9 +824,8 @@ static void SetVertex()
                                 if(tempVertInfo.count!=3)
                                         break;
                                 polygonListCompleted = 1;
-								SUBMITVERTEX(0,0);
-								SUBMITVERTEX(0,0);
-
+                                //vertlist->list[polylist->list[polylist->count].vertIndexes[i] = vertlist->count++] = tempVertList.list[n];
+                                SUBMITVERTEX(0,0);
                                 SUBMITVERTEX(1,1);
                                 SUBMITVERTEX(2,2);
                                 vertlist->count+=3;
@@ -998,6 +896,7 @@ static void SetVertex()
 
 						guMtx44Copy(mtxCurrent[0], poly.projMatrix);
 						guMtx44Copy(mtxCurrent[1], poly.mvMatrix);
+						guMtx44Copy(mtxCurrent[2], poly.normMatrix);
 						guMtx44Copy(mtxCurrent[3], poly.texMatrix);
 #else
 
@@ -1079,7 +978,7 @@ static void gfx3d_glMatrixMode(u32 v)
 {
 	// mode == 0: Projection
 	// mode == 1: Coordinate (Position)
-	// mode == 2: Direction (normal?)
+	// mode == 2: Direction (Normal?)
 	// mode == 3: Texture (Texture)
         mode = (v&3);
 
@@ -1195,9 +1094,9 @@ static void gfx3d_glStoreMatrix(u32 v)
                 v = 0;
 
 		//--DCN: Shouldn't this be: 
-		if (v >= 31) return;
+		// (v >= 31) return;
 		//Orignal:
-        //if (v > 31) return;
+        if (v > 31) return;
 
 
 #ifdef GX_3D_FUNCTIONS
@@ -1220,7 +1119,7 @@ static void gfx3d_glStoreMatrix(u32 v)
 #endif
 
 }
-//--DCN:DONE
+
 static void gfx3d_glRestoreMatrix(u32 v)
 {
         //this command always works on both pos and vector when either pos or pos-vector are the current mtx mode
@@ -1232,9 +1131,9 @@ static void gfx3d_glRestoreMatrix(u32 v)
                 v = 0;
 
         //--DCN: Shouldn't this be: 
-		if (v >= 31) return;
+		//if (v >= 31) return;
 		//Orignal:
-        //if (v > 31) return;
+        if (v > 31) return;
 
 
 #ifdef GX_3D_FUNCTIONS
@@ -1286,6 +1185,20 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
 #ifdef GX_3D_FUNCTIONS
 
+	//--DCN: I guess we do several iterations of this function,
+	// and when we're ready (MM4x4ind >= 16) THEN we divide and such.
+
+	int a = MM4x4ind / 4;
+	int b = MM4x4ind % 4;
+
+	mtxCurrent[mode][a][b] = (float)((s32)v);
+
+	MM4x4ind++;
+    if(MM4x4ind<16) return;
+    MM4x4ind = 0;
+
+
+
 	GFX_DELAY(19);
 
 	fix2floatGX(mtxCurrent[mode], 4096.f);
@@ -1307,10 +1220,9 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
         GFX_DELAY(19);
 
-	//*/
-
-		//--DCN: This divides everything by 4096
-        vector_fix2float<4>(mtxCurrent[mode], 4096.f);
+		if (!mode) vector_fix2float<4>(mtxCurrent[mode], (mtxCurrent[mode][15] ? mtxCurrent[mode][15] : -mtxCurrent[mode][10]));
+		else  vector_fix2float<4>(mtxCurrent[mode], 4096.f); 
+//		vector_fix2float<4>(mtxCurrent[mode], 4096.f);
 
 		if (mode == 2){
 			MatrixCopy (mtxCurrent[1], mtxCurrent[2]);
@@ -1326,6 +1238,17 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
 
 
 #ifdef GX_3D_FUNCTIONS
+
+	int a = ML4x3ind / 4;
+	int b = ML4x3ind % 4;
+
+	mtxCurrent[mode][a][b] = (float)((s32)v);
+
+    ML4x3ind++;
+    if((ML4x3ind & 0x03) == 3) ML4x3ind++;
+    if(ML4x3ind<16) return;
+    ML4x3ind = 0;
+
 
     GFX_DELAY(35);
 
@@ -1373,6 +1296,18 @@ static void gfx3d_glMultMatrix4x4(u32 v)
 
 #ifdef GX_3D_FUNCTIONS
 
+
+	
+	int a = MM4x4ind / 4;
+	int b = MM4x4ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM4x4ind++;
+    if(MM4x4ind<16) return;
+    MM4x4ind = 0;
+
+
 	GFX_DELAY(35);
 
 	fix2floatGX(mtxTemporal, 4096.f);
@@ -1413,6 +1348,18 @@ static void gfx3d_glMultMatrix4x3(u32 v)
 #ifdef GX_3D_FUNCTIONS
 
 	GFX_DELAY(31);
+
+	
+	int a = MM4x3ind / 4;
+	int b = MM4x3ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM4x3ind++;
+    if((MM4x3ind & 0x03) == 3) MM4x3ind++;
+    if(MM4x3ind<16) return;
+    MM4x3ind = 0;
+
 
 	fix2floatGX(mtxTemporal, 4096.f);
 
@@ -1455,7 +1402,6 @@ static void gfx3d_glMultMatrix4x3(u32 v)
         }
 		//printf("mult4x3: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
 
-        //does this really need to be done?
         MatrixIdentity (mtxTemporal);
 #endif
         return;
@@ -1464,6 +1410,18 @@ static void gfx3d_glMultMatrix4x3(u32 v)
 static void gfx3d_glMultMatrix3x3(u32 v)
 {
 #ifdef GX_3D_FUNCTIONS
+
+	int a = MM3x3ind / 4;
+	int b = MM3x3ind % 4;
+
+	mtxTemporal[a][b] = (float)((s32)v);
+
+	MM3x3ind++;
+    if((MM3x3ind & 0x03) == 3) MM3x3ind++;
+    if(MM3x3ind<12) return;
+    MM3x3ind = 0;
+
+
 
 	GFX_DELAY(28);
 
@@ -1510,12 +1468,13 @@ static void gfx3d_glMultMatrix3x3(u32 v)
 #endif
         return;
 }
-//--DCN:DONE
+
 static void gfx3d_glScale(u32 v)
 {
 	//--DCN: This is just weird, we only scale one value at a time.
 	// I bet that this is called three times for each x,y,z value. 
-
+	//--DCN: Update, it is. If we have called it 3 times,
+	// (see scaleind) THEN it will do the scaling. 
         scale[scaleind] = fix2float(v);
 
         ++scaleind;
@@ -1539,7 +1498,7 @@ static void gfx3d_glScale(u32 v)
         //      MatrixScale (mtxCurrent[1], scale);
         return;
 }
-//--DCN:DONE
+
 static void gfx3d_glTranslate(u32 v)
 {
 	//--DCN: Just like glScale above, why is this happening?
@@ -1599,38 +1558,9 @@ static void gfx3d_glNormal(u32 v)
 
 	if (texCoordinateTransform == 2){
 
-#ifdef EXPERIMENTAL_GX
-
-		//--DCN: How about this:
-		// Generate coordinates based on input coordinate 0
-		//GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0);
-
-		/*
-		GX_LoadPosMtxImm(identity_matrix,GX_PNMTX0);
-		GX_LoadNrmMtxImm(identity_matrix,GX_PNMTX0);
-		GX_SetCurrentMtx(GX_PNMTX0);
-		GX_LoadTexMtxImm(identity_matrix,GX_DTTIDENTITY,GX_MTX3x4);
-		//*/
-
-		//GX_SetCurrentMtx(GX_PNMTX0);
-
-		GX_LoadNrmMtxImm(mtxCurrent[3], GX_PNMTX0);
-		// Then, we just do this:
-		last_s = _s;
-		last_t = _t;
-
-#else
-		//--DCN: I still don't like this:
-		//Original:
-		/*
 		
-		last_s =((normal[0]*mtxCurrent[3][0][0] +
-				  normal[1]*mtxCurrent[3][1][0] +
-				  normal[2]*mtxCurrent[3][2][0])+ _s * 16.0f) / 16.0f;
-		last_t =((normal[0]*mtxCurrent[3][0][1] +
-				  normal[1]*mtxCurrent[3][1][1] +
-				  normal[2]*mtxCurrent[3][2][1])+ _t * 16.0f) / 16.0f;
-		//*/
+		//guMtxTrans(mtxCurrent[3], normal.x, normal.y, normal.z);
+		
 		//Rotated for GX:
 		last_s =((normal.x*mtxCurrent[3][0][0] +
 				  normal.y*mtxCurrent[3][0][1] +
@@ -1639,7 +1569,6 @@ static void gfx3d_glNormal(u32 v)
 				  normal.y*mtxCurrent[3][1][1] +
 				  normal.z*mtxCurrent[3][1][2])+ _t * 16.0f) / 16.0f;
 
-#endif
 
 	}
 
@@ -1666,16 +1595,8 @@ static void gfx3d_glNormal(u32 v)
         MatrixMultVec3x3 (mtxCurrent[2], normal);
 
 #endif
-
-		//--DCN: You know, this is doing an awful lot more than just normals, it's
-		// doing all the lights as well! That's what the DS does.
-
         //apply lighting model
         {
-				// Emission
-				int vertexColor[3] = {	(dsEmission)&0x1F,
-										(dsEmission>>5)&0x1F,
-										(dsEmission>>10)&0x1F };
                 u8 diffuse[3] = {
                         (dsDiffuse)&0x1F,
                         (dsDiffuse>>5)&0x1F,
@@ -1685,23 +1606,21 @@ static void gfx3d_glNormal(u32 v)
                         (dsAmbient)&0x1F,
                         (dsAmbient>>5)&0x1F,
                         (dsAmbient>>10)&0x1F };
-				/*
+
                 u8 emission[3] = {
                         (dsEmission)&0x1F,
                         (dsEmission>>5)&0x1F,
                         (dsEmission>>10)&0x1F };
-						//*/
 
                 u8 specular[3] = {
                         (dsSpecular)&0x1F,
                         (dsSpecular>>5)&0x1F,
                         (dsSpecular>>10)&0x1F };
 
-                
+                int vertexColor[3] = { emission[0], emission[1], emission[2] };
 
                 int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
 
-				// Go through each light
                 for(i=0; i<4; i++)
                 {
                         if(!((lightMask>>i)&1)) continue;
@@ -1713,17 +1632,16 @@ static void gfx3d_glNormal(u32 v)
 
                         /* This formula is the one used by the DS */
                         /* Reference : http://nocash.emubase.de/gbatek.htm#ds3dpolygonlightparameters */
-
 #ifdef GX_3D_FUNCTIONS	
 
 #define quat3dot(a,b) (((a.x) * (b.x)) + ((a.y) * (b.y)) + ((a.z) * (b.z)))
 
-						float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
-                        float shininessLevel = pow(std::max(0.0f, quat3dot(-cacheHalfVector[i], normal)), 2);
+		float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
+        float shininessLevel = pow(std::max(0.0f, quat3dot(-cacheHalfVector[i], normal)), 2);
 #else
 
-                        float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
-                        float shininessLevel = pow(std::max(0.0f, vec3dot(-cacheHalfVector[i], normal)), 2);
+            float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
+            float shininessLevel = pow(std::max(0.0f, vec3dot(-cacheHalfVector[i], normal)), 2);
 #endif
                         if(dsSpecular & 0x8000)
                         {
@@ -1743,8 +1661,6 @@ static void gfx3d_glNormal(u32 v)
                                 shininessLevel = shininessTable[shininessIndex];
                         }
 
-						//--DCN: Here is where we actually change the vertex color based on the light
-						// I would LOVE to defer this to GX, at least the lighting that it CAN do, anyway.
                         for(c = 0; c < 3; c++)
                         {
                                 vertexColor[c] += (int)(((specular[c] * _lightColor[c] * shininessLevel)
@@ -1778,42 +1694,21 @@ static void gfx3d_glTexCoord(u32 val)
 
 #ifdef GX_3D_FUNCTIONS	
 
-
-#ifdef EXPERIMENTAL_GX
-			//Copied from above, may not apply:
-
-
-			//--DCN: How about this:
-			// Generate coordinates based on input coordinate 0
-			GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
-			//GX_SetCurrentMtx(GX_PNMTX0);
-
-
-			GX_LoadTexMtxImm(mtxCurrent[3], GX_TEXMTX0, GX_MTX3x4);
-			// Then, we just do this:
-			last_s = _s;
-			last_t = _t;
-
-#else
 			//Row-column order: 
 			/*
 			fmtx[4] = Mtx[1][0]		fmtx[8] = Mtx[2][0]
 			fmtx[5] = Mtx[1][1]		fmtx[9] = Mtx[2][1]
-			//*/
-			//Original:
-			/*
-			last_s =_s * mtxCurrent[3][0][0] + _t*mtxCurrent[3][1][0] +
-                                0.0625f*mtxCurrent[3][2][0] + 0.0625f*mtxCurrent[3][3][0];
-            last_t =_s * mtxCurrent[3][0][1] + _t*mtxCurrent[1][1][1] +
-                                0.0625f*mtxCurrent[3][2][1] + 0.0625f*mtxCurrent[3][3][1];
-			//*/
+			
+
 			//Rotated for GX:
 			last_s =_s * mtxCurrent[3][0][0] + _t*mtxCurrent[3][0][1] +
                                 0.0625f*mtxCurrent[3][0][2] + 0.0625f*mtxCurrent[3][0][3];
-            last_t =_s * mtxCurrent[3][1][0] + _t*mtxCurrent[1][1][1] +
+            last_t =_s * mtxCurrent[3][1][0] + _t*mtxCurrent[3][1][1] +
                                 0.0625f*mtxCurrent[3][1][2] + 0.0625f*mtxCurrent[3][1][3];
-#endif    
+			//*/
 
+			//--DCN: What do we put here?
+			//guMtxTrans(mtxCurrent[3], normal.x, normal.y, normal.z);
 #else
                 last_s =_s*mtxCurrent[3][0] + _t*mtxCurrent[3][4] +
                                 0.0625f*mtxCurrent[3][8] + 0.0625f*mtxCurrent[3][12];
@@ -1955,42 +1850,10 @@ static void gfx3d_glMaterial1(u32 val)
 */
 static void gfx3d_glLightDirection (u32 v)
 {
-		int index = v>>30;
+        int index = v>>30;
 
         lightDirection[index] = v;
         gfx3d_glLightDirection_cache(index);
-		
-		//--DCN: gfx3d_glLightDirection strips the value "v" of everything but the
-		// last two bits,which are the light's number. It then assigns the light the
-		// value of "v" and calls the cache function with the light's NUMBER (not value)
-		// 
-		// Then, get this, in the cache function, it calls:
-		//    u32 v = lightDirection[index];
-		// Which just undoes what we just did! The only time that the cache
-		// function is used without this function is in the "loadState" function.
-
-		// The cache function then does the following:
-        /*
-        cacheLightDirection[index][0] = normalTable[v&1023];
-        cacheLightDirection[index][1] = normalTable[(v>>10)&1023];
-        cacheLightDirection[index][2] = normalTable[(v>>20)&1023];
-        cacheLightDirection[index][3] = 0;
-		//*/
-		// This sets up, what I believe to be, the normals for x, y, z, w = 0.
-		// These range from [0 - 2).
-		//
-		// It then multiplies the current matrix (the modelview matrix, if I'm not mistaken)
-		// by the new vector, and calculates the "half-vector":
-        /*
-		matrixMultVec3x3(mtxCurrent[2], cacheLightDirection[index]);
-
-        //Calculate the half vector 
-		float lineOfSight[4] = {0.0f, 0.0f, -1.0f, 0.0f};
-		for(int i = 0; i < 4; i++)
-		{
-			cacheHalfVector[index][i] = ((cacheLightDirection[index][i] + lineOfSight[i]) / 2.0f);
-		}
-        //*/
         GFX_DELAY(6);
 }
 
@@ -2012,6 +1875,7 @@ static void gfx3d_glShininess (u32 val)
         shininessInd = 0;
         GFX_DELAY(32);
         return;
+
 }
 
 static void gfx3d_glBegin(u32 v)
@@ -2037,13 +1901,8 @@ static void gfx3d_glEnd(u32 pad)
 
 static void gfx3d_glViewPort(u32 v)
 {
-#ifdef GX_3D_FUNCTIONS
-	GX_SetViewport((v&0xFF), std::min(191,(int)(((v>>8)&0xFF))), (((v>>16)&0xFF)+1)-(v&0xFF), ((v>>24)+1)-((v>>8)&0xFF),0,1);
-	//GX_SetScissor(0,0,256,192); //Maybe this as well?
-#else
         viewport = v;
         GFX_DELAY(1);
-#endif
 }
 
 static void gfx3d_glBoxTest(u32 v)
@@ -2261,8 +2120,7 @@ static void gfx3d_glVecTest(u32 v)
         s16 y = (s16)(normal[1]);
         s16 z = (s16)(normal[2]);
 #endif
-
-        
+      
 
         MMU_new.gxstat.tb = 0;          // clear busy
         T1WriteWord(MMU.MMU_MEM[0][0x40], 0x630, x);
@@ -2284,36 +2142,11 @@ void VIEWPORT::decode(u32 v)
 
 void gfx3d_glClearColor(u32 v)
 {
-	// Put it out here, replace with GX code below.
-	gfx3d.clearColor = v;
-
-#ifdef GX_3D_FUNCTIONS
-	/*
-	// Yes, we want to keep track of it too.
-	gfx3d.clearColorGX = GXColor{((float)(v&0x1F))/31.0f,
-								 ((float)((v>>5)&0x1F))/31.0f,
-								 ((float)((v>>10)&0x1F))/31.0f,
-								 ((float)((v>>16)&0x1F))/31.0f)
-	};
-	GX_SetCopyClear(gfx3d.clearColorGX, gfx3d.clearDepth);
-	//*/
-#else
-	
-#endif
-	
+        gfx3d.clearColor = v;
 }
 
 void gfx3d_glFogColor(u32 v)
 {
-	/*
-	GX_SetFog(
-		GXFogType type,
-		f32		startz,
-		f32		endz,
-		f32		nearz,
-		f32		farz,
-		GXColor	color )
-//*/
         gfx3d.fogColor = v;
 }
 
@@ -2324,14 +2157,8 @@ void gfx3d_glFogOffset (u32 v)
 
 void gfx3d_glClearDepth(u32 v)
 {
-	v &= 0x7FFF;
-	gfx3d.clearDepth = gfx3d_extendDepth_15_to_24(v);
-
-#ifdef GX_3D_FUNCTIONS
-	//GX_SetCopyClear(gfx3d.clearColorGX, gfx3d.clearDepth);
-#else
-        
-#endif
+        v &= 0x7FFF;
+        gfx3d.clearDepth = gfx3d_extendDepth_15_to_24(v);
 }
 
 // Ignored for now
@@ -2394,22 +2221,22 @@ s32 gfx3d_GetClipMatrix (unsigned int index)
 
 s32 gfx3d_GetDirectionalMatrix (unsigned int index)
 {
-		
-#ifdef GX_3D_FUNCTIONS
-
 	// Are we assuming that it's a 3x3 matrix?
 	
-	int _index = (((index / 3) * 4) + (index % 3));
-	
-	//
+
+	int _index = (((index / 3) * 4) + (index % 3));	
+
+#ifdef GX_3D_FUNCTIONS
+
 	int a = _index / 4;
 	int b = _index % 4;
 	
-	return (s32)(mtxCurrent[2][a][b]*(1<<12));
+	//return (s32)(mtxCurrent[2][a][b]*(1<<12));
+	// Rotated for GX:
+	return (s32)(mtxCurrent[2][b][a]*(1<<12));
 
 #else
-		int _index = (((index / 3) * 4) + (index % 3));
-        return (s32)(mtxCurrent[2][_index]*(1<<12));
+		return (s32)(mtxCurrent[2][_index]*(1<<12));
 #endif
 }
 
@@ -2429,11 +2256,7 @@ void gfx3d_ClearStack()
 
 void gfx3d_glAlphaFunc(u32 v)
 {
-#ifdef GX_3D_FUNCTIONS
-	GX_SetAlphaCompare(GX_GREATER, (v&31)/31.f, GX_AOP_OR , GX_NEVER, 0);
-#else
         gfx3d.alphaTestRef = v&31;
-#endif
 }
 
 unsigned int gfx3d_glGetPosRes(unsigned int index)
@@ -2456,7 +2279,6 @@ static void gfx3d_execute(u8 cmd, u32 param)
         //INFO("*** gxFIFO: exec 0x%02X, tail %03i, gxstat 0x%08X (timer %i)\n", cmd, gxFIFO.tail, gxstat2, nds_timer);
 #endif
 #if 1
-		//--DCN: This executes each command (see switch below)
         gfx3d_cmd_lut[cmd](param);
 #else
         switch (cmd)
@@ -2594,14 +2416,6 @@ void gfx3d_execute3D()
         const int HACK_FIFO_BATCH_SIZE = 64;
 
         for(int i=0;i<HACK_FIFO_BATCH_SIZE;i++) {
-
-				//--DCN: This goes through each command that has been put into the fake FIFO (software FIFO)
-				// We queue them up with, I believe, GFX_FIFOsend. PIPErecv changes cmd and param each time.
-				// What would be AWESOME is if we could just bypass this fake FIFO, the fake OpenGL computing,
-				// and just go directly to GX. I believe it to be possible.
-
-				// Also, it will call, based on the cmd and param variables, the corresponding gfx3d_gl* function
-				// as defined in this document.
                 if(GFX_PIPErecv(&cmd, &param))
                 {
                         //if (isSwapBuffers) printf("Executing while swapbuffers is pending: %d:%08X\n",cmd,param);
@@ -2792,16 +2606,11 @@ void gfx3d_VBlankEndSignal(bool skipFrame)
         drawPending = FALSE;
 
         //if the null 3d core is chosen, then we need to clear out the 3d buffers to keep old data from being rendered
-        
-		
-		//--DCN: The null 3d core is never chosen
-		/*
-		if(gpu3D == &gpu3DNull || !CommonSettings.showGpu.main)
+        if(gpu3D == &gpu3DNull || !CommonSettings.showGpu.main)
         {
                 memset(gfx3d_convertedScreen,0,sizeof(gfx3d_convertedScreen));
                 return;
         }
-		//*/
 
         gpu3D->NDS_3D_Render();
 }
@@ -2881,36 +2690,6 @@ void gfx3d_sendCommand(u32 cmd, u32 param)
 
 void gfx3d_Control(u32 v)
 {
-
-	/*
-	//--DCN:
-	if(v&1){
-		glEnable (GL_TEXTURE_2D);
-	}
-	else{
-		glDisable (GL_TEXTURE_2D);
-	}
-
-	if(v&(1<<2)){
-		glAlphaFunc	(GL_GREATER, alphaTestBase);
-	}
-	else{
-		glAlphaFunc	(GL_GREATER, 0);
-	}
-
-	if(v&(1<<3)){
-		glBlendFunc		(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable		(GL_BLEND);
-	}
-	else{
-		glDisable		(GL_BLEND);
-	}
-
-	if (v&(1<<14)){
-		printlog("Enabled BITMAP background mode\n");
-	}
-	//*/
-
         control = v;
 }
 
@@ -2920,15 +2699,6 @@ void gfx3d_Control(u32 v)
 /*
 void gfx3d_glGetMatrix(unsigned int m_mode, int index, float* dest)
 {
-#ifdef GX_3D_FUNCTIONS	
-//Dangit, "dest" isn't a Mtx44!
-		if(index == -1){
-                guMtx44Copy(dest, mtxCurrent[m_mode]);
-                return;
-        }
-		guMtx44Copy (dest, mtxStack[m_mode].getStackPtr(index));
-
-#else
         if(index == -1)
         {
                 MatrixCopy(dest, mtxCurrent[m_mode]);
@@ -2936,7 +2706,6 @@ void gfx3d_glGetMatrix(unsigned int m_mode, int index, float* dest)
         }
 
         MatrixCopy(dest, MatrixStackGetPos(&mtxStack[m_mode], index));
-#endif
 }
 //*/
 
@@ -3303,14 +3072,14 @@ private:
                 float* vert0coord = vert0->coord;
                 float* vert1coord = vert1->coord;
                 bool out0, out1;
-
-				if(which == -1){
+                if(which==-1)
                         out0 = vert0coord[coord] < -vert0coord[3];
-						out1 = vert1coord[coord] < -vert1coord[3];
-				}else{
+                else
                         out0 = vert0coord[coord] > vert0coord[3];
-						out1 = vert1coord[coord] > vert1coord[3];
-				}                        
+                if(which==-1)
+                        out1 = vert1coord[coord] < -vert1coord[3];
+                else
+                        out1 = vert1coord[coord] > vert1coord[3];
 
                 //CONSIDER: should we try and clip things behind the eye? does this code even successfully do it? not sure.
                 //if(coord==2 && which==1) {
@@ -3536,13 +3305,13 @@ static void makeCmdLut() {
 	gfx3d_cmd_lut[0x11] = &gfx3d_glPushMatrix;		// MTX_PUSH - Push Current Matrix on Stack (W)
 	gfx3d_cmd_lut[0x12] = &gfx3d_glPopMatrix;		// MTX_POP - Pop Current Matrix from Stack (W)
 	gfx3d_cmd_lut[0x13] = &gfx3d_glStoreMatrix;		// MTX_STORE - Store Current Matrix on Stack (W)
-	gfx3d_cmd_lut[0x14] = &gfx3d_glRestoreMatrix;		// MTX_RESTORE - Restore Current Matrix from Stack (W)
-	gfx3d_cmd_lut[0x15] = &gfx3d_glLoadIdentity;		// MTX_IDENTITY - Load Unit Matrix to Current Matrix (W)
-	gfx3d_cmd_lut[0x16] = &gfx3d_glLoadMatrix4x4;		// MTX_LOAD_4x4 - Load 4x4 Matrix to Current Matrix (W)
-	gfx3d_cmd_lut[0x17] = &gfx3d_glLoadMatrix4x3;		// MTX_LOAD_4x3 - Load 4x3 Matrix to Current Matrix (W)
-	gfx3d_cmd_lut[0x18] = &gfx3d_glMultMatrix4x4;		// MTX_MULT_4x4 - Multiply Current Matrix by 4x4 Matrix (W)
-	gfx3d_cmd_lut[0x19] = &gfx3d_glMultMatrix4x3;		// MTX_MULT_4x3 - Multiply Current Matrix by 4x3 Matrix (W)
-	gfx3d_cmd_lut[0x1A] = &gfx3d_glMultMatrix3x3;		// MTX_MULT_3x3 - Multiply Current Matrix by 3x3 Matrix (W)
+	gfx3d_cmd_lut[0x14] = &gfx3d_glRestoreMatrix;	// MTX_RESTORE - Restore Current Matrix from Stack (W)
+	gfx3d_cmd_lut[0x15] = &gfx3d_glLoadIdentity;	// MTX_IDENTITY - Load Unit Matrix to Current Matrix (W)
+	gfx3d_cmd_lut[0x16] = &gfx3d_glLoadMatrix4x4;	// MTX_LOAD_4x4 - Load 4x4 Matrix to Current Matrix (W)
+	gfx3d_cmd_lut[0x17] = &gfx3d_glLoadMatrix4x3;	// MTX_LOAD_4x3 - Load 4x3 Matrix to Current Matrix (W)
+	gfx3d_cmd_lut[0x18] = &gfx3d_glMultMatrix4x4;	// MTX_MULT_4x4 - Multiply Current Matrix by 4x4 Matrix (W)
+	gfx3d_cmd_lut[0x19] = &gfx3d_glMultMatrix4x3;	// MTX_MULT_4x3 - Multiply Current Matrix by 4x3 Matrix (W)
+	gfx3d_cmd_lut[0x1A] = &gfx3d_glMultMatrix3x3;	// MTX_MULT_3x3 - Multiply Current Matrix by 3x3 Matrix (W)
 	gfx3d_cmd_lut[0x1B] = &gfx3d_glScale;			// MTX_SCALE - Multiply Current Matrix by Scale Matrix (W)
 	gfx3d_cmd_lut[0x1C] = &gfx3d_glTranslate;		// MTX_TRANS - Mult. Curr. Matrix by Translation Matrix (W)
 	gfx3d_cmd_lut[0x20] = &gfx3d_glColor3b;			// COLOR - Directly Set Vertex Color (W)
@@ -3554,16 +3323,16 @@ static void makeCmdLut() {
 	gfx3d_cmd_lut[0x26] = &gfx3d_glVertex3_cord<0, 2>;	// VTX_XZ - Set Vertex XZ Coordinates (W)
 	gfx3d_cmd_lut[0x27] = &gfx3d_glVertex3_cord<1, 2>;	// VTX_YZ - Set Vertex YZ Coordinates (W)
 	gfx3d_cmd_lut[0x28] = &gfx3d_glVertex_rel;		// VTX_DIFF - Set Relative Vertex Coordinates (W)
-	gfx3d_cmd_lut[0x29] = &gfx3d_glPolygonAttrib;		// POLYGON_ATTR - Set Polygon Attributes (W)
+	gfx3d_cmd_lut[0x29] = &gfx3d_glPolygonAttrib;	// POLYGON_ATTR - Set Polygon Attributes (W)
 	gfx3d_cmd_lut[0x2A] = &gfx3d_glTexImage;		// TEXIMAGE_PARAM - Set Texture Parameters (W)
 	gfx3d_cmd_lut[0x2B] = &gfx3d_glTexPalette;		// PLTT_BASE - Set Texture Palette Base Address (W)
 	gfx3d_cmd_lut[0x30] = &gfx3d_glMaterial0;		// DIF_AMB - MaterialColor0 - Diffuse/Ambient Reflect. (W)
 	gfx3d_cmd_lut[0x31] = &gfx3d_glMaterial1;		// SPE_EMI - MaterialColor1 - Specular Ref. & Emission (W)
-	gfx3d_cmd_lut[0x32] = &gfx3d_glLightDirection;		// LIGHT_VECTOR - Set Light's Directional Vector (W)
+	gfx3d_cmd_lut[0x32] = &gfx3d_glLightDirection;	// LIGHT_VECTOR - Set Light's Directional Vector (W)
 	gfx3d_cmd_lut[0x33] = &gfx3d_glLightColor;		// LIGHT_COLOR - Set Light Color (W)
 	gfx3d_cmd_lut[0x34] = &gfx3d_glShininess;		// SHININESS - Specular Reflection Shininess Table (W)
 	gfx3d_cmd_lut[0x40] = &gfx3d_glBegin;			// BEGIN_VTXS - Start of Vertex List (W)
-	gfx3d_cmd_lut[0x41] = &gfx3d_glEnd;			// END_VTXS - End of Vertex List (W)
+	gfx3d_cmd_lut[0x41] = &gfx3d_glEnd;				// END_VTXS - End of Vertex List (W)
 	gfx3d_cmd_lut[0x50] = &gfx3d_glFlush;			// SWAP_BUFFERS - Swap Rendering Engine Buffer (W)
 	gfx3d_cmd_lut[0x60] = &gfx3d_glViewPort;		// VIEWPORT - Set Viewport (W)
 	gfx3d_cmd_lut[0x70] = &gfx3d_glBoxTest;			// BOX_TEST - Test if Cuboid Sits inside View Volume (W)
