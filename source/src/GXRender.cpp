@@ -297,11 +297,18 @@ static void setTexture(u32 format, u32 texpal){
 		GX_LoadTexObj(texMan->gxObj(currTexture->texid), GX_TEXMAP0);
 
 		// Configure the texture matrix 
+		/*
+		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);			
+		GX_LoadTexMtxImm(textureView, GX_TEXMTX0, GX_MTX2x4);
+		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_POS, GX_TEXMTX0);
+		//*/
+		//*
+		//Old version (possibly better?)
 		guMtxIdentity(textureView);
-		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);
+		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);	
 		GX_LoadTexMtxImm(textureView, GX_TEXMTX0,GX_MTX3x4);
 		GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
-	
+		//*/
 	}
 
 }
@@ -477,16 +484,12 @@ static void ReadFramebuffer(){
     // (to avoid filtering during the framebuffer-to-texture copy)
 	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
 
-
-#ifdef USE_CONVERTER
-	GX_CopyTex(gfx3d_convertedScreen, GX_TRUE);
-	GX_PixModeSync();
-#else
 	// Copy the screen into a texture
 	GX_CopyTex((void*)GPU_screen3D, GX_TRUE);
 	GX_PixModeSync();
 	//--DCN: PixModeSync should take care of flushing.
 	//DCFlushRange(GPU_screen3D, 256*192*4);
+
 	// Bleh, another "conversion" problem. In order to make our GX scene
 	// jive with Desmume, we need to convert it OUT of its native format.
 	u8* dst = gfx3d_convertedScreen;
@@ -512,7 +515,7 @@ static void ReadFramebuffer(){
 
 		}
 	}
-#endif
+
 	DCFlushRange(gfx3d_convertedScreen, 256*192*4);
 
     // Restore vertical de-flicker filter mode
@@ -560,17 +563,29 @@ static void GXRender(){
 			InstallPolygonAttrib(lastPolyAttr = poly->polyAttr);
 			lastTextureFormat = textureFormat = poly->texParam;
 			lastTexturePalette = texturePalette = poly->texPalette;
-			BeginRenderPoly();
 
 #ifdef GX_3D_FUNCTIONS	
+
+			// Copy our texture matrix from the poly
+			guMtxCopy(poly->texMatrix, textureView);
+
+			BeginRenderPoly();
+
+
+			//GX_LoadProjectionMtx(poly->projMatrix, GX_PERSPECTIVE);
+			//*
 			if(poly->projMatrix[3][2] != 1){					
 				GX_LoadProjectionMtx(poly->projMatrix, GX_PERSPECTIVE); 
 			}else{
 				GX_LoadProjectionMtx(poly->projMatrix, GX_ORTHOGRAPHIC); 
 			}
+			//*/
 
 			GX_LoadPosMtxImm(poly->mvMatrix, GX_PNMTX0);
+			GX_LoadNrmMtxImm(poly->normMatrix, GX_PNMTX0);
 #else
+			BeginRenderPoly();
+
 			// Create our own, DS-to-Wii specific projection matrix
 			Mtx44 projection;
 
@@ -617,6 +632,21 @@ static void GXRender(){
 			lastViewport = poly->viewport;
 		}
 		//*/
+
+#ifdef TESTING
+
+	static u32 count = 0;
+	count++;
+	if(count>1200){
+		VERT *vert = &gfx3d.vertlist->list[poly->vertIndexes[0]];
+
+		printf("\nx:%f, y:%f, z:%f, u:%f, v:%f",
+			vert->x, vert->y, vert->z, vert->u, vert->v);
+
+		count = 0;
+	}
+#endif
+
 
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
@@ -665,7 +695,6 @@ static void GXRender(){
 
 static void Set3DVideoSettings(){
 
-	Mtx44 projection; // Projection matrix
 	Mtx modelview;
 
 	// Set up the viewpoint (one screen)
@@ -675,11 +704,7 @@ static void Set3DVideoSettings(){
 	guMtxIdentity(modelview);
 	// Load in an identity matrix to be our position matrix
 	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
-	/*
-	// Our "not-quite" perspective projection. Needs tweaking/replacing.
-	guPerspective(projection, 60.0f, 1, 1.0f, 1000.0f);
-	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-	//*/
+
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
 	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
@@ -735,6 +760,7 @@ static void Set3DVideoSettings(){
 
 	if(gfx3d.enableFog && CommonSettings.GFX3D_Fog){
 
+		/*
 		//TODO: Make fogColor a GXColor so we won't have to convert it
 		GXColor col = {
 			GFX3D_5TO6((gfx3d.fogColor)&0x1F),
@@ -742,10 +768,10 @@ static void Set3DVideoSettings(){
 			GFX3D_5TO6((gfx3d.fogColor>>10)&0x1F),
 			(gfx3d.fogColor>>16)&0x1F
 		};
-
+		
 		//--DCN: I just picked random numbers here.
 		GX_SetFog(GX_FOG_LIN, 16.0f, 1000.0f, 0.0f, 1.0f, col);
-
+		//*/
 		/*
 		// There is no function to initialize the GXFogAdjTable.
 		// If it DID exist, we would call it like so:
@@ -753,7 +779,7 @@ static void Set3DVideoSettings(){
 		//
 		// Function: GX_InitFogAdjTable
 		//
-		// @param: GXFogAdjTable* table: The Fog adjustment table
+		// @param: GXFogAdjTbl* table: The Fog adjustment table
 		// @param: u16 width:     The width of our current viewport
 		// @param: Mtx44 projmtx: The projection matrix that we're using
 		GX_InitFogAdjTable(&table, 256, projection);
