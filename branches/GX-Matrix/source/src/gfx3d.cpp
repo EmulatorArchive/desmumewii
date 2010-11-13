@@ -668,14 +668,16 @@ static void SetVertex()
 
 	if (texCoordinateTransform == 3){
 
+		// This is what it will hopefully become. But look at
+		// the "normal" function below. It also uses mtxCurrent[3].
+		/*
 		guMtxTrans(mtxCurrent[3],
 					coordTransformed.x,
 					coordTransformed.y,
 					coordTransformed.z);
-		// This may solve the problem, but look
-		// at the "normal" function below,
-		// It also uses mtxCurrent[3].
-		/*
+		//*/
+
+		//*
 		//Rotated for GX:
 		last_s =((coordTransformed.x*mtxCurrent[3][0][0] +
                   coordTransformed.y*mtxCurrent[3][0][1] +
@@ -738,7 +740,7 @@ static void SetVertex()
 				// What if we just took it out, and passed 
 				// the modelview matrix to GX?
 
-				//guMtx44MultQuat(mtxCurrent[1], &coordTransformed, &coordTransformed);  
+				guMtx44MultQuat(mtxCurrent[1], &coordTransformed, &coordTransformed);  
 				
 				break;
 
@@ -776,10 +778,8 @@ static void SetVertex()
         //TODO - viewport transform?
 
         int continuation = 0;
-        if(vtxFormat==2 && !tempVertInfo.first)
-                continuation = 2;
-        else if(vtxFormat==3 && !tempVertInfo.first)
-                continuation = 2;
+		if(!tempVertInfo.first && ( vtxFormat==2 || vtxFormat==3))
+			continuation = 2;
 
         //record the vertex
         //VERT &vert = tempVertList.list[tempVertList.count];
@@ -1191,7 +1191,9 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 	int a = MM4x4ind / 4;
 	int b = MM4x4ind % 4;
 
-	mtxCurrent[mode][a][b] = (float)((s32)v);
+	//Rotated for GX:
+	mtxCurrent[mode][b][a] = (float)((s32)v);
+	//mtxCurrent[mode][a][b] = (float)((s32)v);
 
 	MM4x4ind++;
     if(MM4x4ind<16) return;
@@ -1201,7 +1203,15 @@ static void gfx3d_glLoadMatrix4x4(u32 v)
 
 	GFX_DELAY(19);
 
-	fix2floatGX(mtxCurrent[mode], 4096.f);
+	if (!mode){
+		fix2floatGX(mtxCurrent[mode], 
+			(mtxCurrent[mode][3][3] ? mtxCurrent[mode][3][3] : -mtxCurrent[mode][2][2]));
+	
+	}else{
+		fix2floatGX(mtxCurrent[mode], 4096.f);
+	}
+
+	//fix2floatGX(mtxCurrent[mode], 4096.f);
 
 	if (mode == 2){
 		guMtx44Copy (mtxCurrent[2], mtxCurrent[1]);
@@ -1242,7 +1252,9 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
 	int a = ML4x3ind / 4;
 	int b = ML4x3ind % 4;
 
-	mtxCurrent[mode][a][b] = (float)((s32)v);
+	//Rotated for GX:
+	mtxCurrent[mode][b][a] = (float)((s32)v);
+	//mtxCurrent[mode][a][b] = (float)((s32)v);
 
     ML4x3ind++;
     if((ML4x3ind & 0x03) == 3) ML4x3ind++;
@@ -1301,7 +1313,9 @@ static void gfx3d_glMultMatrix4x4(u32 v)
 	int a = MM4x4ind / 4;
 	int b = MM4x4ind % 4;
 
-	mtxTemporal[a][b] = (float)((s32)v);
+	//Rotated for GX:
+	mtxTemporal[b][a] = (float)((s32)v);
+	//mtxTemporal[a][b] = (float)((s32)v);
 
 	MM4x4ind++;
     if(MM4x4ind<16) return;
@@ -1353,7 +1367,9 @@ static void gfx3d_glMultMatrix4x3(u32 v)
 	int a = MM4x3ind / 4;
 	int b = MM4x3ind % 4;
 
-	mtxTemporal[a][b] = (float)((s32)v);
+	//Rotated for GX:
+	mtxTemporal[b][a] = (float)((s32)v);
+	//mtxTemporal[a][b] = (float)((s32)v);
 
 	MM4x3ind++;
     if((MM4x3ind & 0x03) == 3) MM4x3ind++;
@@ -1414,7 +1430,9 @@ static void gfx3d_glMultMatrix3x3(u32 v)
 	int a = MM3x3ind / 4;
 	int b = MM3x3ind % 4;
 
-	mtxTemporal[a][b] = (float)((s32)v);
+	//Rotated for GX:
+	mtxTemporal[b][a] = (float)((s32)v);
+	//mtxTemporal[a][b] = (float)((s32)v);
 
 	MM3x3ind++;
     if((MM3x3ind & 0x03) == 3) MM3x3ind++;
@@ -1463,7 +1481,7 @@ static void gfx3d_glMultMatrix3x3(u32 v)
                 MatrixMultiply (mtxCurrent[1], mtxTemporal);
                 GFX_DELAY_M2(30);
         }
-		//does this really need to be done?
+
 		MatrixIdentity (mtxTemporal);
 #endif
         return;
@@ -1501,8 +1519,6 @@ static void gfx3d_glScale(u32 v)
 
 static void gfx3d_glTranslate(u32 v)
 {
-	//--DCN: Just like glScale above, why is this happening?
-	// Can we combine three of these into one? Please please please?
 
         trans[transind] = fix2float(v);
 
@@ -1552,15 +1568,15 @@ static void gfx3d_glNormal(u32 v)
 #ifdef GX_3D_FUNCTIONS	
 
 	guQuaternion normal = { normalTable[v&1023],
-                        normalTable[(v>>10)&1023],
-                        normalTable[(v>>20)&1023], 1
-					  };
+							normalTable[(v>>10)&1023],
+							normalTable[(v>>20)&1023], 1
+							};
 
 	if (texCoordinateTransform == 2){
 
 		
 		//guMtxTrans(mtxCurrent[3], normal.x, normal.y, normal.z);
-		
+		//*
 		//Rotated for GX:
 		last_s =((normal.x*mtxCurrent[3][0][0] +
 				  normal.y*mtxCurrent[3][0][1] +
@@ -1568,7 +1584,7 @@ static void gfx3d_glNormal(u32 v)
 		last_t =((normal.x*mtxCurrent[3][1][0] +
 				  normal.y*mtxCurrent[3][1][1] +
 				  normal.z*mtxCurrent[3][1][2])+ _t * 16.0f) / 16.0f;
-
+		//*/
 
 	}
 
@@ -1694,12 +1710,7 @@ static void gfx3d_glTexCoord(u32 val)
 
 #ifdef GX_3D_FUNCTIONS	
 
-			//Row-column order: 
-			/*
-			fmtx[4] = Mtx[1][0]		fmtx[8] = Mtx[2][0]
-			fmtx[5] = Mtx[1][1]		fmtx[9] = Mtx[2][1]
-			
-
+			//*
 			//Rotated for GX:
 			last_s =_s * mtxCurrent[3][0][0] + _t*mtxCurrent[3][0][1] +
                                 0.0625f*mtxCurrent[3][0][2] + 0.0625f*mtxCurrent[3][0][3];
@@ -2196,20 +2207,41 @@ s32 gfx3d_GetClipMatrix (unsigned int index)
 
 	int iMod = index%4;
 	int iDiv = (index>>2)<<2;
-	/// GAAAAH!
-	//--Rotated for GX (HIGHLY EXPERIMENTAL!)
+	//int iDiv = (index / 4) * 4;
+	//int a = index / 4;
+	//int b = index % 4;
+
+
+	//--Rotated for GX (I think this is right)
 	float val =  (mtxCurrent[0][iMod][0]*mtxCurrent[1][0][iDiv])
 				+(mtxCurrent[0][iMod][1]*mtxCurrent[1][1][iDiv])
 				+(mtxCurrent[0][iMod][2]*mtxCurrent[1][2][iDiv])
 				+(mtxCurrent[0][iMod][3]*mtxCurrent[1][3][iDiv]);
 
+
+
 	// Original copied: 
 	/*
 	int iMod = index%4, iDiv = (index>>2)<<2;
 
-	return	(matrix[iMod  ]*rightMatrix[iDiv  ])+(matrix[iMod+ 4]*rightMatrix[iDiv+1])+
-		(matrix[iMod+8]*rightMatrix[iDiv+2])+(matrix[iMod+12]*rightMatrix[iDiv+3]);
-	*/
+	return	 (matrix[iMod   ]*rightMatrix[iDiv  ])
+			+(matrix[iMod+ 4]*rightMatrix[iDiv+1])
+			+(matrix[iMod+ 8]*rightMatrix[iDiv+2])
+			+(matrix[iMod+12]*rightMatrix[iDiv+3]);
+	//*/
+
+	/*
+	// Working through it
+	int ma = iMod / 4;
+	int mb = iMod % 4;
+
+	int da = iDiv / 4;
+	int db = iDiv % 4;
+	matrix[ma][mb] * rightMatrix[da][db]
+
+
+
+	//*/
 
 #else
 		float val = MatrixGetMultipliedIndex (index, mtxCurrent[0], mtxCurrent[1]);
@@ -2232,7 +2264,7 @@ s32 gfx3d_GetDirectionalMatrix (unsigned int index)
 	int b = _index % 4;
 	
 	//return (s32)(mtxCurrent[2][a][b]*(1<<12));
-	// Rotated for GX:
+	// Rotated for GX: (needless?)
 	return (s32)(mtxCurrent[2][b][a]*(1<<12));
 
 #else
