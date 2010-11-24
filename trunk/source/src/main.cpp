@@ -44,6 +44,7 @@
 #include <ogcsys.h>
 #include <sys/time.h>
 #include <ogc/lwp_watchdog.h>
+#include <dopmii/FileSystem.h>
 
 #include "gekko_utils/usb2storage.h"
 #include "gekko_utils/mload.h"
@@ -174,19 +175,13 @@ extern "C"
 
 int main(int argc, char **argv)
 {
-#ifdef HW_RVL
-	// try to load IOS 202
-	if(IOS_GetVersion() != 202 && FindIOS(202))
-		IOS_ReloadIOS(202);
-	
-	if(IOS_GetVersion() == 202)
-	{
-		
-		// load usb2 driver
-		if(mload_init() >= 0 && load_ehci_module())
-			USB2Enable(true);
-	}
-#endif
+
+   IO::SD OurSD;
+   OurSD.Mount();
+   IO::USB OurUSB;
+   OurUSB.Startup();
+   OurUSB.Mount();
+
 //	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
 //	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
 //	struct armcpu_ctrl_iface *arm9_ctrl_iface;
@@ -259,6 +254,7 @@ int main(int argc, char **argv)
 	log_console_enable_video(false);
 	
 	Execute();
+	
 	exit(0);
 }
 
