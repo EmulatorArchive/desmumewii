@@ -41,7 +41,6 @@ static bool log_active = true;
 static bool video_active = true;
  
 static int __out_write(struct _reent *r, int fd, const char *ptr, size_t len) {
-	u16 l;
 	 
 	if (!ptr || len <= 0)
 		return -1;
@@ -50,7 +49,7 @@ static int __out_write(struct _reent *r, int fd, const char *ptr, size_t len) {
 		dot_video->write_r(r, fd, ptr, len);
 	} else {
 		if (log_active) {
-			l = (log_next + 1) % log_size;
+			u16 l = (log_next + 1) % log_size;
 			if (log[l])
 			free(log[l]);
 			log[l] = strndup(ptr, len);
@@ -103,6 +102,7 @@ void log_console_init(GXRModeObj *vmode, u16 logsize, u16 x, u16 y, u16 w, u16 h
 			if (log[i]){
 				free(log[i]);
 			}
+			--i;
 		}while(i >= 0);
 		 
 		free(log);
@@ -117,6 +117,7 @@ void log_console_init(GXRModeObj *vmode, u16 logsize, u16 x, u16 y, u16 w, u16 h
 		int i = log_size - 1;
 		do{
 			log[i] = NULL;	
+			--i;
 		}while(i >= 0);
 	}
 	 
@@ -138,6 +139,7 @@ void log_console_deinit(void) {
 			if (log[i]){
 				free(log[i]);
 			}
+			--i;
 		}while(i >= 0);
 		 
 		free(log);
@@ -163,12 +165,9 @@ void log_console_enable_log(bool enable) {
 }
  
 void log_console_enable_video(bool enable) {
-	struct _reent *r = _REENT;
-	u16 i, l;
-	 
 	if (video_active == enable)
 		return;
-	 
+
 	video_active = enable;
 	 
 	if (enable)
@@ -178,8 +177,11 @@ void log_console_enable_video(bool enable) {
 	 
 	if (!enable || !log_size)
 		return;
-	 
-	for (i = 0; i < log_size; ++i) {
+
+	struct _reent *r = _REENT;
+	u16 l; 
+
+	for (u16 i = 0; i < log_size; ++i) {
 		l = (log_next + 1 + i) % log_size;
 		if (log[l]) {
 			dot_video->write_r(r, 0, log[l], strlen(log[l]));
