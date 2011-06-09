@@ -102,16 +102,16 @@ const u32 default_gamecube_cfg[NB_KEYS] =
     PAD_BUTTON_B,                      // B
     PAD_BUTTON_RIGHT,                  // select
     PAD_BUTTON_START,                  // start
-    NULL,                              // Right
-    NULL,                              // Left
-    NULL,                              // Up
-    NULL,                              // Down
+    0,                                 // Right
+    0,                                 // Left
+    0,                                 // Up
+    0,                                 // Down
     PAD_TRIGGER_R,                     // R
     PAD_TRIGGER_L,                     // L
     PAD_BUTTON_X,                      // X
     PAD_BUTTON_Y,                      // Y
-    NULL,                              // DEBUG
-    NULL                               // BOOST
+    0,                                 // DEBUG
+    0                                  // BOOST
 };
 
 /* Load default joystick and keyboard configurations */

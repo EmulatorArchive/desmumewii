@@ -367,7 +367,7 @@ static bool cflash_build_fat( void) {
 	}
 
 	memset(dirEntriesInCluster, 0, NUMCLUSTERS*sizeof(int));
-	memset(dirEntryPtr, NULL, NUMCLUSTERS*sizeof(DIR_ENT*));
+	memset(dirEntryPtr, 0, NUMCLUSTERS*sizeof(DIR_ENT*));
 
 	// Change the hierarchical layout to a flat one 
 	for (i=0; i<=maxLevel; i++) {
