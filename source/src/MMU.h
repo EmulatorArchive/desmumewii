@@ -461,7 +461,7 @@ struct MMU_struct
 	int MMU_Alloc()
 	{
 		//ARM9 mem
-		ARM9_ITCM = ARM9_DTCM = MAIN_MEM = ARM9_REG = ARM9_BIOS = ARM9_BIOS = ARM9_VMEM = 0;
+		ARM9_ITCM = ARM9_DTCM = MAIN_MEM = ARM9_REG = ARM9_BIOS = ARM9_VMEM = 0;
 
 		ARM9_ITCM = new u8[0x8000];
 		

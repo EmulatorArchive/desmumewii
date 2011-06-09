@@ -105,7 +105,7 @@ static int clippedPolyCounter;
 //	return 0;
 //}
 
-
+/*
 //doesnt work yet
 static FORCEINLINE int fastFloor(float f)
 {
@@ -113,6 +113,7 @@ static FORCEINLINE int fastFloor(float f)
 	int ret = (*((u32*)&temp))&0x7FFFFF;
 	return ret;
 }
+//*/
 
 
 
