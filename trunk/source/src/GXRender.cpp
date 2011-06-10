@@ -51,13 +51,15 @@ static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE }
 static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
 //Derived values extracted from polyattr etc
+/*
 static u32 polyID = 0;
-static u32 depthFuncMode = GX_LESS;
 static u32 envMode = 0;
-static u32 cullingMask = 0;
 static u32 lightMask = 0;
-static u32 textureFormat = 0, texturePalette = 0;
 static bool alpha31 = false;
+//*/
+static u32 depthFuncMode = GX_LESS;
+static u32 cullingMask = 0;
+static u32 textureFormat = 0, texturePalette = 0;
 static bool alphaDepthWrite;
 static bool isTranslucent;
 
@@ -696,7 +698,7 @@ static void GXRender(){
 static void Set3DVideoSettings(){
 
 	//Mtx44 projection; // Projection matrix
-	Mtx modelview;
+	//Mtx modelview;
 
 	// Set up the viewpoint (one screen)
 	GX_SetViewport(0,0,256,192,0,1);

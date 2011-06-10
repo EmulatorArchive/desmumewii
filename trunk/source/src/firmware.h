@@ -81,5 +81,6 @@ int copy_firmware_user_data( u8 *dest_buffer, const u8 *fw_data);
 int NDS_CreateDummyFirmware( struct NDS_fw_config_data *user_settings);
 void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config);
 
+
 #endif
 
