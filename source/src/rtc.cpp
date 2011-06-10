@@ -92,9 +92,10 @@ SFORMAT SF_RTC[]={
 
 static const u8 kDefaultCmdBitsSize[8] = {8, 8, 56, 24, 0, 24, 8, 8};
 
-#define toBCD(x) ((x / 10) << 4) | (x % 10);
-
-
+static inline u8 toBCD(u8 x)
+{
+	return ((x / 10) << 4) | (x % 10);
+}
 #ifdef _MOVIETIME_
 
 
@@ -150,7 +151,8 @@ static void MovieTime(void) {
 static void rtcRecv()
 {
 	//INFO("RTC Read command 0x%02X\n", (rtc.cmd >> 1));
-	memset(rtc.data, 0, sizeof(rtc.data));
+
+	memset(&rtc.data[0], 0, sizeof(rtc.data));
 	switch (rtc.cmd >> 1)
 	{
 		case 0:				// status register 1

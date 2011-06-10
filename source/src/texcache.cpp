@@ -463,7 +463,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; x++)
+					for(u32 x = 0; x < ms.items[j].len; ++x)
 					{
 						u16 c = pal[*adr];
 						*dwdst++ = CONVERT(c,(*adr == 0) ? palZeroTransparent : opaqueColor);
@@ -494,8 +494,8 @@ public:
 				else 
 					slot1=(u16*)&MMU.texInfo.textureSlotAddr[1][(format & 0x3FFF)<<2];
 
-				u32 yTmpSize = (sizeY>>2);
-				u32 xTmpSize = (sizeX>>2);
+				u16 yTmpSize = (sizeY>>2);
+				u16 xTmpSize = (sizeX>>2);
 
 				//This is flagged whenever a 4x4 overruns its slot.
 				//I am guessing we just generate black in that case
@@ -613,7 +613,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; x++)
+					for(u32 x = 0; x < ms.items[j].len; ++x)
 					{
 						u16 c = pal[*adr&0x07];
 						u8 alpha = (*adr>>3);

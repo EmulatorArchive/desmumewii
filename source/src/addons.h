@@ -1,5 +1,4 @@
-/*  Copyright (C) 2009 CrazyMax
-	Copyright (C) 2009 DeSmuME team
+/*  Copyright (C) 2009-2010 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -25,7 +24,7 @@
 #include "types.h"
 #include "debug.h"
 
-typedef struct
+struct ADDONINTERFACE
 {
 	// The name of the plugin, this name will appear in the plugins list
 	const char * name;
@@ -54,15 +53,17 @@ typedef struct
 	
 	//called when the user get info about addon pak (description)
 	void (*info)(char *info);
-} ADDONINTERFACE; 
+}; 
 
-enum {
+enum NDS_ADDON_TYPE
+{
 	NDS_ADDON_NONE,
 	NDS_ADDON_CFLASH,		// compact flash
 	NDS_ADDON_RUMBLEPAK,	// rumble pack
 	NDS_ADDON_GBAGAME,		// gba game in slot
 	NDS_ADDON_GUITARGRIP,	// Guitar Grip
 	NDS_ADDON_EXPMEMORY,	// Memory Expansion 
+	NDS_ADDON_PIANO,		// Piano
 	//NDS_ADDON_EXTERNALMIC,
 	NDS_ADDON_COUNT		// use for counter addons - MUST TO BE LAST!!!
 };
@@ -89,5 +90,6 @@ extern void addonsReset();							// Reset addon
 extern BOOL addonsChangePak(u8 type);				// change current adddon
 
 extern void guitarGrip_setKey(bool green, bool red, bool yellow, bool blue); // Guitar grip keys
+extern void piano_setKey(bool c, bool cs, bool d, bool ds, bool e, bool f, bool fs, bool g, bool gs, bool a, bool as, bool b, bool hic); //piano keys
 
 #endif

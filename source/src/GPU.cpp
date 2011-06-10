@@ -1,26 +1,20 @@
 /*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
-
     Copyright (C) 2006-2007 Theo Berkau
     Copyright (C) 2007 shash
-	Copyright (C) 2008-2009 DeSmuME team
+	Copyright (C) 2008-2010 DeSmuME team
 
-    This file is part of DeSmuME
+	This file is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 2 of the License, or
+	(at your option) any later version.
 
-    DeSmuME is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
+	This file is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    DeSmuME is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	You should have received a copy of the GNU General Public License
+	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -39,12 +33,12 @@
 #include "readwrite.h"
 #include "log.h"
 
-//#undef FORCEINLINE
-//#define FORCEINLINE
-//#define SSE2_NOINTRIN
-
-//compilation speed hack (cuts time exactly in half by cutting out permutations)
-//#define DISABLE_MOSAIC
+#ifdef FASTBUILD
+	#undef FORCEINLINE
+	#define FORCEINLINE
+	//compilation speed hack (cuts time exactly in half by cutting out permutations)
+	#define DISABLE_MOSAIC
+#endif
 
 extern BOOL click;
 NDS_Screen MainScreen;
@@ -217,6 +211,12 @@ void GPU_Reset(GPU *g, u8 l)
 {
 	memset(g, 0, sizeof(GPU));
 
+	//important for emulator stability for this to initialize, since we have to setup a table based on it
+	g->BLDALPHA_EVA = 0;
+	g->BLDALPHA_EVB = 0;
+	//make sure we have our blend table setup even if the game blends without setting the blend variables
+	g->updateBLDALPHA();
+
 	g->setFinalColorBck_funcNum = 0;
 	g->setFinalColor3d_funcNum = 0;
 	g->setFinalColorSpr_funcNum = 0;
@@ -338,14 +338,12 @@ void GPU_setMasterBrightness (GPU *gpu, u16 val)
 	}
  	gpu->MasterBrightFactor = (val & 0x1F);
 	gpu->MasterBrightMode	= (val>>14);
-	//printf("MASTER BRIGHTNESS %d to %d at %d\n",gpu->core,gpu->MasterBrightFactor,nds.VCount);
-
 }
 
 void SetupFinalPixelBlitter (GPU *gpu)
 {
-	u32 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
-	u32 blendMode  = (gpu->BLDCNT >> 6)&3;
+	u8 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
+	u8 blendMode  = (gpu->BLDCNT >> 6)&3;
 	u32 winUsedBlend = (windowUsed<<2) + blendMode;
 
 	gpu->setFinalColorSpr_funcNum = winUsedBlend;
@@ -371,7 +369,7 @@ void GPU_setVideoProp(GPU * gpu, u32 p)
 	gpu->dispMode = cnt->DisplayMode & ((gpu->core)?1:3);
 
 	gpu->vramBlock = cnt->VRAM_Block;
-	
+
 	switch (gpu->dispMode)
 	{
 		case 0: // Display Off
@@ -1621,20 +1619,27 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 			blockparameter = (spriteInfo->RotScalIndex + (spriteInfo->HFlip<< 3) + (spriteInfo->VFlip << 4))*4;
 
 			// Get rotation/scale parameters
-			dx  = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+0)->attr3);
-			dmx = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+1)->attr3);
-			dy  = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+2)->attr3);
-			dmy = LE_TO_LOCAL_16((s16)(gpu->oam + blockparameter+3)->attr3);
+#ifdef WORDS_BIGENDIAN
+			dx  = ((s16)(gpu->oam + blockparameter+0)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+0)->attr30);
+			dmx = ((s16)(gpu->oam + blockparameter+1)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+1)->attr30);
+			dy  = ((s16)(gpu->oam + blockparameter+2)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+2)->attr30);
+			dmy = ((s16)(gpu->oam + blockparameter+3)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+3)->attr30);
+#else
+			dx  = (s16)(gpu->oam + blockparameter+0)->attr3;
+			dmx = (s16)(gpu->oam + blockparameter+1)->attr3;
+			dy  = (s16)(gpu->oam + blockparameter+2)->attr3;
+			dmy = (s16)(gpu->oam + blockparameter+3)->attr3;
+#endif
 
 			// Calculate fixed poitn 8.8 start offsets
 			realX = ((sprSize.x) << 7) - (fieldX >> 1)*dx - (fieldY>>1)*dmx + y * dmx;
 			realY = ((sprSize.y) << 7) - (fieldX >> 1)*dy - (fieldY>>1)*dmy + y * dmy;
-			
+
 			if(sprX<0)
 			{
 				// If sprite is not in the window
-//				if(sprX + fieldX <= 0)
-//					continue;
+				if(sprX + fieldX <= 0)
+					continue;
 
 				// Otherwise, is partially visible
 				lg += sprX;
@@ -1658,13 +1663,13 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 					pal = (MMU.ObjExtPal[gpu->core][0]+(spriteInfo->PaletteIndex*0x200));
 				else
 					pal = (MMU.ARM9_VMEM + 0x200 + gpu->core *0x400);
-				
+
 				for(j = 0; j < lg; ++j, ++sprX)
 				{
 					// Get the integer part of the fixed point 8.8, and check if it lies inside the sprite data
 					auxX = (realX>>8);
 					auxY = (realY>>8);
-					
+
 					if (auxX >= 0 && auxY >= 0 && auxX < sprSize.x && auxY < sprSize.y)
 					{
 						if(MODE == SPRITE_2D)
@@ -1673,12 +1678,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 							offset = (auxX&0x7) + ((auxX&0xFFF8)<<3) + ((auxY>>3)*sprSize.x*8) + ((auxY&0x7)*8);
 
 						colour = src[offset];
-						
-						/*Log_fprintf("%s[%d] %d %d\n", 
-							__FUNCTION__, 
-							__LINE__, 
-							colour, LE_TO_LOCAL_16(T2ReadWord(pal, (colour<<1)))
-						);*/
 
 						if (colour && (prioTab[sprX]>=prio))
 						{ 
@@ -1758,7 +1757,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 				for(j = 0; j < lg; ++j, ++sprX)
 				{
-
 					// Get the integer part of the fixed point 8.8, and check if it lies inside the sprite data
 					auxX = (realX>>8);
 					auxY = (realY>>8);
@@ -1874,10 +1872,11 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 		}
 	}
 
-#ifdef WORDS_BIGENDIAN
-	*(((u16*)spriteInfo)+1) = (*(((u16*)spriteInfo)+1) << 1) | *(((u16*)spriteInfo)+1) >> 15;
-	*(((u16*)spriteInfo)+2) = (*(((u16*)spriteInfo)+2) << 2) | *(((u16*)spriteInfo)+2) >> 14;
-#endif
+//#ifdef WORDS_BIGENDIAN
+//	*(((u16*)spriteInfo)+1) = (*(((u16*)spriteInfo)+1) << 1) | *(((u16*)spriteInfo)+1) >> 15;
+//	*(((u16*)spriteInfo)+2) = (*(((u16*)spriteInfo)+2) << 2) | *(((u16*)spriteInfo)+2) >> 14;
+//#endif
+
 }
 
 
@@ -1912,7 +1911,7 @@ void Screen_Reset(void)
 		((u16*)GPU_screen)[i] = 0x7FFF;
 
 	disp_fifo.head = disp_fifo.tail = 0;
-//	osd->clear();
+	//osd->clear();
 }
 
 void Screen_DeInit(void)
@@ -1923,7 +1922,7 @@ void Screen_DeInit(void)
 	if (GFXCore)
 		GFXCore->DeInit();
 
-//	if (osd)  {delete osd; osd =NULL; }
+	//if (osd)  {delete osd; osd =NULL; }
 }
 
 /*****************************************************************************/
@@ -2077,8 +2076,6 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	//we need to write backdrop colors in the same way as we do BG pixels in order to do correct window processing
 	//this is currently eating up 2fps or so. it is a reasonable candidate for optimization. 
 	gpu->currBgNum = 5;
-	
-
 	switch(gpu->setFinalColorBck_funcNum) {
 		case 0: case 1: //for backdrops, (even with window enabled) none and blend are both the same: just copy the color
 			memset_u16_le<256>(gpu->currDst,backdrop_color); 
@@ -2098,7 +2095,6 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 		case 6: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,6>(backdrop_color,x,1); break;
 		case 7: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,7>(backdrop_color,x,1); break;
 	}
-	
 	
 	memset(gpu->bgPixels,5,256);
 
@@ -2179,10 +2175,8 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 					//useful for debugging individual layers
 					//if(gpu->core == 1 || i16 != 2) continue;
 
-					/*if(gpu->core == 0 || i16 == 2)
-					{
-						int zzz=9;
-					}*/
+
+
 
 #ifndef DISABLE_MOSAIC
 					if(gpu->curr_mosaic_enabled)
@@ -2478,8 +2472,8 @@ FORCEINLINE void GPU::setup_windows()
 		endY = WIN1V1;
 	}
 
-	if(!WIN1_ENABLED && (WIN_NUM == 0 || WIN_NUM == 1))
-		goto allout;
+	if(WIN_NUM == 0 && !WIN0_ENABLED) goto allout;
+	if(WIN_NUM == 1 && !WIN1_ENABLED) goto allout;
 
 	if(startY > endY)
 	{
@@ -2501,8 +2495,8 @@ allout:
 void GPU::update_winh(int WIN_NUM)
 {
 	//Don't even waste any time in here if the window isn't enabled
-	if(!WIN1_ENABLED && (WIN_NUM == 0 || WIN_NUM == 1))
-		return;
+	if(WIN_NUM==0 && !WIN0_ENABLED) return;
+	if(WIN_NUM==1 && !WIN1_ENABLED) return;
 
 	need_update_winh[WIN_NUM] = false;
 	u16 startX,endX;
