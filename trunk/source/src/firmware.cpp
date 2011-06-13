@@ -857,10 +857,10 @@ void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config) {
 	}
 	fw_config->message_len = str_length;
 
-	/* default to English */
+	// default to English
 	fw_config->language = 1;
 
-	/* default touchscreen calibration */
+	// default touchscreen calibration 
 	fw_config->touch_cal[0].adc_x = 0x200;
 	fw_config->touch_cal[0].adc_y = 0x200;
 	fw_config->touch_cal[0].screen_x = 0x20 + 1; // calibration screen coords are 1-based,

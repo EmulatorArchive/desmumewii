@@ -141,23 +141,22 @@ remove_post_exec_fn( void *instance) {
 #endif
 
 #ifdef GDB_STUB
-static u32
-read_cpu_reg( void *instance, u32 reg_num) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-  u32 reg_value = 0;
-
-  if ( reg_num <= 14) {
-    reg_value = armcpu->R[reg_num];
-  }
-  else if ( reg_num == 15) {
-    reg_value = armcpu->next_instruction;
-  }
-  else if ( reg_num == 16) {
-    /* CPSR */
-    reg_value = armcpu->CPSR.val;
-  }
-
-  return reg_value;
+static u32 read_cpu_reg( void *instance, u32 reg_num) {
+	armcpu_t *armcpu = (armcpu_t *)instance;
+	u32 reg_value = 0;
+	
+	if ( reg_num <= 14) {
+		reg_value = armcpu->R[reg_num];
+	}
+	else if ( reg_num == 15) {
+		reg_value = armcpu->next_instruction;
+	}
+	else if ( reg_num == 16) {
+		//CPSR
+		reg_value = armcpu->CPSR.val;
+	}
+	
+	return reg_value;
 }
 
 static void
@@ -214,6 +213,8 @@ int armcpu_new( armcpu_t *armcpu, u32 id)
 void armcpu_t::changeCPSR()
 {
 	//but all it does is give them a chance to unleash by forcing an immediate reschedule
+	//TODO - we could actually set CPSR through here and look for a change in the I bit
+	//that would be a little optimization as well as a safety measure if we prevented setting CPSR directly
 	NDS_Reschedule();
 }
 
@@ -236,7 +237,7 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	{
 		armcpu->R[i] = 0;
 		armcpu->coproc[i] = NULL;
-   }
+	}
 	
 	armcpu->CPSR.val = armcpu->SPSR.val = SYS;
 	

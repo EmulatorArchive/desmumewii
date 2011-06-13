@@ -1,8 +1,7 @@
-/*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
+/*  SPU.cpp
+    Copyright (C) 2006 yopyop
     Copyright (C) 2006 Theo Berkau
-    Copyright (C) 2008-2009 DeSmuME team
+    Copyright (C) 2008-2010 DeSmuME team
 
     Ideas borrowed from Stephane Dallongeville's SCSP core
 

@@ -1,8 +1,7 @@
 /*  Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com
+    Copyright (C) 2008-2010 DeSmuME team
 
-    Copyright (C) 2008-2009 DeSmuME team
+
 
     This file is part of DeSmuME
 
