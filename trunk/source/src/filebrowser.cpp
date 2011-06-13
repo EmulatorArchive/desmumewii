@@ -104,12 +104,31 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 	u8 draw = 1;
 
 	clear_console();
+	
+	
+	//
+	//
+	//--DCN: This is so I don't have to do this every time I test
+	/*
+	{
+		index++;
+		//
+		sprintf(file_struct->path, "%s/%s", file_struct->path, dir[index].name);
+		free(dir);
+		return BROWSER_FILE_SELECTED;
+	}
+	//*/
+	//
+	//
+	//
+	
+	
+	
 	while(1)
 	{
 		PAD_ScanPads();
-#ifdef HW_RVL
 		WPAD_ScanPads();
-#endif
+		
 		if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) 
 			return BROWSER_CANCELED;
 

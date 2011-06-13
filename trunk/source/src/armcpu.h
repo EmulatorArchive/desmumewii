@@ -174,6 +174,7 @@ struct armcpu_t
 	u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5
 	BOOL waitIRQ;
 	BOOL wirq;
+	BOOL BIOS_loaded;
 
 	u32 (* *swi_tab)();
 
