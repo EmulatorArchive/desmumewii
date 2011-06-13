@@ -741,6 +741,7 @@ bool PickDevice(){
 	current3Dcore = 2; //Soft Raster
 
 	while(true){
+	
 		PAD_ScanPads();
 		WPAD_ScanPads();
 		 
@@ -753,6 +754,19 @@ bool PickDevice(){
 		printf("%s", useGX ? " GX  /\\" : "Soft /\\");
 		printf("\n\nPress B to see the credits.");
 
+		//
+		//
+		//--DCN: This is so I don't have to do this every time I test
+		/*
+		{
+		current3Dcore = 1;
+		break;
+		}
+		//*/
+		//
+		//
+		//
+		
 		if(GetInput(LEFT, LEFT, LEFT) || GetInput(RIGHT, RIGHT, RIGHT)) {
 			device = !device;
 		}

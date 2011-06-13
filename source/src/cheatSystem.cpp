@@ -543,7 +543,7 @@ BOOL CHEATS::save()
 	if (flist)
 	{
 		fprintf(flist, "; DeSmuME cheats file. VERSION %i.%03i\n", CHEAT_VERSION_MAJOR, CHEAT_VERSION_MINOR);
-		strcpy(buf, gameInfo.ROMfullName[0]);
+		//strcpy(buf, gameInfo.ROMfullName[0]);
 		trim(buf);
 		removeSpecialChars(buf);
 		fprintf(flist, "Name=%s\n", buf);
