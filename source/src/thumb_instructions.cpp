@@ -463,16 +463,6 @@ TEMPLATE static  u32 FASTCALL OP_SBC_REG(const u32 i)
 	cpu->CPSR.bits.N = BIT31(res);
 	cpu->CPSR.bits.Z = res == 0;
 
-#if 0
-	 //the below UNSIGNED_UNDERFLOW calculation is the clever way of doing it
-	 //but just to keep from making a mistake, lets assert that it matches the precise definition of unsigned overflow
-	 static long passcount = 0;
-	 assert(++passcount);
-	assert(
-		((((u64)a-(u64)b-(!cpu->CPSR.bits.C))>>32)&1)
-		== UNSIGNED_UNDERFLOW(a, b, res)
-		);
-#endif
 	
 	 //zero 31-dec-2008 - apply normatt's fixed logic from the arm SBC instruction
 	 //although it seemed a bit odd to me and to whomever wrote this for SBC not to work similar to ADC..

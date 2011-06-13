@@ -1,8 +1,5 @@
 /*	Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com 
-
-	Copyright (C) 2008-2009 DeSmuME team
+	Copyright (C) 2008-2010 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -335,13 +332,15 @@ void GameInfo::populate()
 	delete _header;
 
 	if (
-		// ??? in all Homebrews game title have is 2E0000EA
-		//(
+		//Option 1. - look for this instruction in the game title
+		//(did this ever work?)
 		//(header->gameTile[0] == 0x2E) && 
 		//(header->gameTile[1] == 0x00) && 
 		//(header->gameTile[2] == 0x00) && 
 		//(header->gameTile[3] == 0xEA)
 		//) &&
+		//option 2. - look for gamecode #### (default for ndstool)
+		//or an invalid gamecode
 		(
 			((header.gameCode[0] == 0x23) && 
 			(header.gameCode[1] == 0x23) && 
@@ -366,7 +365,7 @@ void GameInfo::populate()
 		memset(ROMserial+19, '\0', 1);
 	}
 }
-#ifdef WIN32
+#ifdef _WINDOWS
 
 static std::vector<char> buffer;
 static std::vector<char> v;
@@ -402,13 +401,17 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 		loadrom(path.path);
 	}
 	else if ( !strcasecmp(path.extension().c_str(), "nds")) {
+		type = ROM_NDS;
 		loadrom(path.path); //n.b. this does nothing if the file can't be found (i.e. if it was an extracted tempfile)...
 		//...but since the data was extracted to gameInfo then it is ok
-		type = ROM_NDS;
 	}
 	//ds.gba in archives, it's already been loaded into memory at this point
 	else if (path.isdsgba(std::string(logicalFilename))) {
 		type = ROM_DSGBA;
+	} else {
+		//well, try to load it as an nds rom anyway
+		type = ROM_NDS;
+		loadrom(path.path);
 	}
 
 	if(type == ROM_DSGBA)
@@ -444,7 +447,9 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #endif
 
 	cheatsSearchClose();
+#ifdef _MOVIETIME_
 	FCEUI_StopMovie();
+#endif
 
 	MMU_unsetRom();
 	NDS_SetROM((u8*)gameInfo.romdata, mask);
@@ -1607,10 +1612,6 @@ bool nds_loadstate(EMUFILE* is, int size)
 	return temp;
 }
 
-//#define LOG_ARM9
-//#define LOG_ARM7
-//static bool dolog = true;
-
 FORCEINLINE void arm9log()
 {
 #ifdef LOG_ARM9
@@ -1633,7 +1634,7 @@ FORCEINLINE void arm9log()
 
 FORCEINLINE void arm7log()
 {
-	#ifdef LOG_ARM7
+#ifdef LOG_ARM7
 	if(dolog)
 	{
 		char dasmbuf[4096];
@@ -1648,7 +1649,7 @@ FORCEINLINE void arm7log()
 			NDS_ARM7.R[0],  NDS_ARM7.R[1],  NDS_ARM7.R[2],  NDS_ARM7.R[3],  NDS_ARM7.R[4],  NDS_ARM7.R[5],  NDS_ARM7.R[6],  NDS_ARM7.R[7], 
 			NDS_ARM7.R[8],  NDS_ARM7.R[9],  NDS_ARM7.R[10],  NDS_ARM7.R[11],  NDS_ARM7.R[12],  NDS_ARM7.R[13],  NDS_ARM7.R[14],  NDS_ARM7.R[15]);
 	}
-	#endif
+#endif
 }
 
 //these have not been tuned very well yet.
@@ -1717,14 +1718,8 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 template<bool FORCE>
 void NDS_exec(s32 nb)
 {
-	//TODO - singlestep is broken
-
 	LagFrameFlag=1;
-	
-#ifdef _MOVIETIME_
-	if((currFrameCounter&63) == 0)
-		MMU_new.backupDevice.lazy_flush();
-#endif
+
 
 	sequencer.nds_vblankEnded = false;
 
@@ -1749,8 +1744,11 @@ void NDS_exec(s32 nb)
 
 			//break out once per frame
 			if(sequencer.nds_vblankEnded) break;
-			//it should be benign to execute execHardware in the next frame,
+			//it should be begin to execute execHardware in the next frame,
 			//since there won't be anything for it to do (everything should be scheduled in the future)
+
+			//bail in case the system halted
+			if(!execute) break;
 
 			execHardware_interrupts();
 
