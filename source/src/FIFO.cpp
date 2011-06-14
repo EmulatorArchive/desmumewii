@@ -1,6 +1,6 @@
 /*  Copyright (C) 2006 yopyop
     Copyright 2007 shash
-	Copyright 2007-2010 DeSmuME team
+	Copyright 2007-2011 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -223,8 +223,6 @@ void GFX_FIFOcnt(u32 val)
 {
 	////INFO("gxFIFO: write cnt 0x%08X (prev 0x%08X) FIFO size %03i PIPE size %03i\n", val, gxstat, gxFIFO.size, gxPIPE.size);
 
-	//NEW ONE:
-	//*
 	if (val & (1<<29))		// clear? (only in homebrew?)
 	{
 		GFX_PIPEclear();
@@ -240,7 +238,6 @@ void GFX_FIFOcnt(u32 val)
 	//}
 
 	T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600, val);
-	//*/
 }
 
 // ========================================================= DISP FIFO
