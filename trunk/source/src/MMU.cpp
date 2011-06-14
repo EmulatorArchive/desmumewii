@@ -2538,14 +2538,14 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPA_MASTERBRIGHT:
 				GPU_setMasterBrightness (MainScreen.gpu, val);
 				break;
-				/*
+			/*
 			case REG_DISPA_MOSAIC: 	 
 				GPU_setMOSAIC(MainScreen.gpu,val) ; 	 
 				break ; 	 
 			case REG_DISPB_MOSAIC: 	 
 				GPU_setMOSAIC(SubScreen.gpu,val) ; 	 
 				break ;
-				*/
+				
 			case REG_DISPA_BG0HOFS:
 				GPU_setBGxHOFS(0, MainScreen.gpu, val);
 				break;
@@ -2570,6 +2570,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPA_BG3VOFS:
 				GPU_setBGxVOFS(3, MainScreen.gpu, val);
 				break;
+			//*/
 
 			case REG_DISPA_WIN0H: 	 
 				GPU_setWIN0_H (MainScreen.gpu,val) ; 	 
@@ -2602,6 +2603,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				GPU_setWINOUT16(MainScreen.gpu, val) ; 	 
 				break ; 	 
 
+			/*	
 			case REG_DISPB_BG0HOFS:
 				GPU_setBGxHOFS(0, SubScreen.gpu, val);
 				break;
@@ -2626,6 +2628,8 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPB_BG3VOFS:
 				GPU_setBGxVOFS(3, SubScreen.gpu, val);
 				break;
+			//*/
+
 			case REG_DISPB_WININ: 	 
 				GPU_setWININ(SubScreen.gpu, val) ; 	 
 				break ; 	 
@@ -2636,7 +2640,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPB_MASTERBRIGHT:
 				GPU_setMasterBrightness (SubScreen.gpu, val);
 				break;
-			
+
             case REG_POWCNT1 :
 				{
 // TODO: make this later
@@ -2880,11 +2884,6 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 		return;
 	}
 
-	/*if(adr>=0x05000000 && adr<0x06000000)
-	{
-		int zzz=9;
-	}*/
-
 
 	bool unmapped;
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped);
@@ -2993,7 +2992,10 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				break;
 		}
 
-		if(MMU_new.is_dma(adr)) { MMU_new.write_dma(ARMCPU_ARM9,32,adr,val); return; }
+		if(MMU_new.is_dma(adr)) { 
+			MMU_new.write_dma(ARMCPU_ARM9,32,adr,val);
+			return;
+		}
 
 		switch(adr)
 		{
@@ -3274,10 +3276,6 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
 		return;
 	}
-	/*if(adr>=0x05000000 && adr<0x06200000)
-	{
-		int zzz=9;
-	}*/
 
 	bool unmapped;
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped);

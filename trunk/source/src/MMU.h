@@ -1,9 +1,6 @@
 /*	Copyright (C) 2006 yopyop
-    yopyop156@ifrance.com
-    yopyop156.ifrance.com 
-
 	Copyright (C) 2007 shash
-	Copyright (C) 2007-2009 DeSmuME team
+	Copyright (C) 2007-2010 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -25,6 +22,7 @@
 #ifndef MMU_H
 #define MMU_H
 
+#include <malloc.h>
 #include "FIFO.h"
 #include "mem.h"
 #include "registers.h"
@@ -258,108 +256,6 @@ typedef struct
 	
 } nds_dscard;
 
-/*struct MMU_struct 
-{
-	//ARM9 mem
-	u8 ARM9_ITCM[0x8000];
-    u8 ARM9_DTCM[0x4000];
-    u8 MAIN_MEM[0x800000]; //this has been expanded to 8MB to support debug consoles
-    u8 ARM9_REG[0x1000000];
-    u8 ARM9_BIOS[0x8000];
-    u8 ARM9_VMEM[0x800];
-	
-	#include "PACKED.h"
-	struct {
-		u8 ARM9_LCD[0xA4000];
-		//an extra 128KB for blank memory, directly after arm9_lcd, so that
-		//we can easily map things to the end of arm9_lcd to represent 
-		//an unmapped state
-		u8 blank_memory[0x20000];  
-	};
-	#include "PACKED_END.h"
-
-    u8 ARM9_OAM[0x800];
-
-	u8* ExtPal[2][4];
-	u8* ObjExtPal[2][2];
-	
-	struct TextureInfo {
-		u8* texPalSlot[6];
-		u8* textureSlotAddr[4];
-	} texInfo;
-
-	//ARM7 mem
-	u8 ARM7_BIOS[0x4000];
-	u8 ARM7_ERAM[0x10000];
-	u8 ARM7_REG[0x10000];
-	u8 ARM7_WIRAM[0x10000];
-
-	// VRAM mapping
-	u8 VRAM_MAP[4][32];
-	u32 LCD_VRAM_ADDR[10];
-	u8 LCDCenable[10];
-
-	//Shared ram
-	u8 SWIRAM[0x8000];
-
-	//Card rom & ram
-	u8 * CART_ROM;
-	u32 CART_ROM_MASK;
-	u8 CART_RAM[0x10000];
-
-	//Unused ram
-	u8 UNUSED_RAM[4];
-
-	//this is here so that we can trap glitchy emulator code
-	//which is accessing offsets 5,6,7 of unused ram due to unaligned accesses
-	//(also since the emulator doesn't prevent unaligned accesses)
-	u8 MORE_UNUSED_RAM[4];
-
-	static u8 * MMU_MEM[2][256];
-	static u32 MMU_MASK[2][256];
-
-	u8 ARM9_RW_MODE;
-
-	u32 DTCMRegion;
-	u32 ITCMRegion;
-
-	u16 timer[2][4];
-	s32 timerMODE[2][4];
-	u32 timerON[2][4];
-	u32 timerRUN[2][4];
-	u16 timerReload[2][4];
-
-	u32 reg_IME[2];
-	u32 reg_IE[2];
-	u32 reg_IF[2];
-
-	BOOL divRunning;
-	s64 divResult;
-	s64 divMod;
-	u32 divCnt;
-	u64 divCycles;
-
-	BOOL sqrtRunning;
-	u32 sqrtResult;
-	u32 sqrtCnt;
-	u64 sqrtCycles;
-
-	u16 SPI_CNT;
-	u16 SPI_CMD;
-	u16 AUX_SPI_CNT;
-	u16 AUX_SPI_CMD;
-
-	u64 gfx3dCycles;
-
-	u8 powerMan_CntReg;
-	BOOL powerMan_CntRegWritten;
-	u8 powerMan_Reg[4];
-
-	memory_chip_t fw;
-
-	nds_dscard dscard[2];
-};*/
-#include <malloc.h>
 struct MMU_struct 
 {
 	//ARM9 mem
@@ -977,21 +873,21 @@ FORCEINLINE void _MMU_write32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const
 }
 
 
-#ifdef MMU_ENABLE_ACL
-	void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val);
-	void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val);
-	void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val);
-	u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access);
-	u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access);
-	u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access);
-#else
-	#define MMU_write8_acl(proc, adr, val)  _MMU_write08<proc>(adr, val)
-	#define MMU_write16_acl(proc, adr, val) _MMU_write16<proc>(adr, val)
-	#define MMU_write32_acl(proc, adr, val) _MMU_write32<proc>(adr, val)
-	#define MMU_read8_acl(proc,adr,access)  _MMU_read08<proc>(adr)
-	#define MMU_read16_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read16<proc,MMU_AT_CODE>(adr):_MMU_read16<proc,MMU_AT_DATA>(adr))
-	#define MMU_read32_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read32<proc,MMU_AT_CODE>(adr):_MMU_read32<proc,MMU_AT_DATA>(adr))
-#endif
+//#ifdef MMU_ENABLE_ACL
+//	void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val);
+//	void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val);
+//	void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val);
+//	u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access);
+//	u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access);
+//	u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access);
+//#else
+//	#define MMU_write8_acl(proc, adr, val)  _MMU_write08<proc>(adr, val)
+//	#define MMU_write16_acl(proc, adr, val) _MMU_write16<proc>(adr, val)
+//	#define MMU_write32_acl(proc, adr, val) _MMU_write32<proc>(adr, val)
+//	#define MMU_read8_acl(proc,adr,access)  _MMU_read08<proc>(adr)
+//	#define MMU_read16_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read16<proc,MMU_AT_CODE>(adr):_MMU_read16<proc,MMU_AT_DATA>(adr))
+//	#define MMU_read32_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read32<proc,MMU_AT_CODE>(adr):_MMU_read32<proc,MMU_AT_DATA>(adr))
+//#endif
 
 // Use this macros for reading/writing, so the GDB stub isn't broken
 #ifdef GDB_STUB

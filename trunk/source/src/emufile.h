@@ -1,4 +1,4 @@
- /* Copyright (C) 2009 DeSmuME team
+ /* Copyright (C) 2009-2011 DeSmuME team
  *
  * This file is part of DeSmuME
  *
@@ -23,15 +23,15 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "types.h"
 #include <vector>
 #include <algorithm>
 #include <string>
 #include <stdarg.h>
 
-#ifdef _XBOX
-#undef min;
-#undef max;
+#include "types.h"
+
+#ifdef _MSC_VER
+#include <io.h>
 #endif
 
 class EMUFILE {
@@ -94,12 +94,29 @@ protected:
 
 public:
 
-	EMUFILE_MEMORY(std::vector<u8> *underlying) : vec(underlying), ownvec(false), pos(0), len(underlying->size()) { }
-	EMUFILE_MEMORY(u32 preallocate) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { vec->reserve(preallocate); }
+	EMUFILE_MEMORY(std::vector<u8> *underlying) : vec(underlying), ownvec(false), pos(0), len((s32)underlying->size()) { }
+	EMUFILE_MEMORY(u32 preallocate) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { 
+		vec->resize(preallocate);
+		len = preallocate;
+	}
 	EMUFILE_MEMORY() : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { vec->reserve(1024); }
+	EMUFILE_MEMORY(void* buf, s32 size) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(size) { 
+		vec->resize(size);
+		if(size != 0)
+			memcpy(&vec[0],buf,size);
+	}
 
 	~EMUFILE_MEMORY() {
 		if(ownvec) delete vec;
+	}
+
+	virtual EMUFILE* memwrap();
+
+	virtual void truncate(s32 length)
+	{
+		vec->resize(length);
+		len = length;
+		if(pos>length) pos=length;
 	}
 
 	u8* buf() { return &(*vec)[0]; }
@@ -111,7 +128,7 @@ public:
 	virtual int fprintf(const char *format, ...) {
 		va_list argptr;
 		va_start(argptr, format);
-		
+
 		//we dont generate straight into the buffer because it will null terminate (one more byte than we want)
 		int amt = vsnprintf(0,0,format,argptr);
 		char* tempbuf = new char[amt+1];
@@ -153,7 +170,7 @@ public:
 	virtual void fwrite(const void *ptr, size_t bytes){
 		reserve(pos+bytes);
 		memcpy(buf()+pos,ptr,bytes);
-		pos += bytes;
+		pos += (s32)bytes;
 		len = std::max(pos,len);
 	}
 
@@ -178,6 +195,11 @@ public:
 
 	virtual int ftell() {
 		return pos;
+	}
+
+	void trim()
+	{
+		vec->resize(len);
 	}
 
 	virtual int size() { return (int)len; }

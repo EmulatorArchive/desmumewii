@@ -1,6 +1,6 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006 Theo Berkau
-	Copyright (C) 2008-2009 DeSmuME team
+	Copyright (C) 2008-2011 DeSmuME team
 
     This file is part of DeSmuME
 
