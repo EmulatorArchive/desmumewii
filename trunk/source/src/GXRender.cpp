@@ -162,8 +162,8 @@ static void texDeleteCallback(TexCacheItem* item){
 static void GXReset(){
 
 	TexCache_Reset();
-	if (currTexture) 
-		delete currTexture;
+	
+	delete currTexture;
 	currTexture = NULL;
 
 	texMan->reset();
@@ -219,8 +219,7 @@ static void GXClose(){
 		freeTextureIds.pop();	
 	}
 	// Kill our texture manager
-	if(texMan)
-		delete texMan;
+	delete texMan;
 	texMan = NULL;
 }
 
@@ -594,12 +593,13 @@ static void GXRender(){
 			float* m = poly->projMatrix;
 			// Copy the matrix from Column-Major to Row-Major format
 			for(int j = 0; j < 4; ++j)
-				for(int i = 0; i < 4; ++i)
+				for(int i = 0; i < 4; ++i){
 					projection[i][j] = *m++;
+				}
 			
 			// Convert the z clipping planes from -1/1 to -1/0
-			projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
-			projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
+			projection[2][2] = (projection[2][2] - projection[3][2])*0.5f;
+			projection[2][3] = (projection[2][3] - projection[3][3])*0.5f;
 
 			if(projection[3][2] != 1) 
 			{		
@@ -616,12 +616,6 @@ static void GXRender(){
 			}else{
 				GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
 			}
-			/*
-			Mtx modelview;
-			guMtxIdentity(modelview);
-			// Load in an identity matrix to be our position matrix
-			GX_LoadPosMtxImm(modelview, GX_PNMTX0);
-			//*/
 #endif
 		}
 
@@ -635,7 +629,7 @@ static void GXRender(){
 		}
 		//*/
 
-#ifndef TESTING
+#ifdef TESTING
 
 	static u32 count = 0;
 	count++;
@@ -698,15 +692,15 @@ static void GXRender(){
 static void Set3DVideoSettings(){
 
 	//Mtx44 projection; // Projection matrix
-	//Mtx modelview;
+	Mtx modelview;
 
 	// Set up the viewpoint (one screen)
 	GX_SetViewport(0,0,256,192,0,1);
 	GX_SetScissor(0,0,256,192);
 
-	//guMtxIdentity(modelview);
+	guMtxIdentity(modelview);
 	// Load in an identity matrix to be our position matrix
-	//GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24

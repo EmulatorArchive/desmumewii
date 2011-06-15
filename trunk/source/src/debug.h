@@ -1,5 +1,5 @@
 /*  Copyright (C) 2008 Guillaume Duhamel
-	Copyright (C) 2009 DeSmuME team
+	Copyright (C) 2009-2011 DeSmuME team
 
     This file is part of DeSmuME
 
