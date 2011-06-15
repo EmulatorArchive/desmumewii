@@ -79,13 +79,13 @@ static u16 CursorData[16] __attribute__((aligned(32))) = {
 static int drawcursor = 1;
 static lwp_t vidthread = LWP_THREAD_NULL;
 mutex_t vidmutex = LWP_MUTEX_NULL;
-static u8 abort_thread = 0;
+static bool abort_thread = false;
 
 static float nds_screen_size_ratio = 1.0f;
 static u16 keypad;
-static bool sdl_quit = false;
+static bool quit_game = false;
 volatile bool execute = false;
-bool show_console = true;
+static bool show_console = true;
 static int SkipFrame = 0;
 static int SkipFrameTracker = 0;
 static u32 pad, wpad;
@@ -110,7 +110,7 @@ GPU3DInterface *core3DList[] = {
 //////////////////////////////////////////////////////////////////
 ////////////////////// FUNCTION PROTOTYPES ///////////////////////
 //////////////////////////////////////////////////////////////////
-#define max(a, b) ((a > b) ? b : a)
+//#define max(a, b) ((a > b) ? b : a)
 
 void init();
 void ShowCredits();
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 	}
 
 	if(FileBrowser(rom_filename) != 0)
-		sdl_quit = true;
+		quit_game = true;
 	
 	cflash_disk_image_file = NULL;
 
@@ -597,7 +597,7 @@ void Execute() {
 	if(vidthread == LWP_THREAD_NULL)
 		LWP_CreateThread(&vidthread, draw_thread, NULL, NULL, 0, 67);
 
-	while(!sdl_quit){
+	while(!quit_game){
 		 
 		if(SkipFrameTracker) NDS_SkipNextFrame(); 
 	
@@ -605,11 +605,11 @@ void Execute() {
 
 		SkipFrameTracker++;
 		
-		if(SkipFrameTracker >= SkipFrame+1) SkipFrameTracker = 0;
+		if(SkipFrameTracker > SkipFrame) SkipFrameTracker = 0;
 		
 	}
 
-	abort_thread = 1;
+	abort_thread = true;
 	LWP_MutexDestroy(vidmutex);
 	vidmutex = LWP_MUTEX_NULL;
 	LWP_JoinThread(vidthread, NULL);
@@ -626,22 +626,6 @@ void Execute() {
 
 	return;
 }
-
-/*
-static int64_t gettime(void)
-{
-	struct timeval tv;
-	gettimeofday(&tv,NULL);
-	return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-}
-
-static u32 GetTicks (void)
-{
-	const u64 ticks      = gettime();
-	const u64 ms         = ticks / TB_TIMER_CLOCK;
-	return ms;
-}
-//*/
 
 void ShowFPS() {
 	u32 fps_timing = 0;
@@ -661,9 +645,7 @@ void ShowFPS() {
 		fps = 1.0f / fps;
 		fps_frame_counter = 0;
 		fps_timing = 0;
-		//pspDebugScreenSetTextColor(0xffffffff);
-		//pspDebugScreenSetXY(0,0);
-		//pspDebugScreenPrintf("FPS %f %s Fskip: %d", fps,VERSION,frameskip);
+		
 	}
 }
 
@@ -705,17 +687,18 @@ void DSExec(){
 	}
 	
 	if (wpad & WPAD_BUTTON_PLUS)
-	SkipFrame++;
+		SkipFrame++;
 	
-	if (wpad &WPAD_BUTTON_MINUS)
-	SkipFrame--;
-	
-	if(SkipFrame < 0)
-	SkipFrame = 0;
+	if (wpad &WPAD_BUTTON_MINUS){
+		SkipFrame--;
+		
+		if(SkipFrame < 0)
+			SkipFrame = 0;
+	}
 
 	if(	(wpad & WPAD_BUTTON_HOME) || ((pad & PAD_TRIGGER_Z) && (pad  & PAD_TRIGGER_R) && (pad & PAD_TRIGGER_L)) || 
 		(wpad & WPAD_CLASSIC_BUTTON_HOME))
-		sdl_quit = true;
+		quit_game = true;
 
 	NDS_exec<TRUE>(0);
 
@@ -801,9 +784,9 @@ void ShowCredits() {
 	printf("Written By:\n\n");
 	printf("Arikado - http://arikadosblog.blogspot.com\n");
 	printf("scanff\n");
+	printf("DCN\n");	
 	printf("firnis\n");
 	printf("baby.lueshi\n");
-	printf("Dancinninja\n");
 	printf("With contributions from Cyan\n\n");
 
 	printf("Press A to return to the menu.");

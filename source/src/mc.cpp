@@ -276,6 +276,12 @@ bool BackupDevice::save_state(EMUFILE* os)
 	writebuffer(data_autodetect,os);
 	//v1
 	write32le(addr,os);
+	/*
+	//MOTION CONTROLS
+	//v2
+	write8le(motionInitState,os);
+	write8le(motionFlag,os);
+	//*/
 	return true;
 }
 
@@ -298,6 +304,7 @@ bool BackupDevice::load_state(EMUFILE* is)
 	if(version>=1)
 		read32le(&addr,is);
 	/*
+	//MOTION CONTROLS
 	if(version>=2)
 	{
 		read8le(&motionInitState,is);
@@ -310,7 +317,6 @@ bool BackupDevice::load_state(EMUFILE* is)
 
 BackupDevice::BackupDevice()
 {
-	isMovieMode = false;
 	reset();
 }
 
@@ -320,28 +326,30 @@ BackupDevice::BackupDevice()
 //one of them saves the filename
 void BackupDevice::load_rom(const char* filename)
 {
-	isMovieMode = false;
 	this->filename = filename;
 	reset();
 }
 
 void BackupDevice::movie_mode()
 {
-	isMovieMode = true;
 	reset();
 }
 
 void BackupDevice::reset()
 {
+	write_enable = FALSE;
 	com = 0;
 	addr = addr_counter = 0;
+	/*
+	//MOTION CONTROLS
+	motionInitState = MOTION_INIT_STATE_IDLE;
+	motionFlag = MOTION_FLAG_NONE;
+	//*/
+	state = DETECTING;
 	flushPending = false;
 	lazyFlushPending = false;
 	data.resize(0);
-	write_enable = FALSE;
 	data_autodetect.resize(0);
-	
-	state = DETECTING;
 	addr_size = 0;
 	loadfile();
 
@@ -393,9 +401,7 @@ void BackupDevice::reset_command()
 			case 0:
 			case 1:
 				printf("Catastrophic error while autodetecting save type.\nIt will need to be specified manually\n");
-				#ifdef _MSC_VER
-				MessageBox(0,"Catastrophic Error Code: Camel;\nyour save type has not been autodetected correctly;\nplease report to developers",0,0);
-				#endif
+
 				addr_size = 1; //choose 1 just to keep the busted savefile from growing too big
 				break;
 			case 2:
@@ -429,6 +435,24 @@ void BackupDevice::reset_command()
 }
 u8 BackupDevice::data_command(u8 val, int cpu)
 {
+	/*
+	//MOTION CONTROLS
+	//motion: some guessing here... hope it doesn't break anything
+	if(com == BM_CMD_READLOW && motionInitState == MOTION_INIT_STATE_RECEIVED_4_B && val == 0)
+	{
+		motionInitState = MOTION_INIT_STATE_IDLE;
+		motionFlag |= MOTION_FLAG_ENABLED;
+		//return 0x04; //return 0x04 to enable motion!!!!!
+		return 0; //but we return 0 to disable it! since we don't emulate it anyway
+	}
+
+	//if the game firmly believes we have motion support, then ignore all motion commands, since theyre not emulated.
+	if(motionFlag & MOTION_FLAG_SENSORMODE)
+	{
+		return 0;
+	}
+	//*/
+
 	if(com == BM_CMD_READLOW || com == BM_CMD_WRITELOW)
 	{
 		//handle data or address
@@ -495,13 +519,50 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 		switch(val)
 		{
 			case 0: break; //??
-			
+			/*
+			//MOTION CONTROLS
+			case 0xFE:
+				if(motionInitState == MOTION_INIT_STATE_IDLE) { motionInitState = MOTION_INIT_STATE_FE; return 0; }
+				break;
+			case 0xFD:
+				if(motionInitState == MOTION_INIT_STATE_FE) { motionInitState = MOTION_INIT_STATE_FD; return 0; }
+				break;
+			case 0xFB:
+				if(motionInitState == MOTION_INIT_STATE_FD) { motionInitState = MOTION_INIT_STATE_FB; return 0; }
+				break;
+			case 0xF8:
+				//enable sensor mode
+				if(motionInitState == MOTION_INIT_STATE_FD) 
+				{
+					motionInitState = MOTION_INIT_STATE_IDLE;
+					motionFlag |= MOTION_FLAG_SENSORMODE;
+					return 0;
+				}
+				break;
+			case 0xF9:
+				//disable sensor mode
+				if(motionInitState == MOTION_INIT_STATE_FD) 
+				{
+					motionInitState = MOTION_INIT_STATE_IDLE;
+					motionFlag &= ~MOTION_FLAG_SENSORMODE;
+					return 0;
+				}
+				break;
+			//*/
 			case 8:
 				printf("COMMAND%c: Unverified Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
 				val = 0xAA;
 				break;
 
 			case BM_CMD_WRITEDISABLE:
+				//MOTION CONTROLS
+				/*
+				switch(motionInitState)
+				{
+					case MOTION_INIT_STATE_IDLE: motionInitState = MOTION_INIT_STATE_RECEIVED_4; break;
+					case MOTION_INIT_STATE_RECEIVED_4: motionInitState = MOTION_INIT_STATE_RECEIVED_4_B; break;
+				}
+				//*/
 				write_enable = FALSE;
 				break;
 
@@ -542,6 +603,9 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 				printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
 				break;
 		} //switch(val)
+
+		//MOTION CONTROLS state machine broke, return to ground
+		//motionInitState = MOTION_INIT_STATE_IDLE;
 	}
 	return val;
 }
@@ -805,8 +869,7 @@ bool BackupDevice::save_no_gba(const char* fname)
 
 void BackupDevice::loadfile()
 {
-	//never use save files if we are in movie mode
-	if(isMovieMode) return;
+
 	if(filename.length() ==0) return; //No sense crashing if no filename supplied
 
 	EMUFILE_FILE* inf = new EMUFILE_FILE(filename.c_str(),"rb");
@@ -923,8 +986,6 @@ void BackupDevice::lazy_flush()
 
 void BackupDevice::flush()
 {
-	//never use save files if we are in movie mode
-	if(isMovieMode) return;
 
 	EMUFILE* outf = new EMUFILE_FILE(filename.c_str(),"wb");
 	if(!outf->fail())
@@ -969,7 +1030,7 @@ void BackupDevice::raw_applyUserSettings(u32& size)
 	if(CommonSettings.manualBackupType == MC_TYPE_AUTODETECT)
 	{
 		addr_size = addr_size_for_old_save_size(size);
-
+		data.resize(size);
 	}
 	else
 	{
@@ -977,6 +1038,7 @@ void BackupDevice::raw_applyUserSettings(u32& size)
 		int savesize = save_types[CommonSettings.manualBackupType][1];
 		addr_size = addr_size_for_old_save_type(savetype);
 		if((u32)savesize<size) size = savesize;
+		data.resize(savesize);
 	}
 
 	state = RUNNING;
@@ -992,7 +1054,6 @@ bool BackupDevice::load_raw(const char* filename)
 
 	raw_applyUserSettings(size);
 
-	data.resize(size);
 	fread(&data[0],1,size,inf);
 	fclose(inf);
 
@@ -1078,4 +1139,10 @@ bool BackupDevice::load_movie(EMUFILE* is) {
 	//none of the other fields are used right now
 
 	return true;
+}
+
+void BackupDevice::forceManualBackupType()
+{
+	addr_size = addr_size_for_old_save_size(save_types[CommonSettings.manualBackupType][1]);
+	state = RUNNING;
 }

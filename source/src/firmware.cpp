@@ -483,7 +483,7 @@ bool CFIRMWARE::load()
 	if (data[0x17C] != 0xFF)
 		patched = true;
 
-//	INFO("Firmware:\n");
+	//INFO("Firmware:\n");
 	//INFO("- path: %s\n", CommonSettings.Firmware);
 	//INFO("- size: %i bytes (%i Mbit)\n", size, size/1024/8);
 	//INFO("- CRC : 0x%04X\n", header.part12_boot_crc16);
@@ -495,7 +495,7 @@ bool CFIRMWARE::load()
 	//INFO("   * ARM9 GUI code address:      0x%08X\n", part3addr);
 	//INFO("\n");
 	//INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
-//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
+	//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
 	//INFO("   * ARM7 WiFi code address:     0x%08X\n", part4addr);
 	//INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
 	//INFO("\n");

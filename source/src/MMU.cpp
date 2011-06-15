@@ -437,13 +437,6 @@ static inline u8* MMU_vram_physical(const int page)
 }
 
 //todo - templateize
-//note: it doesnt seem right to me to map LCDC whenever a bank is allocated to BG/OBJ but thats how it is
-//(in FF4, when entering a town from worldmap, the subscreen tiles are via LCDC while mapped to sub BG)
-//UPDATED: i had to take them out in order to fix tetris DS music mode.
-//since then, other issues fixed FF4's problems, so they are staying out for now
-//as further, almost definitive proof that these should remain unmapped,
-//making them mapped permit's spiderman2's legal screens / intro FMV to render garbage
-//on top of the studio logo if you interrupt it by pressing enter. 
 static inline void MMU_VRAMmapRefreshBank(const int bank)
 {
 	int block = bank;
@@ -926,11 +919,9 @@ void SetUp_Lookups()
 	p=i;
 };
 
-void MMU_Init() 
-{
-	
-	int i;
+void MMU_Init(void) {
 	//LOG("MMU init\n");
+	
 
 	memset(&MMU, 0, sizeof(MMU_struct));
 
@@ -944,15 +935,17 @@ void MMU_Init()
 
 	MMU.CART_ROM = MMU.UNUSED_RAM;
 
-    for(i = 0x80; i<0xA0; ++i)
+    for(u32 i = 0x80; i<0xA0; ++i)
     {
 		MMU_struct::MMU_MEM[0][i] = MMU.CART_ROM;
 		MMU_struct::MMU_MEM[1][i] = MMU.CART_ROM;
     }
 
-	MMU.DTCMRegion = 0x027C0000;
+	//MMU.DTCMRegion = 0x027C0000;
+	//even though apps may change dtcm immediately upon startup, this is the correct hardware starting value:
+	MMU.DTCMRegion = 0x08000000;
 	MMU.ITCMRegion = 0x00000000;
-	
+
 	IPC_FIFOinit(ARMCPU_ARM9);
 	IPC_FIFOinit(ARMCPU_ARM7);
 	GFX_PIPEclear();
