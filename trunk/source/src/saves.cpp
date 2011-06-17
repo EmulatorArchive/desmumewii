@@ -20,14 +20,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-//--DCN: Force it to include the zlib compression library
 #define HAVE_LIBZ
-
 
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
-
 #include <stack>
 #include <set>
 #include <stdio.h>
@@ -858,6 +855,7 @@ static int SubWrite(EMUFILE* os, const SFORMAT *sf)
 			}
 			keyset.insert(sf->desc);
 			#endif
+
 
 		#ifdef LOCAL_LE
 			// no need to ever loop one at a time if not flipping byte order
