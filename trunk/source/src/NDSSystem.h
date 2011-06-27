@@ -294,7 +294,7 @@ struct GameInfo
 	u32 crc;
 	NDS_header header;
 	char ROMserial[20];
-	char ROMfullName[7][0x100];
+	//char ROMfullName[7][0x100];
 	void populate();
 	char* romdata;
 	int romsize;
