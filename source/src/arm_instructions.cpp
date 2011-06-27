@@ -188,8 +188,8 @@
 	u32 shift_op = ((i>>7)&0x1F); \
 	if(shift_op==0) \
 	{ \
-		u32 tmp = cpu->CPSR.bits.C; \
-		shift_op = (tmp<<31)|(cpu->R[REG_POS(i,0)]>>1); \
+		u32 tmp = u32(cpu->CPSR.bits.C)<<31; \
+		shift_op = (tmp)|(cpu->R[REG_POS(i,0)]>>1); \
 	} \
 	else \
 		shift_op = ROR(cpu->R[REG_POS(i,0)],shift_op);
@@ -199,8 +199,8 @@
 	u32 c = cpu->CPSR.bits.C; \
 	if(shift_op==0) \
 	{ \
-		u32 tmp = cpu->CPSR.bits.C; \
-		shift_op = (tmp<<31)|(cpu->R[REG_POS(i,0)]>>1); \
+		u32 tmp = u32(cpu->CPSR.bits.C)<<31; \
+		shift_op = (tmp)|(cpu->R[REG_POS(i,0)]>>1); \
 		c = BIT0(cpu->R[REG_POS(i,0)]); \
 	} \
 	else \

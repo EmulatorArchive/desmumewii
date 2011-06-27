@@ -75,8 +75,6 @@ But since we're not sure how we'll eventually want this, I am leaving it sort of
 in this function: */
 static void gfx3d_doFlush();
 
-#define TESTS_ENABLED 1
-
 #define INVALID_COMMAND 0xFF
 #define UNDEFINED_COMMAND 0xCC
 static const u8 gfx3d_commandTypes[] = {
@@ -1241,7 +1239,7 @@ static bool gfx3d_glLoadMatrix4x4(u32 v)
 	return true;
 }
 
-static void gfx3d_glLoadMatrix4x3(u32 v)
+static bool gfx3d_glLoadMatrix4x3(s32 v)
 {
 
 
@@ -1264,11 +1262,11 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
 
 #else
 
-	mtxCurrent[mode][ML4x3ind] = (float)((s32)v);
+	mtxCurrent[mode][ML4x3ind] = (float)(v);
 	
 	ML4x3ind++;
 	if((ML4x3ind & 0x03) == 3) ML4x3ind++;
-	if(ML4x3ind<16) return;
+	if(ML4x3ind<16) return false;
 	ML4x3ind = 0;
 	
 	
@@ -1280,12 +1278,11 @@ static void gfx3d_glLoadMatrix4x3(u32 v)
 	
 	GFX_DELAY(30);
 
-
 	if (mode == 2)
 		MatrixCopy (mtxCurrent[1], mtxCurrent[2]);
 #endif
 	//printf("load4x3: matrix %d to: \n",mode); MatrixPrint(mtxCurrent[1]);
-	return;
+	return true;
 }
 
 static bool gfx3d_glMultMatrix4x4(s32 v)
@@ -1509,7 +1506,6 @@ static void gfx3d_glColor3b(u32 v)
 
 static void gfx3d_glNormal(s32 v)
 {
-	int i,c;
 #ifdef GX_3D_FUNCTIONS	
 
 	guQuaternion normal = { normalTable[v&1023],
@@ -1581,7 +1577,7 @@ static void gfx3d_glNormal(s32 v)
 	
 	int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
 	
-	for(i=0; i<4; i++)
+	for(int i=0; i<4; i++)
 	{
 		if(!((lightMask>>i)&1)) continue;
 
@@ -1642,7 +1638,7 @@ static void gfx3d_glNormal(s32 v)
 	GFX_DELAY_M2((lightMask>>3) & 0x01);
 }
 
-static void gfx3d_glTexCoord(u32 val)
+static void gfx3d_glTexCoord(s32 val)
 {
 	_s = (s16)(val&0xFFFF);	
 	_t = (s16)(val>>16);
@@ -1687,34 +1683,29 @@ static void gfx3d_glTexCoord(u32 val)
 	GFX_DELAY(1);
 }
 
-static void gfx3d_glVertex16b(unsigned int v)
+static bool gfx3d_glVertex16b(u32 v)
 {
 	if(coordind==0)
 	{
-		//coord[0]              = float16table[v&0xFFFF];
-		//coord[1]              = float16table[v>>16];
 		u16coord[0] = v&0xFFFF;
 		u16coord[1] = (v>>16)&0xFFFF;
 
 		++coordind;
-		return;
+		return false;
 	}
 
-	//coord[2]        = float16table[v&0xFFFF];
 	u16coord[2] = v&0xFFFF;
 
 	coordind = 0;
 	SetVertex ();
 
 	GFX_DELAY(9);
-	return;
+	return true;
 }
 
 static void gfx3d_glVertex10b(u32 v)
 {
-	//coord[0]              = float10Table[v&1023];
-	//coord[1]              = float10Table[(v>>10)&1023];
-	//coord[2]              = float10Table[(v>>20)&1023];
+	
 	u16coord[0] = (v&1023)<<6;
 	u16coord[1] = ((v>>10)&1023)<<6;
 	u16coord[2] = ((v>>20)&1023)<<6;
@@ -1723,13 +1714,11 @@ static void gfx3d_glVertex10b(u32 v)
 	SetVertex ();
 }
 
-template<unsigned int one, unsigned int two>
-static void gfx3d_glVertex3_cord(unsigned int v)
+template<u32 ONE, u32 TWO>
+static void gfx3d_glVertex3_cord(u32 v)
 {
-	//coord[one]            = float16table[v&0xffff];
-	//coord[two]            = float16table[v>>16];
-	u16coord[one]           = v&0xffff;
-	u16coord[two]           = (v>>16)&0xFFFF;
+	u16coord[ONE] = v&0xffff;
+	u16coord[TWO] = (v>>16)&0xFFFF;
 
 	SetVertex ();
 
@@ -1738,10 +1727,6 @@ static void gfx3d_glVertex3_cord(unsigned int v)
 
 static void gfx3d_glVertex_rel(u32 v)
 {
-	//coord[0]              += float10RelTable[v&1023];
-	//coord[1]              += float10RelTable[(v>>10)&1023];
-	//coord[2]              += float10RelTable[(v>>20)&1023];
-
 	u16coord[0] += (u16)(((s16)((v&1023)<<6))>>6);
 	u16coord[1] += (u16)(((s16)(((v>>10)&1023)<<6))>>6);
 	u16coord[2] += (u16)(((s16)(((v>>20)&1023)<<6))>>6);
@@ -1827,18 +1812,17 @@ static void gfx3d_glLightColor (u32 v)
 	GFX_DELAY(1);
 }
 
-static void gfx3d_glShininess (u32 val)
+static bool gfx3d_glShininess (u32 val)
 {
 	shininessTable[shininessInd++] = ((val & 0xFF) / 256.0f);
 	shininessTable[shininessInd++] = (((val >> 8) & 0xFF) / 256.0f);
 	shininessTable[shininessInd++] = (((val >> 16) & 0xFF) / 256.0f);
 	shininessTable[shininessInd++] = (((val >> 24) & 0xFF) / 256.0f);
 
-	if (shininessInd < 128) return;
+	if (shininessInd < 128) return false;
 	shininessInd = 0;
 	GFX_DELAY(32);
-	return;
-
+	return true;
 }
 
 static void gfx3d_glBegin(u32 v)
@@ -1868,31 +1852,21 @@ static void gfx3d_glViewPort(u32 v)
 	GFX_DELAY(1);
 }
 
-static void gfx3d_glBoxTest(u32 v)
+static bool gfx3d_glBoxTest(u32 v)
 {
-	MMU_new.gxstat.tr = 0;          // clear boxtest bit
-	MMU_new.gxstat.tb = 1;          // busy
-	
-	
+	MMU_new.gxstat.tr = 0;		// clear boxtest bit
+	MMU_new.gxstat.tb = 1;		// busy
+
 	BTcoords[BTind++] = v & 0xFFFF;
 	BTcoords[BTind++] = v >> 16;
-	
-	if (BTind < 5) return;
+
+	if (BTind < 5) return false;
 	BTind = 0;
 	
-	MMU_new.gxstat.tb = 0;          // clear busy
+	MMU_new.gxstat.tb = 0;		// clear busy
 	GFX_DELAY(103);
 
-#if 0
-	//INFO("BoxTEST: x %f y %f width %f height %f depth %f\n",
-	//                      BTcoords[0], BTcoords[1], BTcoords[2], BTcoords[3], BTcoords[4], BTcoords[5]);
-	/*for (int i = 0; i < 16; i++)
-	{
-	        INFO("mtx1[%i] = %f ", i, mtxCurrent[1][i]);
-	        if ((i+1) % 4 == 0) INFO("\n");
-	}
-	INFO("\n");*/
-#endif
+
 
 	//(crafted to be clear, not fast.)
 
@@ -1966,9 +1940,7 @@ static void gfx3d_glBoxTest(u32 v)
 	//transform all coords
 	for(int i=0;i<8;i++) {
 		//MatrixMultVec4x4_M2(mtxCurrent[0], verts[i].coord);
-		
-		//Yuck.. can't use the sse2 accelerated ones because vert.coords is not cache aligned or something
-                
+		    
 #ifdef GX_3D_FUNCTIONS
 				
 				
@@ -2010,22 +1982,20 @@ static void gfx3d_glBoxTest(u32 v)
 		//printf("%06d FAIL %d\n",boxcounter,gxFIFO.size);
 	}
 	
-	return;
+	return true;
 }
 
-static void gfx3d_glPosTest(u32 v)
+static bool gfx3d_glPosTest(u32 v)
 {
 	//this is apparently tested by transformers decepticons and ultimate spiderman
 
 	//printf("POSTEST\n");
-#ifdef TESTS_ENABLED
 	MMU_new.gxstat.tb = 1;
-#endif
 
 	PTcoords[PTind++] = float16table[v & 0xFFFF];
 	PTcoords[PTind++] = float16table[v >> 16];
-	
-	if (PTind < 3) return;
+
+	if (PTind < 3) return false;
 	PTind = 0;
 	
 	PTcoords[3] = 1.0f;
@@ -2047,8 +2017,8 @@ static void gfx3d_glPosTest(u32 v)
 	MMU_new.gxstat.tb = 0;
 	
 	GFX_DELAY(9);
-	
-	return;
+
+	return true;
 }
 
 static void gfx3d_glVecTest(u32 v)
@@ -2105,7 +2075,7 @@ void VIEWPORT::decode(u32 v)
 
 void gfx3d_glClearColor(u32 v)
 {
-        gfx3d.clearColor = v;
+	gfx3d.clearColor = v;
 }
 
 void gfx3d_glFogColor(u32 v)
@@ -2494,6 +2464,7 @@ static void gfx3d_doFlush()
 			poly.miny = min(poly.miny, verty);
 			poly.maxy = max(poly.maxy, verty);
 		}
+
 	}
 
 	//we need to sort the poly list with alpha polys last
@@ -2815,9 +2786,9 @@ void gfx3d_savestate(EMUFILE* os)
 			}
 		}
 #else
-			OSWRITE(mtxStack[i].position);
-			for(int j=0;j<mtxStack[i].size*16;j++)
-				OSWRITE(mtxStack[i].matrix[j]);
+		OSWRITE(mtxStack[i].position);
+		for(int j=0;j<mtxStack[i].size*16;j++)
+			OSWRITE(mtxStack[i].matrix[j]);
 #endif
 	}
 

@@ -130,23 +130,24 @@ static INLINE u16 T2ReadWord(u8* const mem, const u32 addr)
    return *((u16 *) (mem + addr));
 }
 
-static INLINE u32 T2ReadLong(u8* const mem, const u32 addr)
-{
-#ifdef WORDS_BIGENDIAN
-   return *((u16 *) (mem + addr + 2)) << 16 | *((u16 *) (mem + addr));
-#else
-   return *((u32 *) (mem + addr));
-#endif
-}
-
-static INLINE void T2WriteByte(u8* const mem, const u32 addr, const u8 val)
-{
-#ifdef WORDS_BIGENDIAN
-   mem[addr ^ 1] = val;
-#else
-   mem[addr] = val;
-#endif
-}
+//
+//static INLINE u32 T2ReadLong(u8* const mem, const u32 addr)
+//{
+//#ifdef WORDS_BIGENDIAN
+//   return *((u16 *) (mem + addr + 2)) << 16 | *((u16 *) (mem + addr));
+//#else
+//   return *((u32 *) (mem + addr));
+//#endif
+//}
+//
+//static INLINE void T2WriteByte(u8* const mem, const u32 addr, const u8 val)
+//{
+//#ifdef WORDS_BIGENDIAN
+//   mem[addr ^ 1] = val;
+//#else
+//   mem[addr] = val;
+//#endif
+//}
 
 static INLINE void T2WriteWord(u8* const mem, const u32 addr, const u16 val)
 {
