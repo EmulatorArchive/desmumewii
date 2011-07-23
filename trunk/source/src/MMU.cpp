@@ -92,7 +92,7 @@ u32 _MMU_MAIN_MEM_MASK32 = 0x3FFFFF & ~3;
 void mmu_log_debug_ARM9(u32 adr, const char *fmt, ...)
 {
 	if (adr < 0x4000000) return;
-	if (adr > 0x4100014) return;
+//	if (adr > 0x4100014) return;
 
 	if (adr >= 0x4000000 && adr <= 0x400006E) return;		// Display Engine A
 	if (adr >= 0x40000B0 && adr <= 0x4000134) return;		// DMA, Timers and Keypad
@@ -120,7 +120,8 @@ void mmu_log_debug_ARM7(u32 adr, const char *fmt, ...)
 	if (adr < 0x4000004) return;
 	if (adr > 0x4808FFF) return;
 #if 1
-	if (adr >= 0x4000004 && adr <= 0x40001C4) return;		// ARM7 I/O Map
+	if (adr >= 0x4000004 && adr < 0x4000180) return;		// ARM7 I/O Map
+	if (adr >= 0x4000180 && adr <= 0x40001C4) return;		// IPC/ROM
 	if (adr >= 0x4000204 && adr <= 0x400030C) return;		// Memory and IRQ Control
 	if (adr >= 0x4000400 && adr <= 0x400051E) return;		// Sound Registers
 	if (adr >= 0x4100000 && adr <= 0x4100014) return;		// IPC/ROM
@@ -1234,7 +1235,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 		break;
 	}
 
-    switch(card.command[0])
+	switch(card.command[0])
 	{
 		// Dummy
 		case 0x9F:
@@ -1874,7 +1875,7 @@ void DmaController::write32(const u32 val)
 	/*if(wordcount==0x9FbFC || wordcount == 0x1FFFFC || wordcount == 0x1EFFFC || wordcount == 0x1FFFFF) {
 		int zzz=9;
 	}*/
-	u8 wasRepeatMode = repeatMode;
+	//u8 wasRepeatMode = repeatMode;
 	u8 wasEnable = enable;
 	u32 valhi = val>>16;
 	dar = (EDMADestinationUpdate)((valhi>>5)&3);
@@ -1987,6 +1988,7 @@ start:
 			default:
 				break;
 		}
+
 		if(triggered)
 		{
 			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
@@ -2093,7 +2095,11 @@ void DmaController::doCopy()
 
 void triggerDma(EDMAMode mode)
 {
-	for(int i=0;i<2;i++) for(int j=0;j<4;j++) MMU_new.dma[i][j].tryTrigger(mode);
+	for(int i=0;i<2;i++){
+		for(int j=0;j<4;j++){
+			MMU_new.dma[i][j].tryTrigger(mode);
+		}
+	}
 }
 
 void DmaController::tryTrigger(EDMAMode mode)
@@ -2301,7 +2307,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 				break ; 	 
 			case REG_DISPB_WININ+1: 	 
 				GPU_setWININ1(SubScreen.gpu,val) ; 	 
-				break ; 	 
+				break ; 
 			case REG_DISPB_WINOUT: 	 
 				GPU_setWINOUT(SubScreen.gpu,val) ; 	 
 				break ; 	 
@@ -2351,8 +2357,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 				write_auxspicnt(9,8,1,val);
 				return;
 
-
-			case 0x4000247:	
+			case REG_WRAMCNT:	
 				/* Update WRAMSTAT at the ARM7 side */
 				T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x241, val);
 				break;
@@ -2476,34 +2481,37 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			}
 
 			// Alpha test reference value - Parameters:1
-			case 0x04000340:
+			case eng_3D_ALPHA_TEST_REF:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x340>>1] = val;
 				gfx3d_glAlphaFunc(val);
 				return;
 			}
+
 			// Clear background color setup - Parameters:2
-			case 0x04000350:
+			case eng_3D_CLEAR_COLOR:
+			case eng_3D_CLEAR_COLOR+2:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x350>>1] = val;
 				gfx3d_glClearColor(val);
 				return;
 			}
+
 			// Clear background depth setup - Parameters:2
-			case 0x04000354:
+			case eng_3D_CLEAR_DEPTH:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x354>>1] = val;
 				gfx3d_glClearDepth(val);
 				return;
 			}
 			// Fog Color - Parameters:4b
-			case 0x04000358:
+			case eng_3D_FOG_COLOR:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x358>>1] = val;
 				gfx3d_glFogColor(val);
 				return;
 			}
-			case 0x0400035C:
+			case eng_3D_FOG_OFFSET:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x35C>>1] = val;
 				gfx3d_glFogOffset(val);
@@ -2981,6 +2989,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[(adr & 0xFFF) >> 2] = val;
 				gfx3d_sendCommand(adr, val);
 				return;
+
 			default:
 				break;
 		}
@@ -3021,21 +3030,21 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				return;
 
 			// Alpha test reference value - Parameters:1
-			case 0x04000340:
+			case eng_3D_ALPHA_TEST_REF:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x340>>2] = val;
 				gfx3d_glAlphaFunc(val);
 				return;
 			}
 			// Clear background color setup - Parameters:2
-			case 0x04000350:
+			case eng_3D_CLEAR_COLOR:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x350>>2] = val;
 				gfx3d_glClearColor(val);
 				return;
 			}
 			// Clear background depth setup - Parameters:2
-			case 0x04000354:
+			case eng_3D_CLEAR_DEPTH:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x354>>2] = val;
 				gfx3d_glClearDepth(val);
@@ -3294,7 +3303,7 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 	if (adr >> 24 == 4)
 	{	//Address is an IO register
 
-		if(MMU_new.is_dma(adr)) return MMU_new.read_dma(ARMCPU_ARM9,8,adr); 
+		if(MMU_new.is_dma(adr)) return MMU_new.read_dma(ARMCPU_ARM9,8,adr);
 
 		switch(adr)
 		{
@@ -3342,10 +3351,6 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 				return 0;
 				//almost worthless for now
 				//return (gfx3d_GetNumVertex());
-			//case 0x04000630:
-			//case 0x04000632:
-			//case 0x04000634:
-			//	return gfx3d_glGetVecRes((adr & 0xF) >> 1);
 			// ============================================= 3D end
 			case REG_IME :
 				return (u16)MMU.reg_IME[ARMCPU_ARM9];

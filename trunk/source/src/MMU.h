@@ -597,11 +597,6 @@ FORCEINLINE void* MMU_gpu_map(u32 vram_addr)
 }
 
 
-enum MMU_ACCESS_TYPE
-{
-	MMU_AT_CODE, MMU_AT_DATA, MMU_AT_GPU, MMU_AT_DMA
-};
-
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u8 _MMU_read08(u32 addr);
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u16 _MMU_read16(u32 addr);
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u32 _MMU_read32(u32 addr);
@@ -642,11 +637,9 @@ inline void SetupMMU(BOOL debugConsole) {
 	_MMU_MAIN_MEM_MASK32 = _MMU_MAIN_MEM_MASK & ~3;
 }
 
-//TODO: at one point some of the early access code included this. consider re-adding it
-  //ARM7 private memory
-  //if ( (adr & 0x0f800000) == 0x03800000) {
-    //T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF],
-      //         adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]); 
+//ALERT!!!!!!!!!!!!!!
+//the following inline functions don't do the 0x0FFFFFFF mask.
+//this may result in some unexpected behavior
 
 FORCEINLINE u8 _MMU_read08(const int PROCNUM, const MMU_ACCESS_TYPE AT, const u32 addr)
 {
@@ -736,6 +729,12 @@ FORCEINLINE u32 _MMU_read32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const u
 
 		if(addr<0x02000000) 
 			return T1ReadLong_guaranteedAligned(MMU.ARM9_ITCM, addr&0x7FFC);
+
+		//what happens when we execute from DTCM? nocash makes it look like we get 0xFFFFFFFF but I can't seem to verify it
+		//historically, desmume would fall through to its old memory map struct
+		//which would return unused memory (0)
+		//it seems the hardware returns 0 or something benign because in actuality 0xFFFFFFFF is an undefined opcode
+		//and we know our handling for that is solid
 
 		goto dunno;
 	}

@@ -2428,6 +2428,7 @@ TEMPLATE static u32 FASTCALL  OP_UMLAL_S(const u32 i)
 //-----------------------------------------------------------------------------
 
 #define MUL_SMxxL_END(c) \
+	v &= 0xFFFFFFFF; \
 	v >>= 8; \
 	if((v==0)||(v==0xFFFFFF)) \
 		return c+1; \
@@ -2449,8 +2450,6 @@ TEMPLATE static u32 FASTCALL  OP_SMULL(const u32 i)
 	cpu->R[REG_POS(i,12)] = (u32)(res&0xFFFFFFFF);
 	cpu->R[REG_POS(i,16)] = (u32)(res>>32);	
 	
-	v &= 0xFFFFFFFF;
-		
 	MUL_SMxxL_END(2);
 }
 
@@ -2468,8 +2467,6 @@ TEMPLATE static u32 FASTCALL  OP_SMLAL(const u32 i)
 	
 	//LOG("= %08X%08X  %08X%08X\n", cpu->R[REG_POS(i,16)], cpu->R[REG_POS(i,12)], res);
 	
-	v &= 0xFFFFFFFF;
-		
 	MUL_SMxxL_END(3);
 }
 
@@ -2485,8 +2482,6 @@ TEMPLATE static u32 FASTCALL  OP_SMULL_S(const u32 i)
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_POS(i,16)]);
 	cpu->CPSR.bits.Z = (cpu->R[REG_POS(i,16)]==0) & (cpu->R[REG_POS(i,12)]==0);
 
-	v &= 0xFFFFFFFF;
-		
 	MUL_SMxxL_END(2);
 }
 
@@ -2501,8 +2496,6 @@ TEMPLATE static u32 FASTCALL  OP_SMLAL_S(const u32 i)
 	 
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_POS(i,16)]);
 	cpu->CPSR.bits.Z = (cpu->R[REG_POS(i,16)]==0) & (cpu->R[REG_POS(i,12)]==0);
-
-	v &= 0xFFFFFFFF;
 
 	MUL_SMxxL_END(3);
 }
@@ -6583,8 +6576,18 @@ TEMPLATE static u32 FASTCALL  OP_MRC(const u32 i)
 		LOG("Stopped (OP_MRC) \n");
 		return 2;
 	}
-	
-	armcp15_moveCP2ARM((armcp15_t*)cpu->coproc[cpnum], &cpu->R[REG_POS(i, 12)], REG_POS(i, 16), REG_POS(i, 0), (i>>21)&7, (i>>5)&7);
+
+	// ARM REF:
+	//data = value from Coprocessor[cp_num]
+	//if Rd is R15 then
+	//	N flag = data[31]
+	//	Z flag = data[30]
+	//	C flag = data[29]
+	//	V flag = data[28]
+	//else // Rd is not R15
+	//	Rd = data
+
+	armcp15_moveCP2ARM((armcp15_t*)cpu->coproc[cpnum], &cpu->R[REG_POS(i, 12)], REG_POS(i, 16), REG_POS(i, 0), (i>>21)&0x7, (i>>5)&0x7);
 	//cpu->coproc[cpnum]->moveCP2ARM(&cpu->R[REG_POS(i, 12)], REG_POS(i, 16), REG_POS(i, 0), (i>>21)&7, (i>>5)&7);
 	return 4;
 }

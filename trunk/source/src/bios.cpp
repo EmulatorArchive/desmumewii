@@ -209,27 +209,9 @@ TEMPLATE static u32 WaitByLoop()
 
 TEMPLATE static u32 wait4IRQ()
 {
-     //execute= FALSE;
-     u32 instructAddr = cpu->instruct_adr;
-     if(cpu->wirq)
-     {
-          if(!cpu->waitIRQ)
-          {
-               cpu->waitIRQ = 0;
-               cpu->wirq = 0;
-               //cpu->switchMode(oldmode[cpu->proc_ID]);
-               return 1;
-          }
-          cpu->R[15] = instructAddr;
-          cpu->next_instruction = instructAddr;
-          return 1;
-     }
-     cpu->waitIRQ = 1;
-     cpu->wirq = 1;
-     cpu->R[15] = instructAddr;
-     cpu->next_instruction = instructAddr;
-     //oldmode[cpu->proc_ID] = cpu->switchMode(SVC);
-     return 1;
+   	cpu->waitIRQ = TRUE;
+	cpu->halt_IE_and_IF = TRUE;
+	return 1;
 }
 
 TEMPLATE u32 intrWaitARM()
@@ -249,7 +231,18 @@ TEMPLATE u32 intrWaitARM()
 	u32 intr = _MMU_read32<PROCNUM>(intrFlagAdr);
 	u32 intrFlag = (cpu->R[1] & intr);
 
+	//if the user requested us to discard flags, then clear the flag(s) we're going to be waiting on.
+	//(be sure to only do this only on the first run through. use a little state machine to control that)
+	if(cpu->intrWaitARM_state==0 && cpu->R[0]==1)
+	{
+		intr ^= intrFlag;
+		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
 
+		//we want to make sure we wait at least once below
+		intrFlag = 0;
+	}
+
+	cpu->intrWaitARM_state = 1;
 
 	//now, if the condition is satisfied (and it won't be the first time through, no matter what, due to cares taken above)
 	if(intrFlag)
@@ -257,15 +250,20 @@ TEMPLATE u32 intrWaitARM()
 		//write back the OS irq flags with the ones we were waiting for cleared
 		intr ^= intrFlag;
 		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
-		return wait4IRQ<PROCNUM>();
+
+		cpu->intrWaitARM_state = 0;
+		return 1;
 	}
+
+	//the condition wasn't satisfied. this means that we need to halt, wait for some enabled interrupt,
+	//and then ensure that we return to this opcode again to check the condition again
+	cpu->waitIRQ = TRUE;
+	cpu->halt_IE_and_IF = TRUE;
+
 	//(rewire PC to jump back to this opcode)
 	u32 instructAddr = cpu->instruct_adr;
 	cpu->R[15] = instructAddr;
 	cpu->next_instruction = instructAddr;
-	cpu->waitIRQ = 1;
-	cpu->wirq = 1;
-	
 	return 1;
 }
 

@@ -26,6 +26,16 @@
 #include <assert.h>
 #include "types.h"
 
+//this was originally declared in MMU.h but we suffered some organizational problems and had to remove it
+enum MMU_ACCESS_TYPE
+{
+	MMU_AT_CODE, //used for cpu prefetches
+	MMU_AT_DATA, //used for cpu read/write
+	MMU_AT_GPU, //used for gpu read/write
+	MMU_AT_DMA, //used for dma read/write (blocks access to TCM)
+	//MMU_AT_DEBUG, //used for emulator debugging functions (bypasses some debug handling)
+};
+
 /* Type 1 Memory, faster for byte (8 bits) accesses */
 
 static INLINE u8 T1ReadByte(u8* const mem, const u32 addr)

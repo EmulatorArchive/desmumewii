@@ -104,8 +104,8 @@ SFORMAT SF_ARM7[]={
 	{ "7int", 4, 1, &NDS_ARM7.intVector },
 	{ "7LDT", 1, 1, &NDS_ARM7.LDTBit },
 	{ "7Wai", 4, 1, &NDS_ARM7.waitIRQ },
-	//{ "7wIR", 4, 1, &NDS_ARM7.wIRQ, },
-	{ "7wir", 4, 1, &NDS_ARM7.wirq, },
+	{ "7hef", 4, 1, &NDS_ARM7.halt_IE_and_IF },
+	{ "7iws", 1, 1, &NDS_ARM7.intrWaitARM_state },
 	{ 0 }
 };
 
@@ -141,8 +141,8 @@ SFORMAT SF_ARM9[]={
 	{ "9int", 4, 1, &NDS_ARM9.intVector},
 	{ "9LDT", 1, 1, &NDS_ARM9.LDTBit},
 	{ "9Wai", 4, 1, &NDS_ARM9.waitIRQ},
-	//{ "9wIR", 4, 1, &NDS_ARM9.wIRQ},
-	{ "9wir", 4, 1, &NDS_ARM9.wirq},
+	{ "9hef", 4, 1, &NDS_ARM9.halt_IE_and_IF },
+	{ "9iws", 1, 1, &NDS_ARM7.intrWaitARM_state },
 	{ 0 }
 };
 
@@ -249,13 +249,7 @@ SFORMAT SF_MMU[]={
 	{ 0 }
 };
 
-#ifdef _MOVIETIME_
-SFORMAT SF_MOVIE[]={
-	{ "FRAC", 4, 1, &currFrameCounter},
-	{ "LAGC", 4, 1, &TotalLagFrames},
-	{ 0 }
-};
-#endif
+
 
 static void mmu_savestate(EMUFILE* os)
 {
@@ -277,6 +271,12 @@ static void mmu_savestate(EMUFILE* os)
 	MMU_timing.arm7dataFetch.savestate(os, version);
 	MMU_timing.arm9codeCache.savestate(os, version);
 	MMU_timing.arm9dataCache.savestate(os, version);
+
+	//version 4:
+	/*
+	MMU_new.sqrt.savestate(os);
+	MMU_new.div.savestate(os);
+	//*/
 }
 
 SFORMAT SF_WIFI[]={
@@ -1014,7 +1014,7 @@ bool savestate_save (const char *file_name)
 	{
 		elems_written = fwrite(ms.buf(),1,ms.size(),file);
 		fclose(file);
-		return (elems_written == ms.size());
+		return (elems_written == (size_t)(ms.size()));
 	} else return false;
 }
 

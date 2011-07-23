@@ -261,7 +261,7 @@ NDS_header * NDS_getROMHeader(void)
 	memcpy(header->logo, MMU.CART_ROM + 192, 156);
 	header->logoCRC16 = T1ReadWord(MMU.CART_ROM, 348);
 	header->headerCRC16 = T1ReadWord(MMU.CART_ROM, 350);
-	memcpy(header->reserved, MMU.CART_ROM + 352, min(160, gameInfo.romsize - 352));
+	memcpy(header->reserved, MMU.CART_ROM + 352, min(160, (int)gameInfo.romsize - 352));
 
 	return header;
 } 
