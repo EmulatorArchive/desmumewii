@@ -442,8 +442,6 @@ void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
 
-
-
 extern struct TCommonSettings {
 	TCommonSettings() 
 		: GFX3D_HighResolutionInterpolateColor(true)
@@ -471,6 +469,7 @@ extern struct TCommonSettings {
 		strcpy(Firmware, "firmware.bin");
 		NDS_FillDefaultFirmwareConfigData(&InternalFirmConf);
 
+		// WIFI mode: adhoc = 0, infrastructure = 1
 		wifi.mode = 0;
 		wifi.infraBridgeAdapter = 0;
 

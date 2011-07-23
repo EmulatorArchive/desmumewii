@@ -100,7 +100,7 @@ u32 IPC_FIFOrecv(u8 proc)
 
 	if ( ipc_fifo[proc_remote].size == 0 )		// FIFO empty
 	{
-		cnt_l |= 0x0100;
+		cnt_l |= 0x0101;
 		cnt_r |= 0x0001;
 	}
 

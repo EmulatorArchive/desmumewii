@@ -786,9 +786,9 @@ TEMPLATE static  u32 FASTCALL OP_LDR_SPREL(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_LDR_PCREL(const u32 i)
 {
-	u32 adr = (cpu->R[15]&0xFFFFFFFC) + ((cpu->instruction&0xFF)<<2);
+	u32 adr = (cpu->R[15]&0xFFFFFFFC) + ((i&0xFF)<<2);
 	
-	cpu->R[REG_NUM(cpu->instruction, 8)] = READ32(cpu->mem_if->data, adr);
+	cpu->R[REG_NUM(i, 8)] = READ32(cpu->mem_if->data, adr);
 			
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3, adr);
 }
@@ -799,14 +799,14 @@ TEMPLATE static  u32 FASTCALL OP_LDR_PCREL(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_ADJUST_P_SP(const u32 i)
 {
-	cpu->R[13] += ((cpu->instruction&0x7F)<<2);
+	cpu->R[13] += ((i&0x7F)<<2);
 	
 	return 1;
 }
 
 TEMPLATE static  u32 FASTCALL OP_ADJUST_M_SP(const u32 i)
 {
-	cpu->R[13] -= ((cpu->instruction&0x7F)<<2);
+	cpu->R[13] -= ((i&0x7F)<<2);
 	
 	return 1;
 }
@@ -988,7 +988,7 @@ TEMPLATE static  u32 FASTCALL OP_BKPT_THUMB(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_SWI_THUMB(const u32 i)
 {
-	u32 swinum = cpu->instruction & 0xFF;
+	u32 swinum = i & 0xFF;
 
 	//ideas-style debug prints (execute this SWI with the null terminated string address in R0)
 	if(swinum==0xFC) {
@@ -1088,7 +1088,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 {
 	// When using PC as operand with BX opcode, switch to ARM state and jump to (instruct_adr+4)
 	// Reference: http://nocash.emubase.de/gbatek.htm#thumb5hiregisteroperationsbranchexchange
-	if (REG_POS(cpu->instruction, 3) == 15)
+	if (REG_POS(i, 3) == 15)
 	{
 		 cpu->CPSR.bits.T = 0;
 		 cpu->R[15] &= 0xFFFFFFFC;
@@ -1096,7 +1096,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 	}
 	else
 	{
-		u32 Rm = cpu->R[REG_POS(cpu->instruction, 3)];
+		u32 Rm = cpu->R[REG_POS(i, 3)];
 
 		cpu->CPSR.bits.T = BIT0(Rm);
 		cpu->R[15] = (Rm & 0xFFFFFFFE);
@@ -1108,7 +1108,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_BLX_THUMB(const u32 i)
 {
-	u32 Rm = cpu->R[REG_POS(cpu->instruction, 3)];
+	u32 Rm = cpu->R[REG_POS(i, 3)];
 	
 	cpu->CPSR.bits.T = BIT0(Rm);
 	cpu->R[14] = cpu->next_instruction | 1;

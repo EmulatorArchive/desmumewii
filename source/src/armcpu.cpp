@@ -149,7 +149,7 @@ static u32 read_cpu_reg( void *instance, u32 reg_num) {
 		reg_value = armcpu->R[reg_num];
 	}
 	else if ( reg_num == 15) {
-		reg_value = armcpu->next_instruction;
+		reg_value = armcpu->instruct_adr;
 	}
 	else if ( reg_num == 16) {
 		//CPSR
@@ -223,7 +223,8 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	armcpu->LDTBit = (armcpu->proc_ID==0); //Si ARM9 utiliser le syte v5 pour le load
 	armcpu->intVector = 0xFFFF0000 * (armcpu->proc_ID==0);
 	armcpu->waitIRQ = FALSE;
-	armcpu->wirq = FALSE;
+	armcpu->halt_IE_and_IF = FALSE;
+	armcpu->intrWaitARM_state = 0;
 
 //#ifdef GDB_STUB
 //    armcpu->irq_flag = 0;
@@ -373,6 +374,13 @@ u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 	return oldmode;
 }
 
+u32 armcpu_Wait4IRQ(armcpu_t *cpu)
+{
+	cpu->waitIRQ = TRUE;
+	cpu->halt_IE_and_IF = TRUE;
+	return 1;
+}
+
 template<u32 PROCNUM>
 FORCEINLINE static u32 armcpu_prefetch()
 {
@@ -448,6 +456,40 @@ static BOOL (FASTCALL* test_conditions[])(Status_Reg CPSR)= {
 	(cond<15&&test_conditions[cond](CPSR))
 #endif
 
+//TODO - merge with armcpu_irqException?
+//http://www.ethernut.de/en/documents/arm-exceptions.html
+//http://docs.google.com/viewer?a=v&q=cache:V4ht1YkxprMJ:www.cs.nctu.edu.tw/~wjtsai/EmbeddedSystemDesign/Ch3-1.pdf+arm+exception+handling&hl=en&gl=us&pid=bl&srcid=ADGEEShx9VTHbUhWdDOrTVRzLkcCsVfJiijncNDkkgkrlJkLa7D0LCpO8fQ_hhU3DTcgZh9rcZWWQq4TYhhCovJ625h41M0ZUX3WGasyzWQFxYzDCB-VS6bsUmpoJnRxAc-bdkD0qmsu&sig=AHIEtbR9VHvDOCRmZFQDUVwy53iJDjoSPQ
+void armcpu_exception(armcpu_t *cpu, u32 number)
+{
+	Mode cpumode = USR;
+	switch(number)
+	{
+	case EXCEPTION_RESET: cpumode = SVC; break;
+	case EXCEPTION_UNDEFINED_INSTRUCTION: cpumode = UND; break;
+	case EXCEPTION_SWI: cpumode = SVC; break;
+	case EXCEPTION_PREFETCH_ABORT: cpumode = ABT; break;
+	case EXCEPTION_DATA_ABORT: cpumode = ABT; break;
+	case EXCEPTION_RESERVED_0x14: emu_halt(); break;
+	case EXCEPTION_IRQ: cpumode = IRQ; break;
+	case EXCEPTION_FAST_IRQ: cpumode = FIQ; break;
+	}
+
+	Status_Reg tmp = cpu->CPSR;
+	armcpu_switchMode(cpu, cpumode);				//enter new mode
+	cpu->R[14] = cpu->next_instruction;
+	cpu->SPSR = tmp;							//save old CPSR as new SPSR
+	cpu->CPSR.bits.T = 0;						//handle as ARM32 code
+	cpu->CPSR.bits.I = 1;
+	cpu->changeCPSR();
+	cpu->R[15] = cpu->intVector + number;
+	cpu->next_instruction = cpu->R[15];
+	printf("armcpu_exception!\n");
+	//extern bool dolog;
+	//dolog=true;
+
+	//HOW DOES THIS WORTK WITHOUT A PREFETCH, LIKE IRQ BELOW?
+	//I REALLY WISH WE DIDNT PREFETCH BEFORE EXECUTING
+}
 
 BOOL armcpu_irqException(armcpu_t *armcpu)
 {
