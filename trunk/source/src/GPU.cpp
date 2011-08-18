@@ -799,9 +799,9 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 }
 
 
-FORCEINLINE void GPU::setFinalColor3d(int l, int i16)
+FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 {
-	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(l,i16);
+	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(dstX,srcX);
 }
 
 FORCEINLINE void GPU::setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x)
@@ -829,7 +829,6 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 	//we enable mosaic in the middle of a frame. this is deemed unlikely.
 	if(!MOSAIC) {
 		if(opaque){
-			//--DCN: I hate goto; hate it like pain
 			setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
 		}
 	      return;
@@ -906,26 +905,25 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 
 	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
 	u8 num = gpu->currBgNum;
-	u32 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
-	u32 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
-	Log_fprintf("%s %d %d\n", __FUNCTION__, XBG, YBG);
-	u32 lg     = gpu->BGSize[num][0];
-	u32 ht     = gpu->BGSize[num][1];
-	u32 wmask  = (lg-1);
-	u32 hmask  = (ht-1);
+	u16 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
+	u16 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	u16 lg     = gpu->BGSize[num][0];
+	u16 ht     = gpu->BGSize[num][1];
+	u16 wmask  = (lg-1);
+	u16 hmask  = (ht-1);
 	YBG &= hmask;
 
 	//TODO - handle wrapping / out of bounds correctly from rot_scale_op?
 
 	u32 tmp_map = gpu->BG_bmp_large_ram[num] + lg * YBG;
-	u8* map = MMU_gpu_map(tmp_map);
+	u8* map = (u8 *)MMU_gpu_map(tmp_map);
 
 	u8* pal = MMU.ARM9_VMEM + gpu->core * ADDRESS_STEP_1KB;
 
 	for(int x = 0; x < lg; ++x, ++XBG)
 	{
 		XBG &= wmask;
-		u32 pixel = map[XBG];
+		u8 pixel = map[XBG];
 		u16 color = T1ReadWord(pal, pixel<<1);
 		gpu->__setFinalColorBck<MOSAIC,false>(color,x,color);
 	}
@@ -938,25 +936,27 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 // render a text background to the combined pixelbuffer
 template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG, u16 LG)
 {
-	u32 num = gpu->currBgNum;
+	u8 num = gpu->currBgNum;
 	struct _BGxCNT *bgCnt = &(gpu->dispx_st)->dispx_BGxCNT[num].bits;
 	struct _DISPCNT *dispCnt = &(gpu->dispx_st)->dispx_DISPCNT.bits;
 	TILEENTRY tileentry;
-	u32 lg     = gpu->BGSize[num][0];
-	u32 ht     = gpu->BGSize[num][1];
-	u32 wmask  = (lg-1);
-	u32 hmask  = (ht-1);
-	u32 tmp    = ((YBG & hmask) >> 3);
-	u32 map;
-	u8 *pal, *line;
-	u32 tile;
-	u32 xoff;
-	u32 yoff;
+	u32 map;	
+	u32 tile;	
 	u32 x      = 0;
 	u32 xfin;
 	u32 mapinfo;
+	u8 *pal, *line;	
+	u16 lg     = gpu->BGSize[num][0];
+	u16 ht     = gpu->BGSize[num][1];
+	u16 wmask  = (lg-1);
+	u16 hmask  = (ht-1);
+	u16 tmp    = ((YBG & hmask) >> 3);
+	u16 xoff;
+	u16 yoff;
+	u16 color;	
 	u32 tmp_map = gpu->BG_map_ram[num] + (tmp&31) * 64;
-	u16 color;
+
+
 	s8 line_dir = 1;
 	
 	if(tmp>31) 
@@ -1044,7 +1044,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 	}
 
 	yoff = ((YBG&7)<<3);
-
+	u8* tilePal;
 	xfin = 8 - (xoff&7);
 	u32 extPalMask = -dispCnt->ExBGxPalette_Enable;
 	for(x = 0; x < LG; xfin = std::min<u16>(x+8, LG))
@@ -1053,8 +1053,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 		mapinfo = map + ((tmp & 31) << 1);
 		if(tmp > 31) mapinfo += 32*32*2;
 		tileentry.val = T1ReadWord(MMU_gpu_map(mapinfo), 0);
-		u8 *tilePal = pal + ((tileentry.bits.Palette<<9) & extPalMask);
-
+		tilePal = pal + ((tileentry.bits.Palette<<9) & extPalMask);
 		line = (u8*)MMU_gpu_map(tile + (tileentry.bits.TileNum*0x40) + ((tileentry.bits.VFlip) ? (7*8)-yoff : yoff));
 
 		if(tileentry.bits.HFlip)
@@ -1089,7 +1088,7 @@ template<bool MOSAIC> FORCEINLINE void rot_tiled_8bit_entry(GPU * gpu, s32 auxX,
 
 	u8 palette_entry = *(u8*)MMU_gpu_map(tile + ((tileindex<<6)+(y<<3)+x));
 	u16 color = T1ReadWord(pal, palette_entry << 1);
-	Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
+	//Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color,i,palette_entry);
 }
 
@@ -1104,7 +1103,6 @@ template<bool MOSAIC, bool extPal> FORCEINLINE void rot_tiled_16bit_entry(GPU * 
 
 	const u8 palette_entry = *(u8*)MMU_gpu_map(tile + ((tileentry.bits.TileNum<<6)+(y<<3)+x));
 	const u16 color = T1ReadWord(pal, (palette_entry + (extPal ? (tileentry.bits.Palette<<8) : 0)) << 1);
-	Log_fprintf("%s %d %d %d\n", __FUNCTION__, tileentry.bits.Palette, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, palette_entry);
 }
 
@@ -1113,14 +1111,14 @@ template<bool MOSAIC> FORCEINLINE void rot_256_map(GPU * gpu, s32 auxX, s32 auxY
 
 	u8 palette_entry = *adr;
 	u16 color = T1ReadWord(pal, palette_entry << 1);
-	Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
+	//Log_fprintf("%s %d %d\n", __FUNCTION__, color, palette_entry);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, palette_entry);
 }
 
 template<bool MOSAIC> FORCEINLINE void rot_BMP_map(GPU * gpu, s32 auxX, s32 auxY, int lg, u32 map, u32 tile, u8 * pal, int i) {
 	void* adr = MMU_gpu_map((map) + ((auxX + auxY * lg) << 1));
 	u16 color = T1ReadWord(adr, 0);
-	Log_fprintf("%s %d\n", __FUNCTION__, color);
+	//Log_fprintf("%s %d\n", __FUNCTION__, color);
 	gpu->__setFinalColorBck<MOSAIC,false>(color, i, color&0x8000);
 }
 
@@ -1376,15 +1374,11 @@ INLINE void render_sprite_256 (	GPU * gpu, u8 spriteNum, u16 l, u8 * dst, u8 * s
 		// palette entry = 0 means backdrop
 		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
 		{
-			/* if we don't draw, do not set prio, or else */
-			//if (gpu->setFinalColorSpr(gpu, sprX << 1,4,dst, color, sprX))
-			{
-				T2WriteWord(dst, (sprX<<1), color);
-				dst_alpha[sprX] = 16;
-				typeTab[sprX] = (alpha ? 1 : 0);
-				prioTab[sprX] = prio;
-				gpu->sprNum[sprX] = spriteNum;
-			}
+			T2WriteWord(dst, (sprX<<1), color);
+			dst_alpha[sprX] = 16;
+			typeTab[sprX] = (alpha ? 1 : 0);
+			prioTab[sprX] = prio;
+			gpu->sprNum[sprX] = spriteNum;
 		}
 	}
 }
@@ -1407,14 +1401,10 @@ INLINE void render_sprite_16 (	GPU * gpu, u16 l, u8 * dst, u8 * src, u16 * pal,
 		// palette entry = 0 means backdrop
 		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
 		{
-			/* if we don't draw, do not set prio, or else */
-			//if (gpu->setFinalColorSpr(gpu, sprX << 1,4,dst, color, sprX ))
-			{
-				T2WriteWord(dst, (sprX<<1), color);
-				dst_alpha[sprX] = 16;
-				typeTab[sprX] = (alpha ? 1 : 0);
-				prioTab[sprX] = prio;
-			}
+			T2WriteWord(dst, (sprX<<1), color);
+			dst_alpha[sprX] = 16;
+			typeTab[sprX] = (alpha ? 1 : 0);
+			prioTab[sprX] = prio;
 		}
 	}
 }
@@ -2203,21 +2193,63 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	}
 }
 
+//This takes advantage of the fact that there are only two possible values for capx
+static inline void CAPCOPY(GPU * gpu, u8* const src, u8* const dst, bool setAlphaBit){
+
+	switch(gpu->dispCapCnt.capx) { 
+		case DISPCAPCNT::_128: 
+		{
+			int i = 127;
+			if(setAlphaBit){
+				do{ 
+					T2WriteWord(dst, i << 1, T2ReadWord(src, i << 1) | (1<<15)); 
+				--i;
+				}while(i >= 0);
+			}else{
+				do{ 
+					T2WriteWord(dst, i << 1, T2ReadWord(src, i << 1)); 
+				--i;
+				}while(i >= 0);
+			}
+		}
+		break; 
+		case DISPCAPCNT::_256: 
+		{
+			int i = 255;
+			if(setAlphaBit){
+				do{ 
+					T2WriteWord(dst, i << 1, T2ReadWord(src, i << 1) | (1<<15)); 
+				--i;
+				}while(i >= 0);
+			}else{
+				do{ 
+					T2WriteWord(dst, i << 1, T2ReadWord(src, i << 1)); 
+				--i;
+				}while(i >= 0);
+			}
+		}
+		break; 
+		default: assert(false); 
+	}
+}
+
 template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 {
 	//this macro takes advantage of the fact that there are only two possible values for capx
-	#define CAPCOPY(SRC,DST) \
+	/*
+	#define CAPCOPY(SRC,DST,SETALPHABIT) \
 	switch(gpu->dispCapCnt.capx) { \
 		case DISPCAPCNT::_128: \
-			for (int i = 128; i--;)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
+			for (int i = 0; i < 128; i++)  \
+				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 		case DISPCAPCNT::_256: \
-			for (int i = 256; i--;)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
+			for (int i = 0; i < 256; i++)  \
+				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 			default: assert(false); \
 		}
+	//*/
 	
 	GPU * gpu = MainScreen.gpu;
 
@@ -2274,7 +2306,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 									//INFO("Capture screen (BG + OBJ + 3D)\n");
 
 									u8 *src = (u8*)(gpu->tempScanline);
-									CAPCOPY(src,cap_dst);
+									CAPCOPY(gpu, src,cap_dst,true);
 								}
 							break;
 							case 1:			// Capture 3D
@@ -2282,7 +2314,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 									//INFO("Capture 3D\n");
 									u16* colorLine;
 									gfx3d_GetLineData15bpp(l, &colorLine);
-									CAPCOPY(((u8*)colorLine),cap_dst);
+									CAPCOPY(gpu, ((u8*)colorLine),cap_dst,false);
 								}
 							break;
 						}
@@ -2295,7 +2327,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 						{
 							case 0:	
 								//Capture VRAM
-								CAPCOPY(cap_src,cap_dst);
+								CAPCOPY(gpu, cap_src,cap_dst,true);
 								break;
 							case 1:
 								//capture dispfifo
@@ -2844,51 +2876,3 @@ void gpu_SetRotateScreen(u16 angle)
 {
 	gpu_angle = angle;
 }
-
-//here is an old bg mosaic with some old code commented out. I am going to leave it here for a while to look at it
-//sometimes in case I find a problem with the mosaic.
-//static void __setFinalColorBck(GPU *gpu, u32 passing, u8 bgnum, u8 *dst, u16 color, u16 x, bool opaque)
-//{
-//	struct _BGxCNT *bgCnt = &(gpu->dispx_st)->dispx_BGxCNT[bgnum].bits;
-//	bool enabled = bgCnt->Mosaic_Enable;
-//
-////	if(!opaque) color = 0xFFFF;
-////	else color &= 0x7FFF;
-//	if(!opaque)
-//		return;
-//
-//	//mosaic test hacks
-//	enabled = true;
-//
-//	//due to this early out, we will get incorrect behavior in cases where 
-//	//we enable mosaic in the middle of a frame. this is deemed unlikely.
-//	if(enabled)
-//	{
-//		u8 y = gpu->currLine;
-//
-//		//I intend to cache all this at the beginning of line rendering
-//		
-//		u16 mosaic_control = T1ReadWord((u8 *)&gpu->dispx_st->dispx_MISC.MOSAIC, 0);
-//		u8 mw = (mosaic_control & 0xF);
-//		u8 mh = ((mosaic_control>>4) & 0xF); 
-//
-//		//mosaic test hacks
-//		mw = 3;
-//		mh = 3;
-//
-//		MosaicLookup::TableEntry &te_x = mosaicLookup.table[mw][x];
-//		MosaicLookup::TableEntry &te_y = mosaicLookup.table[mh][y];
-//
-//		//int x_int;
-//		//if(enabled) 
-//			int x_int = te_x.trunc;
-//		//else x_int = x;
-//
-//		if(te_x.begin && te_y.begin) {}
-//		else color = gpu->MosaicColors.bg[bgnum][x_int];
-//		gpu->MosaicColors.bg[bgnum][x] = color;
-//	}
-//
-////	if(color != 0xFFFF)
-//		gpu->setFinalColorBck(gpu,0,bgnum,dst,color,x);
-//}

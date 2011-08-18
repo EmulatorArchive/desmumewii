@@ -43,7 +43,7 @@
 #include "firmware.h"
 
 #include "path.h"
-#include "log.h"
+
 
 PathInfo path;
 
@@ -154,7 +154,6 @@ struct armcpu_ctrl_iface **arm7_ctrl_iface) {
 #else
 int NDS_Init( void) {
 #endif
-	Log_Init();
 	nds.idleFrameCounter = 0;
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
@@ -199,7 +198,6 @@ int NDS_Init( void) {
 }
 
 void NDS_DeInit(void) {
-	Log_DeInit();
 	if(MMU.CART_ROM != MMU.UNUSED_RAM)
 		NDS_FreeROM();
 
@@ -365,119 +363,7 @@ void GameInfo::populate()
 		memset(ROMserial+19, '\0', 1);
 	}
 }
-#ifdef _WINDOWS
 
-static std::vector<char> buffer;
-static std::vector<char> v;
-
-static void loadrom(std::string fname) {
-
-	FILE* inf = fopen(fname.c_str(),"rb");
-	if(!inf) return;
-
-	fseek(inf,0,SEEK_END);
-	int size = ftell(inf);
-	fseek(inf,0,SEEK_SET);
-
-	gameInfo.resize(size);
-	fread(gameInfo.romdata,1,size,inf);
-	
-	fclose(inf);
-}
-
-int NDS_LoadROM(const char *filename, const char *logicalFilename)
-{
-	int					type = ROM_NDS;
-	u32					mask;
-	char				buf[MAX_PATH];
-
-	if (filename == NULL)
-		return -1;
-	
-    path.init(logicalFilename);
-
-	if ( path.isdsgba(path.path)) {
-		type = ROM_DSGBA;
-		loadrom(path.path);
-	}
-	else if ( !strcasecmp(path.extension().c_str(), "nds")) {
-		type = ROM_NDS;
-		loadrom(path.path); //n.b. this does nothing if the file can't be found (i.e. if it was an extracted tempfile)...
-		//...but since the data was extracted to gameInfo then it is ok
-	}
-	//ds.gba in archives, it's already been loaded into memory at this point
-	else if (path.isdsgba(std::string(logicalFilename))) {
-		type = ROM_DSGBA;
-	} else {
-		//well, try to load it as an nds rom anyway
-		type = ROM_NDS;
-		loadrom(path.path);
-	}
-
-	if(type == ROM_DSGBA)
-	{
-		std::vector<char> v(gameInfo.romdata + DSGBA_LOADER_SIZE, gameInfo.romdata + gameInfo.romsize);
-		gameInfo.loadData(&v[0],gameInfo.romsize - DSGBA_LOADER_SIZE);
-	}
-
-	//check that size is at least the size of the header
-	if (gameInfo.romsize < 352) {
-		return -1;
-	}
-
-	//zero 25-dec-08 - this used to yield a mask which was 2x large
-	//mask = size; 
-	mask = gameInfo.romsize-1; 
-	mask |= (mask >>1);
-	mask |= (mask >>2);
-	mask |= (mask >>4);
-	mask |= (mask >>8);
-	mask |= (mask >>16);
-
-	//decrypt if necessary..
-	//but this is untested and suspected to fail on big endian, so lets not support this on big endian
-
-#ifndef WORDS_BIGENDIAN
-	bool okRom = DecryptSecureArea((u8*)gameInfo.romdata,gameInfo.romsize);
-
-	if(!okRom) {
-		printf("Specified file is not a valid rom\n");
-		return -1;
-	}
-#endif
-
-	cheatsSearchClose();
-#ifdef _MOVIETIME_
-	FCEUI_StopMovie();
-#endif
-
-	MMU_unsetRom();
-	NDS_SetROM((u8*)gameInfo.romdata, mask);
-	NDS_Reset();
-
-	memset(buf, 0, MAX_PATH);
-
-	path.getpathnoext(path.BATTERY, buf);
-	
-	strcat(buf, ".dsv");							// DeSmuME memory card	:)
-
-	MMU_new.backupDevice.load_rom(buf);
-
-	memset(buf, 0, MAX_PATH);
-
-	path.getpathnoext(path.CHEATS, buf);
-	
-	strcat(buf, ".dct");							// DeSmuME cheat		:)
-	cheatsInit(buf);
-
-	gameInfo.populate();
-	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
-	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
-	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
-
-	return 1;
-}
-#else
 int NDS_LoadROM(const char *filename, const char *logicalFilename)
 {
 	if (filename == NULL)
@@ -486,12 +372,12 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	ROMReader_struct	*reader;
 	int					ret;
 	int					type = ROM_NDS;
-	u32					size, mask;
+	u32					mask;
 	void				*file;
 	u8					*data;
 	char				buf[MAX_PATH];
 	char				*noext = strdup(filename);
-
+	
 	reader = ROMReaderInit(&noext);
 
 	if(logicalFilename) path.init(logicalFilename);
@@ -516,7 +402,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 		return -1;
 	}
 
-	size = reader->Size(file);
+	u32 size = reader->Size(file);
 
 	if(type == ROM_DSGBA)
 	{
@@ -599,17 +485,15 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	gameInfo.populate();
 	//gameInfo.crc = crc32(0,data,size);
 	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
-	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
-	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
+	INFO("\nROM crc: %08X\n", gameInfo.crc);
+	INFO("ROM serial: %s\n", gameInfo.ROMserial);
 
 	return ret;
 }
-#endif
+
 void NDS_FreeROM(void)
 {
-#ifdef _MOVIETIME_
-	FCEUI_StopMovie();
-#endif
+
 	if ((u8*)MMU.CART_ROM == (u8*)gameInfo.romdata)
 		gameInfo.romdata = NULL;
 	if (MMU.CART_ROM != MMU.UNUSED_RAM)
@@ -824,7 +708,7 @@ void NDS_ToggleCardEject()
 	if(!nds.cardEjected)
 	{
 		//staff of kings will test this (it also uses the arm9 0xB8 poll)
-		NDS_makeInt(1, 20);
+		NDS_makeIrq(ARMCPU_ARM7, IRQ_BIT_GC_IREQ_MC);
 	}
 	nds.cardEjected ^= TRUE;
 }
@@ -1052,8 +936,7 @@ template<int procnum, int num> struct TSequenceItem_Timer : public TSequenceItem
 				MMU.timer[procnum][i] = MMU.timerReload[procnum][i];
 				if(T1ReadWord(regs, 0x102 + i*4) & 0x40) 
 				{
-					if(procnum==0) NDS_makeARM9Int(3 + i);
-					else NDS_makeARM7Int(3 + i);
+					NDS_makeIrq(procnum, IRQ_BIT_TIMER_0 + i);
 				}
 			}
 			else
@@ -1384,8 +1267,8 @@ static void execHardware_hstart_vblankStart()
 	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 1);
 
 	//fire vblank interrupts if necessary
-	NDS_ARM9VBlankInt();
-	NDS_ARM7VBlankInt();
+	if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8) NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_VBLANK);
+	if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8) NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_VBLANK);
 
 	//some emulation housekeeping
 	gfx3d_VBlankSignal();
@@ -1409,7 +1292,7 @@ static void execHardware_hstart_vcount()
 		//arm9 vmatch
 		T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 4);
 		if(T1ReadWord(MMU.ARM9_REG, 4) & 32) {
-			NDS_makeARM9Int(2);
+			NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_VMATCH);
 		}
 	}
 	else
@@ -1422,7 +1305,7 @@ static void execHardware_hstart_vcount()
 		//arm7 vmatch
 		T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 4);
 		if(T1ReadWord(MMU.ARM7_REG, 4) & 32)
-			NDS_makeARM7Int(2);
+			NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_VMATCH);
 	}
 	else
 		T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) & 0xFFFB);
@@ -1760,6 +1643,7 @@ void NDS_exec(s32 nb)
 
 			sequencer.reschedule = false;
 
+			//cast these down to 32bits so that things run faster on 32bit procs
 			u64 nds_timer_base = nds_timer;
 			s32 arm9 = (s32)(nds_arm9_timer-nds_timer);
 			s32 arm7 = (s32)(nds_arm7_timer-nds_timer);
@@ -1779,7 +1663,7 @@ void NDS_exec(s32 nb)
 #endif
 
 			//if we were waiting for an irq, don't wait too long:
-			//let's re-analyze it after this hardware event
+			//let's re-analyze it after this hardware event (this rolls back a big burst of irq waiting which may have been interrupted by a resynch)
 			if(NDS_ARM9.waitIRQ) nds_arm9_timer = nds_timer;
 			if(NDS_ARM7.waitIRQ) nds_arm7_timer = nds_timer;
 		}
@@ -1798,9 +1682,7 @@ void NDS_exec(s32 nb)
 		lastLag = lagframecounter;
 		lagframecounter = 0;
 	}
-#ifdef _MOVIETIME_
-	currFrameCounter++;
-#endif	
+
 //	cheatsProcess();
 }
 
@@ -1834,12 +1716,11 @@ void execHardware_interrupts()
 
 static void resetUserInput();
 
-bool _HACK_DONT_STOPMOVIE = false;
 void NDS_Reset()
 {
-	u32 src;
-	u32 dst;
-	FILE* inf = 0;
+	u32 src = 0;
+	u32 dst = 0;
+	FILE* inf = NULL;
 	NDS_header * header = NDS_getROMHeader();
 	bool fw_success = false;
 
@@ -1851,22 +1732,13 @@ void NDS_Reset()
 	nds_timer = 0;
 	nds_arm9_timer = 0;
 	nds_arm7_timer = 0;
-#ifdef _MOVIETIME_
 
-	if(movieMode != MOVIEMODE_INACTIVE && !_HACK_DONT_STOPMOVIE)
-		movie_reset_command = true;
 
-	if(movieMode == MOVIEMODE_INACTIVE) {
-		currFrameCounter = 0;
-#endif		
-		lagframecounter = 0;
-		LagFrameFlag = 0;
-		lastLag = 0;
-		TotalLagFrames = 0;
+	lagframecounter = 0;
+	LagFrameFlag = 0;
+	lastLag = 0;
+	TotalLagFrames = 0;
 
-#ifdef _MOVIETIME_
-	}
-#endif	
 
 	//spu must reset early on, since it will crash due to keeping a pointer into MMU memory for the sample pointers. yuck!
 	SPU_Reset();
@@ -1899,15 +1771,15 @@ void NDS_Reset()
 		for (int t = 0; t < 16384; t++)
 			MMU.ARM7_BIOS[t] = 0xFF;
 
-		T1WriteLong(MMU.ARM7_BIOS,0x00, 0xE25EF002);
-		T1WriteLong(MMU.ARM7_BIOS,0x04, 0xEAFFFFFE);
-		T1WriteLong(MMU.ARM7_BIOS,0x18, 0xEA000000);
-		T1WriteLong(MMU.ARM7_BIOS,0x20, 0xE92D500F);
-		T1WriteLong(MMU.ARM7_BIOS,0x24, 0xE3A00301);
-		T1WriteLong(MMU.ARM7_BIOS,0x28, 0xE28FE000);
-		T1WriteLong(MMU.ARM7_BIOS,0x2C, 0xE510F004);
-		T1WriteLong(MMU.ARM7_BIOS,0x30, 0xE8BD500F);
-		T1WriteLong(MMU.ARM7_BIOS,0x34, 0xE25EF004);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0000, 0xE25EF002);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0004, 0xEAFFFFFE);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0018, 0xEA000000);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0020, 0xE92D500F);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0024, 0xE3A00301);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0028, 0xE28FE000);
+		T1WriteLong(MMU.ARM7_BIOS, 0x002C, 0xE510F004);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0030, 0xE8BD500F);
+		T1WriteLong(MMU.ARM7_BIOS, 0x0034, 0xE25EF004);
 	}
 
 	//ARM9 BIOS IRQ HANDLER
@@ -2431,7 +2303,7 @@ static void NDS_applyFinalInput()
 		if (!LidClosed)
 		{
 		//	SPU_Pause(FALSE);
-			NDS_makeARM7Int(22);
+			NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_ARM7_FOLD);
 
 		}
 		//else
