@@ -1312,7 +1312,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			{
 				card.address = 0;
 				card.transfer_count = 0;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 			}
 			break;
 
@@ -1325,7 +1325,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			case 0x40:
 				card.address = 0;
 				card.transfer_count = 0;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			case 0x42:  // ALL_SEND_CID
@@ -1337,7 +1337,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			case 0x69:  // SD_APP_OP_COND
 				card.address = 0;
 				card.transfer_count = 6;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			// SET_BLOCKLEN
@@ -1345,14 +1345,14 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 				card.address = 0;
 				card.transfer_count = 6;
 				card.blocklen = card.command[6] | (card.command[5] << 8) | (card.command[4] << 16) | (card.command[3] << 24);
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			// READ_SINGLE_BLOCK
 			case 0x51:
 				card.address = card.command[6] | (card.command[5] << 8) | (card.command[4] << 16) | (card.command[3] << 24);
 				card.transfer_count = (card.blocklen + 3) >> 2;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 			}
 			break;
@@ -1528,7 +1528,7 @@ u32 MMU_readFromGC()
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
-		NDS_makeInt(PROCNUM, 19);
+		NDS_makeIrq(PROCNUM, 19);
 
 	return val;
 }
@@ -2134,8 +2134,7 @@ void DmaController::doStop()
 	running = FALSE;
 	if(!repeatMode) enable = FALSE;
 	if(irq) {
-		if(procnum==0) NDS_makeARM9Int(8+chan);
-		else NDS_makeARM7Int(8+chan);
+		NDS_makeIrq(procnum,IRQ_BIT_DMA_0+chan);
 	}
 }
 

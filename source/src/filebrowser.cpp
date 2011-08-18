@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <wiiuse/wpad.h>
 #include "ctrlssdl.h"
 
@@ -57,8 +58,8 @@ static void clear_console()
 
 static void browse_back(char *str){
 	int length = strlen(str);
-	int idx;
-	for( idx = length; idx > 0; idx-- ) {
+	int idx = length;
+	do{
 		char ch = str[idx];
 		str[idx] = '\0';
 		if( ch == '/' ) {
@@ -66,38 +67,79 @@ static void browse_back(char *str){
 				str[idx] = '/';		// Check is here, because it happens only once per function call.
 			break;
 		}
-	}
+		--idx;
+	}while(idx > 0);
 }
 
+
 static ret_action textFileBrowser(file_browser_st *file_struct){
+
 	// Set everything up to read
-	DIR_ITER* dp = diropen(file_struct->path);
+
+	DIR* dp = opendir(file_struct->path);
 
 	if(!dp)
 		return BROWSER_FILE_NOT_FOUND;
 
 	struct stat fstat;
-	char filename[MAXPATHLEN];
-	int num_entries = 1, i = 0;
+	
+	s32 pathLen = strlen(file_struct->path);
+	s32 num_entries = 1, i = 0;
 	dir_ent* dir = (dir_ent*) malloc( num_entries * sizeof(dir_ent) );
+	struct dirent *tdir;
+	
 	// Read each entry of the directory
-	while( dirnext(dp, filename, &fstat) == 0 ){
-		if((strcmp(filename, ".") != 0 && (fstat.st_mode & S_IFDIR)) || TYPE_FILTER(filename))
+
+	while ((tdir=readdir(dp))!=NULL) {
+
+		// Skip if it's the '.' folder (that does us no good)
+		if(strcmp(tdir->d_name, ".") == 0)
+			continue;
+		
+		u32 tdirNameLen = strlen(tdir->d_name);
+
+		if(MAXPATHLEN - pathLen - tdirNameLen <= 0){
+			continue; // TOO LONG!
+			// Print an error?
+		}
+		
+		char filename[MAXPATHLEN];
+		char div = '/';
+		memset(filename, 0, MAXPATHLEN);
+		
+		// We have to pass the entire filepath to the stat function
+		strncat(filename, file_struct->path, pathLen);
+		// Add in the divider
+		strncat(filename, &div, 1);
+		// ...And the name
+		strncat(filename, tdir->d_name, tdirNameLen);
+		
+		stat(filename,&fstat);
+
+		// If it is a directory or a .nds file:
+		if(S_ISDIR(fstat.st_mode) || TYPE_FILTER(filename))
 		{
 			// Make sure we have room for this one
-			if(i == num_entries){
+			if(i == num_entries) {
+				dir_ent *new_dir;
 				++num_entries;
-				dir = (dir_ent*) realloc( dir, num_entries * sizeof(dir_ent) ); 
+				new_dir = (dir_ent*) realloc(dir, num_entries * sizeof(dir_ent));
+				if (new_dir==NULL)
+					break; // Out of memory, return the files we've already found
+				dir = new_dir;
 			}
-			strcpy(dir[i].name, filename);
+			
+			strcpy(dir[i].name, tdir->d_name);
 			dir[i].size = fstat.st_size;
 			dir[i].attr = fstat.st_mode;
 			++i;
 		}
+		
+		
 	}
 
-	dirclose(dp);
-
+	closedir(dp);
+	
 	int index	= 0;
 
 	u8 page = 0, start, limit;
