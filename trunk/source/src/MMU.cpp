@@ -2015,6 +2015,9 @@ void DmaController::doCopy()
 	if(startmode == EDMAMode_MemDisplay) 
 	{
 		todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
+	
+		//apparently this dma turns off after it finishes a frame
+		if(nds.VCount==191) enable = 0;
 	}
 	if(startmode == EDMAMode_Card) todo *= 0x80;
 	if(startmode == EDMAMode_GXFifo) todo = std::min(todo,(u32)112);
@@ -2100,11 +2103,13 @@ void DmaController::doCopy()
 
 void triggerDma(EDMAMode mode)
 {
-	for(int i=0;i<2;i++){
-		for(int j=0;j<4;j++){
+	MACRODO2(0, {
+		const int i=X;
+		MACRODO4(0, {
+			const int j=X;
 			MMU_new.dma[i][j].tryTrigger(mode);
-		}
-	}
+		});
+	});
 }
 
 void DmaController::tryTrigger(EDMAMode mode)
@@ -2215,7 +2220,9 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 		return;
 	}
 
-
+	//block 8bit writes to OAM and palette memory
+	if((adr&0x0F000000)==0x07000000) return;
+	if((adr&0x0F000000)==0x05000000) return;
 
 	if (adr >> 24 == 4)
 	{
@@ -2401,7 +2408,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 
 		}
 
-		MMU.MMU_MEM[ARMCPU_ARM9][0x40][adr&MMU.MMU_MASK[ARMCPU_ARM9][adr>>20]]=val;
+		MMU.MMU_MEM[ARMCPU_ARM9][adr>>20][adr&MMU.MMU_MASK[ARMCPU_ARM9][adr>>20]]=val;
 		return;
 	}
 
@@ -2693,7 +2700,8 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				   MMU.AUX_SPI_CMD = val & 0xFF;
 
 				//T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][(REG_AUXSPIDATA >> 20) & 0xff], REG_AUXSPIDATA & 0xfff, bm_transfer(&MMU.bupmem, val));
-				T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][(REG_AUXSPIDATA >> 20) & 0xff], REG_AUXSPIDATA & 0xfff, MMU_new.backupDevice.data_command((u8)val,ARMCPU_ARM9));
+				T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM9][(REG_AUXSPIDATA >> 20) & 0xff], REG_AUXSPIDATA & 0xfff, MMU_new.backupDevice.data_command((u8)val,ARMCPU_ARM9));
+				MMU.AUX_SPI_CNT &= ~0x80; //remove busy flag
 				return;
 
 			case REG_DISPA_BG0CNT :
@@ -2887,7 +2895,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			}
 		}
 
-		T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr&MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val); 
+		T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr&MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val); 
 		return;
 	}
 
@@ -3281,7 +3289,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 			}
 		}
 
-		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
+		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
 		return;
 	}
 
@@ -3391,7 +3399,7 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 
 		}
 
-		return  T1ReadWord_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr >> 20]);
+		return  T1ReadWord_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr >> 20]);
 	}
 
 	bool unmapped;
@@ -3422,35 +3430,35 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 
 		switch(adr)
 		{
-			case 0x04000640:
-			case 0x04000644:
-			case 0x04000648:
-			case 0x0400064C:
-			case 0x04000650:
-			case 0x04000654:
-			case 0x04000658:
-			case 0x0400065C:
-			case 0x04000660:
-			case 0x04000664:
-			case 0x04000668:
-			case 0x0400066C:
-			case 0x04000670:
-			case 0x04000674:
-			case 0x04000678:
-			case 0x0400067C:
+			case eng_3D_CLIPMTX_RESULT:
+			case eng_3D_CLIPMTX_RESULT+4:
+			case eng_3D_CLIPMTX_RESULT+8:
+			case eng_3D_CLIPMTX_RESULT+12:
+			case eng_3D_CLIPMTX_RESULT+16:
+			case eng_3D_CLIPMTX_RESULT+20:
+			case eng_3D_CLIPMTX_RESULT+24:
+			case eng_3D_CLIPMTX_RESULT+28:
+			case eng_3D_CLIPMTX_RESULT+32:
+			case eng_3D_CLIPMTX_RESULT+36:
+			case eng_3D_CLIPMTX_RESULT+40:
+			case eng_3D_CLIPMTX_RESULT+44:
+			case eng_3D_CLIPMTX_RESULT+48:
+			case eng_3D_CLIPMTX_RESULT+52:
+			case eng_3D_CLIPMTX_RESULT+56:
+			case eng_3D_CLIPMTX_RESULT+60:
 			{
 				//LOG("4000640h..67Fh - CLIPMTX_RESULT - Read Current Clip Coordinates Matrix (R)");
 				return gfx3d_GetClipMatrix ((adr-0x04000640)/4);
 			}
-			case 0x04000680:
-			case 0x04000684:
-			case 0x04000688:
-			case 0x0400068C:
-			case 0x04000690:
-			case 0x04000694:
-			case 0x04000698:
-			case 0x0400069C:
-			case 0x040006A0:
+			case eng_3D_VECMTX_RESULT:
+			case eng_3D_VECMTX_RESULT+4:
+			case eng_3D_VECMTX_RESULT+8:
+			case eng_3D_VECMTX_RESULT+12:
+			case eng_3D_VECMTX_RESULT+16:
+			case eng_3D_VECMTX_RESULT+20:
+			case eng_3D_VECMTX_RESULT+24:
+			case eng_3D_VECMTX_RESULT+28:
+			case eng_3D_VECMTX_RESULT+32:
 			{
 				//LOG("4000680h..6A3h - VECMTX_RESULT - Read Current Directional Vector Matrix (R)");
 				return gfx3d_GetDirectionalMatrix ((adr-0x04000680)/4);
@@ -3490,21 +3498,11 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 					u32 val = T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], (adr + 2) & 0xFFF);
 					return MMU.timer[ARMCPU_ARM9][(adr&0xF)>>2] | (val<<16);
 				}	
-			/*
-			case 0x04000640 :	// TODO (clear): again, ??? 
-				LOG("read proj\r\n");
-			return 0;
-			case 0x04000680 :
-				LOG("read roat\r\n");
-			return 0;
-			case 0x04000620 :
-				LOG("point res\r\n");
-			return 0;
-			*/
-            case REG_GCDATAIN:
+     
+			case REG_GCDATAIN:
 				return MMU_readFromGC<ARMCPU_ARM9>();
 		}
-		return T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20)]);
+		return T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20)]);
 	}
 	
 	bool unmapped;
@@ -3531,8 +3529,7 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 		addon.write08(adr, val);
 		return;
 	}
-    // This is bad, remove it
-	//if ((adr>=0x04000400)&&(adr<0x0400051D)) 
+
 	if ((adr>=0x04000400)&&(adr<0x04000520)) 
 	{
 		SPU_WriteByte(adr, val);
@@ -3606,9 +3603,6 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 		return;
 	}
 
-
-	// This is bad, remove it
-	//if ((adr>=0x04000400)&&(adr<0x0400051D))
 	if ((adr>=0x04000400)&&(adr<0x04000520))
 	{
 		SPU_WriteWord(adr, val);
@@ -3643,6 +3637,7 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 
 				//T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][(REG_AUXSPIDATA >> 20) & 0xff], REG_AUXSPIDATA & 0xfff, bm_transfer(&MMU.bupmem, val));
 				T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][(REG_AUXSPIDATA >> 20) & 0xff], REG_AUXSPIDATA & 0xfff, MMU_new.backupDevice.data_command((u8)val,ARMCPU_ARM7));
+				MMU.AUX_SPI_CNT &= ~0x80; //remove busy flag
 			return;
 
 			case REG_SPICNT :
@@ -3747,10 +3742,13 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 									val = 0;
 									break;
 								case 0x30 : //Z1
-									val = 0;
+									//used for pressure calculation - must be nonzero or else some software will think the stylus is up.
+									if(nds.isTouch) val = 2048;
+									else val = 0;
 									break;
 								case 0x40 : //Z2
-									val = 0;
+									//used for pressure calculation. We don't support pressure calculation so just return something.
+									val = 2048;
 									break;
 								case 0x50 :
 									if(spicnt & 0x800)
@@ -3876,7 +3874,7 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 
 		}
 
-		T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][0x40], adr&MMU.MMU_MASK[ARMCPU_ARM7][adr>>20], val); 
+		T1WriteWord(MMU.MMU_MEM[ARMCPU_ARM7][adr>>20], adr&MMU.MMU_MASK[ARMCPU_ARM7][adr>>20], val); 
 		return;
 	}
 
@@ -3909,8 +3907,8 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM7][0x48], adr&MMU.MMU_MASK[ARMCPU_ARM7][0x48], val);
 		return;
 	}
-    // This is bad, remove it
-    //if ((adr>=0x04000400)&&(adr<0x0400051D))
+
+
 	if ((adr>=0x04000400)&&(adr<0x04000520))
     {
         SPU_WriteLong(adr, val);
@@ -3992,7 +3990,7 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 				MMU_writeToGCControl<ARMCPU_ARM7>(val);
 				return;
 		}
-		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM7][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM7][adr>>20], val);
+		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM7][adr>>20], adr & MMU.MMU_MASK[ARMCPU_ARM7][adr>>20], val);
 		return;
 	}
 
