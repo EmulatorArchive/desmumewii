@@ -82,8 +82,6 @@ u32 _MMU_MAIN_MEM_MASK = 0x3FFFFF;
 u32 _MMU_MAIN_MEM_MASK16 = 0x3FFFFF & ~1;
 u32 _MMU_MAIN_MEM_MASK32 = 0x3FFFFF & ~3;
 
-#define ROM_MASK 3
-
 //#define	_MMU_DEBUG
 
 #ifdef _MMU_DEBUG
@@ -174,7 +172,7 @@ u8 * MMU_struct::MMU_MEM[2][256] = {
 		/* 7X*/	DUP16(MMU.ARM9_OAM),
 		/* 8X*/	DUP16(NULL),
 		/* 9X*/	DUP16(NULL),
-		/* AX*/	DUP16(MMU.CART_RAM),
+		/* AX*/	DUP16(MMU.UNUSED_RAM),
 		/* BX*/	DUP16(MMU.UNUSED_RAM),
 		/* CX*/	DUP16(MMU.UNUSED_RAM),
 		/* DX*/	DUP16(MMU.UNUSED_RAM),
@@ -195,7 +193,7 @@ u8 * MMU_struct::MMU_MEM[2][256] = {
 		/* 7X*/	DUP16(MMU.UNUSED_RAM),
 		/* 8X*/	DUP16(NULL),
 		/* 9X*/	DUP16(NULL),
-		/* AX*/	DUP16(MMU.CART_RAM),
+		/* AX*/	DUP16(MMU.UNUSED_RAM),
 		/* BX*/	DUP16(MMU.UNUSED_RAM),
 		/* CX*/	DUP16(MMU.UNUSED_RAM),
 		/* DX*/	DUP16(MMU.UNUSED_RAM),
@@ -216,9 +214,9 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 5X*/	DUP16(0x000007FF),
 		/* 6X*/	DUP16(0x00FFFFFF),
 		/* 7X*/	DUP16(0x000007FF),
-		/* 8X*/	DUP16(ROM_MASK),
-		/* 9X*/	DUP16(ROM_MASK),
-		/* AX*/	DUP16(0x0000FFFF),
+		/* 8X*/	DUP16(0x00000003),
+		/* 9X*/	DUP16(0x00000003),
+		/* AX*/	DUP16(0x00000003),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
 		/* DX*/	DUP16(0x00000003),
@@ -237,9 +235,9 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 5X*/	DUP16(0x00000003),
 		/* 6X*/	DUP16(0x00FFFFFF),
 		/* 7X*/	DUP16(0x00000003),
-		/* 8X*/	DUP16(ROM_MASK),
-		/* 9X*/	DUP16(ROM_MASK),
-		/* AX*/	DUP16(0x0000FFFF),
+		/* 8X*/	DUP16(0x00000003),
+		/* 9X*/	DUP16(0x00000003),
+		/* AX*/	DUP16(0x00000003),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
 		/* DX*/	DUP16(0x00000003),
@@ -734,8 +732,22 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 	T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x240 + block, VRAMBankCnt);
 
 	//refresh all bank settings
-	for(int i=0;i<VRAM_BANKS;i++)
-		MMU_VRAMmapRefreshBank(i);
+	//these are enumerated so that we can tune the order they get applied
+	//in order to emulate prioritization rules for memory regions
+	//with multiple banks mapped.
+	//We're probably still not mapping things 100% correctly, but this helped us get closer:
+	//goblet of fire "care of magical creatures" maps I and D to BOBJ (the I is an accident)
+	//and requires A to override it.
+	//This may create other bugs....
+	MMU_VRAMmapRefreshBank(VRAM_BANK_I);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_H);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_G);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_F);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_E);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_D);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_C);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_B);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_A);
 
 	//printf(vramConfiguration.describe().c_str());
 	//printf("vram remapped at vcount=%d\n",nds.VCount);
@@ -1088,11 +1100,10 @@ void MMU_Reset()
 
 void MMU_setRom(u8 * rom, u32 mask)
 {
-	unsigned int i;
 	MMU.CART_ROM = rom;
 	MMU.CART_ROM_MASK = mask;
 	
-	for(i = 0x80; i<0xA0; ++i)
+	for(unsigned i = 0x80; i<0xA0; ++i)
 	{
 		MMU_struct::MMU_MEM[0][i] = rom;
 		MMU_struct::MMU_MEM[1][i] = rom;
@@ -1104,19 +1115,8 @@ void MMU_setRom(u8 * rom, u32 mask)
 
 void MMU_unsetRom()
 {
-	unsigned int i;
 	MMU.CART_ROM=MMU.UNUSED_RAM;
-	
-	for(i = 0x80; i<0xA0; ++i)
-	{
-		MMU_struct::MMU_MEM[0][i] = MMU.UNUSED_RAM;
-		MMU_struct::MMU_MEM[1][i] = MMU.UNUSED_RAM;
-		MMU_struct::MMU_MASK[0][i] = ROM_MASK;
-		MMU_struct::MMU_MASK[1][i] = ROM_MASK;
-	}
-	rom_mask = ROM_MASK;
 }
-char txt[80];	
 
 static void execsqrt() {
 	u32 ret;
@@ -1129,6 +1129,9 @@ static void execsqrt() {
 		u32 v = T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x2B8);
 		ret = (u32)isqrt(v);
 	}
+
+	//clear the result while the sqrt unit is busy
+	//todo - is this right? is it reasonable?
 	T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x2B4, 0);
 	T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x2B0, cnt | 0x8000);
 
@@ -1140,24 +1143,26 @@ static void execsqrt() {
 }
 
 static void execdiv() {
-	u16 cnt = T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x280);
+
 	s64 num,den;
 	s64 res,mod;
+	u16 cnt = T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x280);
+	
 
 	switch(cnt&3)
 	{
-	case 0:
+	case 0:	// 32/32
 		num = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
 		MMU.divCycles = nds_timer + 36;
 		break;
-	case 1:
+	case 1:	// 64/32
 	case 3: //gbatek says this is same as mode 1
 		num = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
 		MMU.divCycles = nds_timer + 68;
 		break;
-	case 2:
+	case 2:	// 64/64
 	default:
 		num = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
@@ -1196,6 +1201,8 @@ static void execdiv() {
 	NDS_Reschedule();
 }
 
+// TODO: 
+// NAND flash support (used in Made in Ore/WarioWare D.I.Y.)
 template<int PROCNUM>
 void FASTCALL MMU_writeToGCControl(u32 val)
 {
@@ -1232,6 +1239,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 		}
 		break;
 	case CardMode_KEY2:
+			INFO("Cartridge: KEY2 mode unsupported.\n");
 		break;
 	}
 
@@ -1524,7 +1532,7 @@ u32 MMU_readFromGC()
 
 	// transfer is done
 	T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, 
-		T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+	T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
@@ -1724,8 +1732,7 @@ u32 TGXSTAT::read32()
 	// using in "The Wild West"
 	ret |= ((_hack_getMatrixStackLevel(0) << 13) | (_hack_getMatrixStackLevel(1) << 8)); //matrix stack levels //no proof that these are needed yet
 
-	//todo: stack busy flag (bit14)
-
+	ret |= sb<<14;	//stack busy
 	ret |= se<<15;
 	ret |= (std::min(gxFIFO.size,(u32)255))<<16;
 	if(gxFIFO.size>=255) ret |= BIT(24); //fifo full
@@ -1768,16 +1775,18 @@ void TGXSTAT::write32(const u32 val)
 
 void TGXSTAT::savestate(EMUFILE *f)
 {
-	write32le(0,f); //version
-	write8le(tb,f); write8le(tr,f); write8le(se,f); write8le(gxfifo_irq,f); 
+	write32le(1,f); //version
+	write8le(tb,f); write8le(tr,f); write8le(se,f); write8le(gxfifo_irq,f); write8le(sb,f);
 }
 bool TGXSTAT::loadstate(EMUFILE *f)
 {
 	u32 version;
 	if(read32le(&version,f) != 1) return false;
-	if(version != 0) return false;
+	if(version > 1) return false;
 
 	read8le(&tb,f); read8le(&tr,f); read8le(&se,f); read8le(&gxfifo_irq,f); 
+	if (version >= 1)
+		read8le(&sb,f);
 
 	return true;
 }
@@ -1831,7 +1840,7 @@ bool DmaController::loadstate(EMUFILE* f)
 {
 	u32 version;
 	if(read32le(&version,f) != 1) return false;
-	if(version != 0) return false;
+	if(version >1) return false;
 
 	read8le(&enable,f); read8le(&irq,f); read8le(&repeatMode,f); read8le(&_startmode,f);
 	read8le(&userEnable,f);
@@ -1943,17 +1952,17 @@ void DmaController::exec()
 				//if(!paused) printf("gxfifo dma ended with %d remaining\n",wordcount); //only print this once
 				if(wordcount>0) {
 					doPause();
-					goto start;
+					break;
 				}
-				else doStop();
-				break;
 			default:
 				doStop();
+				//driver->DEBUG_UpdateIORegView(BaseDriver::EDEBUG_IOREG_DMA);
+				return;
 		}
 	}
-	else if(enable)
+	
+	if(enable)
 	{
-start:
 		//analyze startmode (this only gets latched when a dma begins)
 		if(procnum==ARMCPU_ARM9) startmode = (EDMAMode)_startmode;
 		else {
@@ -1975,16 +1984,6 @@ start:
 				if(gxFIFO.size<=127)
 					triggered = TRUE;
 				break;
-				
-			// TO BE IMPLEMENTED:
-			case EDMAMode_VBlank:
-			case EDMAMode_HBlank:
-			case EDMAMode_HStart:
-			case EDMAMode_MemDisplay:
-			case EDMAMode_Card:
-			case EDMAMode_GBASlot:
-			case EDMAMode7_Wifi:
-			case EDMAMode7_GBASlot:
 			default:
 				break;
 		}
@@ -2013,9 +2012,12 @@ void DmaController::doCopy()
 	//generate a copy count depending on various copy mode's behavior
 	u32 todo = wordcount;
 	if(todo == 0) todo = 0x200000; //according to gbatek.. //TODO - this should not work this way for arm7 according to gbatek
-	if(startmode == EDMAMode_MemDisplay) todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
+	if(startmode == EDMAMode_MemDisplay) 
+	{
+		todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
+	}
 	if(startmode == EDMAMode_Card) todo *= 0x80;
-	if(startmode == EDMAMode_GXFifo) todo = std::min(wordcount,(u32)112);
+	if(startmode == EDMAMode_GXFifo) todo = std::min(todo,(u32)112);
 
 	//determine how we're going to copy
 	bool bogarted = false;
@@ -2075,7 +2077,10 @@ void DmaController::doCopy()
 
 	//reschedule an event for the end of this dma, and figure out how much it cost us
 	doSchedule();
-	nextEvent += todo/4; //TODO - surely this is a gross simplification
+
+	// zeromus, check it
+	if (wordcount > todo)
+		nextEvent += todo/4; //TODO - surely this is a gross simplification
 	//apparently moon has very, very tight timing (i didnt spy it using waitbyloop swi...)
 	//so lets bump this down a bit for now,
 	//(i think this code is in nintendo libraries)
@@ -2194,7 +2199,9 @@ static INLINE void write_auxspicnt(const int proc, const int size, const int adr
 //================================================= MMU write 08
 void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 {
-	mmu_log_debug_ARM9(adr, "(write08) %0x%X", val);
+	adr &= 0x0FFFFFFF;
+
+	mmu_log_debug_ARM9(adr, "(write08) 0x%02X", val);
 
 	if(adr < 0x02000000)
 	{
@@ -2208,7 +2215,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 		return;
 	}
 
-	adr &= 0x0FFFFFFF;
+
 
 	if (adr >> 24 == 4)
 	{
@@ -2409,7 +2416,9 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 //================================================= MMU ARM9 write 16
 void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 {
-	mmu_log_debug_ARM9(adr, "(write16) %0x%X", val);
+	adr &= 0x0FFFFFFE;
+
+	mmu_log_debug_ARM9(adr, "(write16) 0x%04X", val);
 
 	if (adr < 0x02000000)
 	{
@@ -2422,8 +2431,6 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 		addon.write16(adr, val);
 		return;
 	}
-
-	adr &= 0x0FFFFFFF;
 
 	if((adr >> 24) == 4)
 	{
@@ -2896,7 +2903,9 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 //================================================= MMU ARM9 write 32
 void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 {
-	mmu_log_debug_ARM9(adr, "(write32) %0x%X", val);
+	adr &= 0x0FFFFFFC;
+	
+	mmu_log_debug_ARM9(adr, "(write32) 0x%08X", val);
 
 	if(adr<0x02000000)
 	{
@@ -2914,8 +2923,6 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 	{
 		int zzz=9;
 	}*/
-
-	adr &= 0x0FFFFFFF;
 
 #if 0
 	if ((adr & 0xFF800000) == 0x04800000) {
@@ -3289,15 +3296,15 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 //================================================= MMU ARM9 read 08
 u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 {
-	mmu_log_debug_ARM9(adr, "(read08) %0x%X", MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF]]);
+	adr &= 0x0FFFFFFF;
+	
+	mmu_log_debug_ARM9(adr, "(read08) 0x%02X", MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF]]);
 
 	if(adr<0x02000000)
 		return T1ReadByte(MMU.ARM9_ITCM, adr&0x7FFF);
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 		return addon.read08(adr);
-
-	adr &= 0x0FFFFFFF;
 
 	if (adr >> 24 == 4)
 	{	//Address is an IO register
@@ -3321,15 +3328,15 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 //================================================= MMU ARM9 read 16
 u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 {    
-	mmu_log_debug_ARM9(adr, "(read16) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20) & 0xFF]));
+	adr &= 0x0FFFFFFE;
+
+	mmu_log_debug_ARM9(adr, "(read16) 0x%04X", T1ReadWord_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr >> 20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr >> 20]));
 
 	if(adr<0x02000000)
 		return T1ReadWord_guaranteedAligned(MMU.ARM9_ITCM, adr & 0x7FFE);	
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 		return addon.read16(adr);
-
-	adr &= 0x0FFFFFFE;
 
 	if (adr >> 24 == 4)
 	{
@@ -3398,15 +3405,15 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 //================================================= MMU ARM9 read 32
 u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 {
-	mmu_log_debug_ARM9(adr, "(read32) %0x%X", T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20)]));
+	adr &= 0x0FFFFFFC;
+
+	mmu_log_debug_ARM9(adr, "(read32) 0x%08X", T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr >> 20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20]));
 
 	if(adr<0x02000000) 
 		return T1ReadLong_guaranteedAligned(MMU.ARM9_ITCM, adr&0x7FFC);
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 		return addon.read32(adr);
-
-	adr &= 0x0FFFFFFC;
 
 	// Address is an IO register
 	if((adr >> 24) == 4)
@@ -3449,16 +3456,16 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 				return gfx3d_GetDirectionalMatrix ((adr-0x04000680)/4);
 			}
 
-			case 0x4000604:
+			case eng_3D_RAM_COUNT:
 			{
 				return (gfx3d_GetNumPolys()) | ((gfx3d_GetNumVertex()) << 16);
 				//LOG ("read32 - RAM_COUNT -> 0x%X", ((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF]))[(adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF])>>2]);
 			}
 
-			case 0x04000620:
-			case 0x04000624:
-			case 0x04000628:
-			case 0x0400062C:
+			case eng_3D_POS_RESULT:
+			case eng_3D_POS_RESULT+4:
+			case eng_3D_POS_RESULT+8:
+			case eng_3D_POS_RESULT+12:
 			{
 				return gfx3d_glGetPosRes((adr & 0xF) >> 2);
 			}
@@ -3513,23 +3520,24 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 //================================================= MMU ARM7 write 08
 void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 {
-	mmu_log_debug_ARM7(adr, "(write08) %0x%X", val);
+	adr &= 0x0FFFFFFF;
+
+	mmu_log_debug_ARM7(adr, "(write08) 0x%02X", val);
+
+	if (adr < 0x4000) return;	// PU BIOS
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
 		addon.write08(adr, val);
 		return;
 	}
-
-	adr &= 0x0FFFFFFF;
     // This is bad, remove it
-	if ((adr>=0x04000400)&&(adr<0x0400051D)) 
+	//if ((adr>=0x04000400)&&(adr<0x0400051D)) 
+	if ((adr>=0x04000400)&&(adr<0x04000520)) 
 	{
 		SPU_WriteByte(adr, val);
 		return;
     }
-
-	adr &= 0x0FFFFFFF;
 
 	if(adr == 0x04000301)
 	{
@@ -3578,8 +3586,12 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 //================================================= MMU ARM7 write 16
 void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 {
-	mmu_log_debug_ARM7(adr, "(write16) %0x%X", val);
+	adr &= 0x0FFFFFFE;
 
+	mmu_log_debug_ARM7(adr, "(write16) 0x%04X", val);
+
+	if (adr < 0x4000) return;	// PU BIOS
+	
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
 		addon.write16(adr, val);
@@ -3594,10 +3606,10 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 		return;
 	}
 
-	adr &= 0x0FFFFFFF;
 
 	// This is bad, remove it
-	if ((adr>=0x04000400)&&(adr<0x0400051D))
+	//if ((adr>=0x04000400)&&(adr<0x0400051D))
+	if ((adr>=0x04000400)&&(adr<0x04000520))
 	{
 		SPU_WriteWord(adr, val);
 		return;
@@ -3683,10 +3695,12 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 								{
 									if(MMU.powerMan_CntReg & 0x80)
 									{
+										//read
 										val = MMU.powerMan_Reg[MMU.powerMan_CntReg & 0x3];
 									}
 									else
 									{
+										//write
 										MMU.powerMan_Reg[MMU.powerMan_CntReg & 0x3] = (u8)val;
 									}
 
@@ -3732,10 +3746,10 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 								case 0x20 :
 									val = 0;
 									break;
-								case 0x30 :
+								case 0x30 : //Z1
 									val = 0;
 									break;
-								case 0x40 :
+								case 0x40 : //Z2
 									val = 0;
 									break;
 								case 0x50 :
@@ -3838,11 +3852,11 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 				return;
 				
             case REG_IPCSYNC :
-					MMU_IPCSync(ARMCPU_ARM7, val);
+				MMU_IPCSync(ARMCPU_ARM7, val);
 				return;
 
 			case REG_IPCFIFOCNT :
-					IPC_FIFOcnt(ARMCPU_ARM7, val);
+				IPC_FIFOcnt(ARMCPU_ARM7, val);
 				return;
             case REG_TM0CNTL :
             case REG_TM1CNTL :
@@ -3876,7 +3890,11 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 //================================================= MMU ARM7 write 32
 void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 {
-	mmu_log_debug_ARM7(adr, "(write32) %0x%X", val);
+	adr &= 0x0FFFFFFC;
+
+	mmu_log_debug_ARM7(adr, "(write32) 0x%08X", val);
+
+	if (adr < 0x4000) return;	// PU BIOS
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
@@ -3884,20 +3902,16 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 		return;
 	}
 
-	if ((adr & 0xFF800000) == 0x04800000) 
+	if ((adr & 0xFFFF0000) == 0x04800000)
 	{
-		// access to non regular hw registers
-		// return to not overwrite valid data
 		WIFI_write16(adr, val & 0xFFFF);
 		WIFI_write16(adr+2, val >> 16);
 		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM7][0x48], adr&MMU.MMU_MASK[ARMCPU_ARM7][0x48], val);
 		return;
 	}
-
-	adr &= 0x0FFFFFFF;
-
     // This is bad, remove it
-    if ((adr>=0x04000400)&&(adr<0x0400051D))
+    //if ((adr>=0x04000400)&&(adr<0x0400051D))
+	if ((adr>=0x04000400)&&(adr<0x04000520))
     {
         SPU_WriteLong(adr, val);
         return;
@@ -3993,10 +4007,12 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 //================================================= MMU ARM7 read 08
 u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read08) %0x%X", MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]]);
+	adr &= 0x0FFFFFFF;
+
+	mmu_log_debug_ARM7(adr, "(read08) 0x%02X", MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]]);
 
 	// wifi mac access 
-	if ((adr>=0x04800000)&&(adr<0x05000000))
+	if ((adr & 0xFFFF0000) == 0x04800000)
 	{
 		if (adr & 1)
 			return (WIFI_read16(adr-1) >> 8) & 0xFF;
@@ -4026,16 +4042,17 @@ u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 //================================================= MMU ARM7 read 16
 u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read16) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]));
+	adr &= 0x0FFFFFFE;
+
+	mmu_log_debug_ARM7(adr, "(read16) 0x%04X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]));
+
 
 	//wifi mac access
-	if ((adr>=0x04800000)&&(adr<0x05000000))
+	if ((adr & 0xFFFF0000) == 0x04800000)
 		return WIFI_read16(adr) ;
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 		return addon.read16(adr);
-
-	adr &= 0x0FFFFFFE;
 
 	if(adr>>24==4)
 	{	//Address is an IO register
@@ -4093,16 +4110,18 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 //================================================= MMU ARM7 read 32
 u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read32) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]));
+	adr &= 0x0FFFFFFC;
+
+	mmu_log_debug_ARM7(adr, "(read32) 0x%08X", T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]));
+
 
 	//wifi mac access
-	if ((adr>=0x04800000)&&(adr<0x05000000))
+	if ((adr & 0xFFFF0000) == 0x04800000)
 		return (WIFI_read16(adr) | (WIFI_read16(adr+2) << 16));
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 		return addon.read32(adr);
 
-	adr &= 0x0FFFFFFC;
 
 	if((adr >> 24) == 4)
 	{	//Address is an IO register

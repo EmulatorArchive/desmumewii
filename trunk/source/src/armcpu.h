@@ -255,29 +255,6 @@ static INLINE void NDS_makeIrq(int PROCNUM, u32 num)
 {
 	setIF(PROCNUM,1<<num);
 }
-/*
-static INLINE void NDS_makeARM9Int(u32 num)
-{
-	setIF(0, (1<<num));
-}
 
-static INLINE void NDS_makeARM7Int(u32 num)
-{
-	setIF(1, (1<<num));
-}
-
-static INLINE void NDS_makeInt(u8 proc_ID,u32 num)
-{
-	switch (proc_ID)
-	{
-		case 0:
-			NDS_makeARM9Int(num) ;
-			break ;
-		case 1:
-			NDS_makeARM7Int(num) ;
-			break ;
-	}
-}
-//*/
 
 #endif
