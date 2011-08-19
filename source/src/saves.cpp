@@ -366,14 +366,14 @@ SFORMAT SF_WIFI[]={
 	{ "W560", 4, 1, &wifiMac.curPacketPos[0]},
 	{ "W570", 4, 1, &wifiMac.curPacketSending[0]},
 
-	{ "W580", 2, 0x800, &wifiMac.ioMem[0]},
+	//{ "W580", 2, 0x800, &wifiMac.IOPorts[0]},
 	{ "W590", 2, 1, &wifiMac.randomSeed},
 
-	{ "WX00", 8, 1, &wifiMac.SoftAP.usecCounter},
-	{ "WX10", 1, 4096, &wifiMac.SoftAP.curPacket[0]},
-	{ "WX20", 4, 1, &wifiMac.SoftAP.curPacketSize},
-	{ "WX30", 4, 1, &wifiMac.SoftAP.curPacketPos},
-	{ "WX40", 4, 1, &wifiMac.SoftAP.curPacketSending},
+	//{ "WX00", 8, 1, &SoftAP.usecCounter},
+	//{ "WX10", 1, 4096, &SoftAP.curPacket[0]},
+	//{ "WX20", 4, 1, &SoftAP.curPacketSize},
+	//{ "WX30", 4, 1, &SoftAP.curPacketPos},
+	//{ "WX40", 4, 1, &SoftAP.curPacketSending},
 
 	{ 0 }
 };
@@ -492,7 +492,8 @@ static void cp15_savestate(EMUFILE* os)
 	write32le(0,os);
 
 	cp15_saveone((armcp15_t *)NDS_ARM9.coproc[15],os);
-	cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
+	//ARM7 does not have coprocessor
+	//cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
 }
 
 static bool cp15_loadone(armcp15_t *cp15, EMUFILE* is)
@@ -589,9 +590,9 @@ void scan_savestates()
 		if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
 		sprintf(filename+strlen(filename), ".ds%d", i);
 		if( stat(filename,&sbuf) == -1 ) continue;
-		savestates[i-1].exists = TRUE;
-		strncpy(savestates[i-1].date, format_time(sbuf.st_mtime),40);
-		savestates[i-1].date[40-1] = '\0';
+		savestates[i].exists = TRUE;
+		strncpy(savestates[i].date, format_time(sbuf.st_mtime),40);
+		savestates[i].date[40-1] = '\0';
     }
 
   return ;
@@ -654,64 +655,6 @@ void loadstate_slot(int num)
    }
 }
 
-u8 sram_read (u32 address) {
-	address = address - SRAM_ADDRESS;
-
-	if ( address > SRAM_SIZE )
-		return 0;
-
-	return MMU.CART_RAM[address];
-
-}
-
-void sram_write (u32 address, u8 value) {
-
-	address = address - SRAM_ADDRESS;
-
-	if ( address < SRAM_SIZE )
-		MMU.CART_RAM[address] = value;
-
-}
-
-int sram_load (const char *file_name) {
-
-	FILE *file;
-	size_t elems_read;
-
-	file = fopen ( file_name, "rb" );
-	if( file == NULL )
-		return 0;
-
-	elems_read = fread ( MMU.CART_RAM, SRAM_SIZE, 1, file );
-
-	fclose ( file );
-
-//	osd->setLineColor(255, 255, 255);
-//	osd->addLine("Loaded SRAM");
-
-	return 1;
-
-}
-
-int sram_save (const char *file_name) {
-
-	FILE *file;
-	size_t elems_written;
-
-	file = fopen ( file_name, "wb" );
-	if( file == NULL )
-		return 0;
-
-	elems_written = fwrite ( MMU.CART_RAM, SRAM_SIZE, 1, file );
-
-	fclose ( file );
-
-//	osd->setLineColor(255, 255, 255);
-//	osd->addLine("Saved SRAM");
-
-	return 1;
-
-}
 
 // note: guessSF is so we don't have to do a linear search through the SFORMAT array every time
 // in the (most common) case that we already know where the next entry is.
@@ -937,9 +880,6 @@ static void writechunks(EMUFILE* os);
 
 bool savestate_save(EMUFILE* outstream, int compressionLevel)
 {
-	//--DCN: This is from "zlib" in the windows folder, which is
-	// odd because up top it checks if we DO have "HAVE_LIBZ"
-	// Z_NO_COMPRESSION is equal to 0
 	#ifndef HAVE_LIBZ
 	compressionLevel = Z_NO_COMPRESSION;
 	#endif
@@ -1033,11 +973,7 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,8,spu_savestate);
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
-	savestate_WriteChunk(os,91,gfx3d_savestate);
-#ifdef _MOVIETIME_
-	savestate_WriteChunk(os,100,SF_MOVIE);
-	//savestate_WriteChunk(os,101,mov_savestate);
-#endif	
+	savestate_WriteChunk(os,91,gfx3d_savestate);	
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,0xFFFFFFFF,(SFORMAT*)0);
@@ -1066,14 +1002,12 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			case 7: if(!gpu_loadstate(is,size)) ret=false; break;
 			case 8: if(!spu_loadstate(is,size)) ret=false; break;
 			case 81: if(!mic_loadstate(is,size)) ret=false; break;
-#ifdef _MOVIETIME_
-			case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
-#endif
+			// No movies
+			//case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
 			case 91: if(!gfx3d_loadstate(is,size)) ret=false; break;
-#ifdef _MOVIETIME_
-			case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
+			// No movies
+			//case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
 			//case 101: if(!mov_loadstate(is, size)) ret=false; break;
-#endif			
 			case 110: if(!ReadStateChunk(is,SF_WIFI,size)) ret=false; break;
 			case 120: if(!ReadStateChunk(is,SF_RTC,size)) ret=false; break;
 			default:
