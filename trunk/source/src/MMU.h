@@ -28,6 +28,7 @@
 #include "registers.h"
 #include "mc.h"
 #include "bits.h"
+#include "readwrite.h"
 #ifdef HAVE_LUA
 #include "lua-engine.h"
 #endif
@@ -145,6 +146,7 @@ public:
 	EDMASourceUpdate sar;
 	EDMADestinationUpdate dar;
 	u32 saddr, daddr;
+	u32 saddr_user, daddr_user;
 	
 	//indicates whether the dma needs to be checked for triggering
 	BOOL check;
@@ -181,13 +183,14 @@ public:
 		//if saddr isnt cleared then rings of fate will trigger copy protection
 		//by inspecting dma3 saddr when it boots
 		saddr(0), daddr(0),
+		saddr_user(0), daddr_user(0),
 		check(FALSE),
 		running(FALSE),
 		paused(FALSE),
 		triggered(FALSE),
 		nextEvent(0),
-		sad(&saddr),
-		dad(&daddr)
+		sad(&saddr_user),
+		dad(&daddr_user)
 	{
 		sad.controller = this;
 		dad.controller = this;
@@ -352,7 +355,7 @@ struct MMU_struct
 
 	u8 powerMan_CntReg;
 	BOOL powerMan_CntRegWritten;
-	u8 powerMan_Reg[4];
+	u8 powerMan_Reg[5];
 
 	memory_chip_t fw;
 

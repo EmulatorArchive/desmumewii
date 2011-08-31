@@ -372,7 +372,6 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	ROMReader_struct	*reader;
 	int					ret;
 	int					type = ROM_NDS;
-	u32					mask;
 	void				*file;
 	u8					*data;
 	char				buf[MAX_PATH];
@@ -419,7 +418,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 
 	//zero 25-dec-08 - this used to yield a mask which was 2x large
 	//mask = size; 
-	mask = size-1; 
+	u32 mask = size-1; 
 	mask |= (mask >>1);
 	mask |= (mask >>2);
 	mask |= (mask >>4);

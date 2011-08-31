@@ -493,14 +493,6 @@ static void twiddleLists() {
 	vertlist->count = 0;
 }
 
-/*
-static void gfx3d_null(u32 pad) {
-        printf("unsupported command\n");
-}
-
-static void makeCmdLut();
-//*/
-
 static BOOL flushPending = FALSE;
 static BOOL drawPending = FALSE;
 //------------------------------------------------------------
@@ -544,13 +536,7 @@ static void makeTables() {
 		}
 	}
 	//*/
-#if 0
-	for(int i = 0; i < 0x80; i++) {
-		gfx3d_cmd_lut[i] = gfx3d_null;
-	}
 
-	makeCmdLut();
-#endif
 }
 
 void gfx3d_init()
@@ -2157,7 +2143,7 @@ s32 gfx3d_GetDirectionalMatrix (unsigned int index)
 {
 	// Are we assuming that it's a 3x3 matrix?
 	
-	int _index = (((index / 3) * 4) + (index % 3));	
+	int _index = (((index / 3) * 4) + (index % 3));
 
 #ifdef GX_3D_FUNCTIONS
 
