@@ -1206,7 +1206,8 @@ static void execdiv() {
 template<int PROCNUM>
 void FASTCALL MMU_writeToGCControl(u32 val)
 {
-	nds_dscard& card = MMU.dscard[PROCNUM];
+	const int TEST_PROCNUM = PROCNUM;
+	nds_dscard& card = MMU.dscard[TEST_PROCNUM];
 
 	if(!(val & 0x80000000))
 	{
@@ -1214,11 +1215,11 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 		card.transfer_count = 0;
 
 		val &= 0x7F7FFFFF;
-		T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+		T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 		return;
 	}
 
-	memcpy(&card.command[0], &MMU.MMU_MEM[PROCNUM][0x40][0x1A8], 8);
+	memcpy(&card.command[0], &MMU.MMU_MEM[TEST_PROCNUM][0x40][0x1A8], 8);
 
 	switch (card.mode)
 	{
@@ -1234,7 +1235,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			card.transfer_count = 0;
 
 			val &= 0x7F7FFFFF;
-			T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+			T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 			return;
 		}
 		break;
@@ -1384,12 +1385,12 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 	if(card.transfer_count == 0)
 	{
 		val &= 0x7F7FFFFF;
-		T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+		T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 		return;
 	}
 	
     val |= 0x00800000;
-    T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+    T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 						
 	// Launch DMA if start flag was set to "DS Cart"
 	//printf("triggering card dma\n");
@@ -1401,7 +1402,9 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 template<int PROCNUM>
 u32 MMU_readFromGC()
 {
-	nds_dscard& card = MMU.dscard[PROCNUM];
+	const int TEST_PROCNUM = PROCNUM;
+
+	nds_dscard& card = MMU.dscard[TEST_PROCNUM];
 	u32 val = 0;
 
 	if(card.transfer_count == 0)
@@ -1531,12 +1534,12 @@ u32 MMU_readFromGC()
 		return val;	// return data
 
 	// transfer is done
-	T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, 
-	T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+	T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, 
+	T1ReadLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
-		NDS_makeIrq(PROCNUM, 19);
+		NDS_makeIrq(TEST_PROCNUM, IRQ_BIT_GC_TRANSFER_COMPLETE);
 
 	return val;
 }
@@ -1854,12 +1857,18 @@ bool DmaController::loadstate(EMUFILE* f)
 	read32le(&check,f); read32le(&running,f); read32le(&paused,f); read32le(&triggered,f); 
 	read64le(&nextEvent,f);
 
+	if(version==1)
+	{
+		read32le(&saddr_user,f);
+		read32le(&daddr_user,f);
+	}
+
 	return true;
 }
 
 void DmaController::savestate(EMUFILE *f)
 {
-	write32le(0,f); //version
+	write32le(1,f); //version
 	write8le(enable,f); write8le(irq,f); write8le(repeatMode,f); write8le(_startmode,f);
 	write8le(userEnable,f);
 	write32le(wordcount,f);
@@ -1870,6 +1879,8 @@ void DmaController::savestate(EMUFILE *f)
 	write32le(saddr,f); write32le(daddr,f);
 	write32le(check,f); write32le(running,f); write32le(paused,f); write32le(triggered,f); 
 	write64le(nextEvent,f);
+	write32le(saddr_user,f);
+	write32le(daddr_user,f);
 }
 
 void DmaController::write32(const u32 val)
@@ -1906,6 +1917,15 @@ void DmaController::write32(const u32 val)
 	//make sure we don't get any old triggers
 	if(!wasEnable && enable)
 		triggered = FALSE;
+
+	if(enable)
+	{
+		//address registers are reloaded from user's settings whenever dma is enabled
+		//this is tested well by contra4 classic games, which use this to hdma scroll registers
+		//specifically in the fit-screen mode.
+		saddr = saddr_user;
+		daddr = daddr_user;
+	}
 
 	//printf("dma %d,%d set to startmode %d with wordcount set to: %08X\n",procnum,chan,_startmode,wordcount);
 	/*if(_startmode==0 && wordcount==1) {
@@ -2655,7 +2675,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				GPU_setMasterBrightness (SubScreen.gpu, val);
 				break;
 
-            case REG_POWCNT1 :
+            case REG_POWCNT1:
 				{
 // TODO: make this later
 #if 0			
@@ -3559,16 +3579,16 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 
 		switch(adr)
 		{
-		case REG_RTC:
-			rtcWrite(val);
-			return;
+			case REG_RTC:
+				rtcWrite(val);
+				return;
 
-		case REG_AUXSPICNT:
-			write_auxspicnt(9,8,0,val);
-			return;
-		case REG_AUXSPICNT+1:
-			write_auxspicnt(9,8,1,val);
-			return;
+			case REG_AUXSPICNT:
+				write_auxspicnt(9,8,0,val);
+				return;
+			case REG_AUXSPICNT+1:
+				write_auxspicnt(9,8,1,val);
+				return;
 		}
 	}
 

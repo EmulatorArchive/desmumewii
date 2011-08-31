@@ -300,9 +300,8 @@ TEMPLATE static u32 FASTCALL  OP_UND(const u32 i)
 #define OP_ANDS(a, b) \
 	if(REG_POS(i,12)==15) \
 	{ \
-		Status_Reg SPSR; \
+		Status_Reg SPSR = cpu->SPSR; \
 		cpu->R[15] = cpu->R[REG_POS(i,16)] & shift_op; \
-		SPSR = cpu->SPSR; \
 		armcpu_switchMode(cpu, SPSR.bits.mode); \
 		cpu->CPSR=SPSR; \
 		cpu->changeCPSR(); \
