@@ -777,8 +777,8 @@ struct GPU
 
 	u16 blend(u16 colA, u16 colB);
 
-	template<BlendFunc FUNC, bool WINDOW>
-	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x, bool);
+	template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x);
 
 	template<BlendFunc FUNC, bool WINDOW>
 	FORCEINLINE FASTCALL void _master_setFinal3dColor(int l, int i16);

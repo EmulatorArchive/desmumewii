@@ -656,8 +656,8 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 }
 
 
-template<BlendFunc FUNC, bool WINDOW>
-FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x, bool BACKDROP)
+template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
+FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x)
 {
 	//no further analysis for no special effects. on backdrops. just draw it.
 	//Blend backdrop with what? This doesn't make sense
@@ -706,10 +706,6 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 			return;
 	}
 
-	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
-	const int bg_under = bgPixels[x];
-	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
-
 	const bool sourceEffectSelected = blend1;
 
 	//note that the fadein and fadeout is done here before blending, 
@@ -718,14 +714,21 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 	if(windowEffect && sourceEffectSelected)
 		switch(FUNC) 
 		{
-		case Increase: if(!allowBlend) color = currentFadeInColors[color&0x7FFF]; break;
-		case Decrease: if(!allowBlend) color = currentFadeOutColors[color&0x7FFF]; break;
+			//zero 13-jun-2010 : if(allowBlend) was removed from these;
+			//it should be possible to increase/decrease and also blend
+			//(the effect would be increase, but the obj properties permit blending and the target layers are configured correctly)
+		
+			case Increase: color = currentFadeInColors[color&0x7FFF]; break;
+			case Decrease: color = currentFadeOutColors[color&0x7FFF]; break;
 
-		//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
-		case Blend: forceBlendingForNormal = true; break;
-		case None: break;
+			//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
+			case Blend: forceBlendingForNormal = true; break;
+			case None: break;
 		}
 
+	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
+	const int bg_under = bgPixels[x];
+	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
 
 	if(allowBlend)
 	{
@@ -742,39 +745,6 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 	bgPixels[x] = 4;	
 }
 
-GPU::FinalBGColor_ptr GPU::FinalBGColor_lut [8] = {
-	&GPU::_master_setFinalBGColor<None,false>,
-	&GPU::_master_setFinalBGColor<Blend,false>,
-	&GPU::_master_setFinalBGColor<Increase,false>,
-	&GPU::_master_setFinalBGColor<Decrease,false>,
-	&GPU::_master_setFinalBGColor<None,true>,
-	&GPU::_master_setFinalBGColor<Blend,true>,
-	&GPU::_master_setFinalBGColor<Increase,true>,
-	&GPU::_master_setFinalBGColor<Decrease,true>
-};
-
-GPU::Final3dColor_ptr GPU::Final3dColor_lut [8] = {
-	&GPU::_master_setFinal3dColor<None,false>,
-	&GPU::_master_setFinal3dColor<Blend,false>,
-	&GPU::_master_setFinal3dColor<Increase,false>,
-	&GPU::_master_setFinal3dColor<Decrease,false>,
-	&GPU::_master_setFinal3dColor<None,true>,
-	&GPU::_master_setFinal3dColor<Blend,true>,
-	&GPU::_master_setFinal3dColor<Increase,true>,
-	&GPU::_master_setFinal3dColor<Decrease,true>
-};
-
-GPU::FinalColorSpr_ptr GPU::FinalColorSpr_lut[8] = {
-	&GPU::_master_setFinalOBJColor<None,false>,
-	&GPU::_master_setFinalOBJColor<Blend,false>,
-	&GPU::_master_setFinalOBJColor<Increase,false>,
-	&GPU::_master_setFinalOBJColor<Decrease,false>,
-	&GPU::_master_setFinalOBJColor<None,true>,
-	&GPU::_master_setFinalOBJColor<Blend,true>,
-	&GPU::_master_setFinalOBJColor<Increase,true>,
-	&GPU::_master_setFinalOBJColor<Decrease,true>
-};
-
 //FUNCNUM is only set for backdrop, for an optimization of looking it up early
 template<bool BACKDROP, int FUNCNUM> 
 FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
@@ -788,8 +758,17 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 	bool draw = false;
 
 	const int test = BACKDROP ? FUNCNUM : setFinalColorBck_funcNum;
-
-	draw = (this->*GPU::FinalBGColor_lut[test])(color, x, BACKDROP);
+	switch(test)
+	{
+		case 0x0: draw = _master_setFinalBGColor<BACKDROP,None,false>(color,x); break;
+		case 0x1: draw = _master_setFinalBGColor<BACKDROP,Blend,false>(color,x); break;
+		case 0x2: draw = _master_setFinalBGColor<BACKDROP,Increase,false>(color,x); break;
+		case 0x3: draw = _master_setFinalBGColor<BACKDROP,Decrease,false>(color,x); break;
+		case 0x4: draw = _master_setFinalBGColor<BACKDROP,None,true>(color,x); break;
+		case 0x5: draw = _master_setFinalBGColor<BACKDROP,Blend,true>(color,x); break;
+		case 0x6: draw = _master_setFinalBGColor<BACKDROP,Increase,true>(color,x); break;
+		case 0x7: draw = _master_setFinalBGColor<BACKDROP,Decrease,true>(color,x); break;
+	};
 
 	if(BACKDROP || draw) //backdrop must always be drawn
 	{
@@ -801,12 +780,32 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 {
-	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(dstX,srcX);
+	switch(setFinalColor3d_funcNum)
+	{
+		case 0x0: _master_setFinal3dColor<None,false>(dstX,srcX); break;
+		case 0x1: _master_setFinal3dColor<Blend,false>(dstX,srcX); break;
+		case 0x2: _master_setFinal3dColor<Increase,false>(dstX,srcX); break;
+		case 0x3: _master_setFinal3dColor<Decrease,false>(dstX,srcX); break;
+		case 0x4: _master_setFinal3dColor<None,true>(dstX,srcX); break;
+		case 0x5: _master_setFinal3dColor<Blend,true>(dstX,srcX); break;
+		case 0x6: _master_setFinal3dColor<Increase,true>(dstX,srcX); break;
+		case 0x7: _master_setFinal3dColor<Decrease,true>(dstX,srcX); break;
+	};
 }
 
 FORCEINLINE void GPU::setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x)
 {
-	(this->*FinalColorSpr_lut[setFinalColorSpr_funcNum])(color, alpha, type, x);
+	switch(setFinalColorSpr_funcNum)
+	{
+		case 0x0: _master_setFinalOBJColor<None,false>(color, alpha, type, x); break;
+		case 0x1: _master_setFinalOBJColor<Blend,false>(color, alpha, type, x); break;
+		case 0x2: _master_setFinalOBJColor<Increase,false>(color, alpha, type, x); break;
+		case 0x3: _master_setFinalOBJColor<Decrease,false>(color, alpha, type, x); break;
+		case 0x4: _master_setFinalOBJColor<None,true>(color, alpha, type, x); break;
+		case 0x5: _master_setFinalOBJColor<Blend,true>(color, alpha, type, x); break;
+		case 0x6: _master_setFinalOBJColor<Increase,true>(color, alpha, type, x); break;
+		case 0x7: _master_setFinalOBJColor<Decrease,true>(color, alpha, type, x); break;
+	};
 }
 
 template<bool MOSAIC, bool BACKDROP>
@@ -972,12 +971,9 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 	{
 		yoff = ((YBG&7)<<2);
 		xfin = 8 - (xoff&7);
-
-		u16 tilePalette = 0;
-		u8 currLine = 0;
-
 		for(x = 0; x < LG; xfin = std::min<u16>(x+8, LG))
 		{
+			u16 tilePalette = 0;
 			tmp = ((xoff&wmask)>>3);
 			mapinfo = map + ((tmp&0x1F) << 1);
 			if(tmp>31) mapinfo += 32*32*2;
@@ -993,7 +989,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 
 				for(; x < xfin; --line) 
 				{	
-					currLine = *line;
+					u8 currLine = *line;
 
 					if(!(xoff&1))
 					{
@@ -1014,7 +1010,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 				
 				for(; x < xfin; ++line) 
 				{
-					currLine = *line;
+					u8 currLine = *line;
 
 					if(!(xoff&1))
 					{
@@ -1344,17 +1340,13 @@ INLINE void render_sprite_BMP (GPU * gpu, u8 spriteNum, u16 l, u8 * dst, u16 * s
 		color = LE_TO_LOCAL_16(src[x]);
 
 		// alpha bit = invisible
-		if ((color&0x8000)&&(prio<=prioTab[sprX]))
+		if ((color&0x8000)&&(prio<prioTab[sprX]))
 		{
-			/* if we don't draw, do not set prio, or else */
-		//	if (gpu->setFinalColorSpr(gpu, sprX << 1,4,dst, color, sprX))
-			{
-				T2WriteWord(dst, (sprX<<1), color);
-				dst_alpha[sprX] = alpha;
-				typeTab[sprX] = 3;
-				prioTab[sprX] = prio;
-				gpu->sprNum[sprX] = spriteNum;
-			}
+			T2WriteWord(dst, (sprX<<1), color);
+			dst_alpha[sprX] = alpha;
+			typeTab[sprX] = 3;
+			prioTab[sprX] = prio;
+			gpu->sprNum[sprX] = spriteNum;
 		}
 	}
 }
@@ -1372,7 +1364,7 @@ INLINE void render_sprite_256 (	GPU * gpu, u8 spriteNum, u16 l, u8 * dst, u8 * s
 		color = LE_TO_LOCAL_16(pal[palette_entry]);
 
 		// palette entry = 0 means backdrop
-		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
+		if ((palette_entry>0)&&(prio<prioTab[sprX]))
 		{
 			T2WriteWord(dst, (sprX<<1), color);
 			dst_alpha[sprX] = 16;
@@ -1399,7 +1391,7 @@ INLINE void render_sprite_16 (	GPU * gpu, u16 l, u8 * dst, u8 * src, u16 * pal,
 		color = LE_TO_LOCAL_16(pal[palette_entry]);
 
 		// palette entry = 0 means backdrop
-		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
+		if ((palette_entry>0)&&(prio<prioTab[sprX]))
 		{
 			T2WriteWord(dst, (sprX<<1), color);
 			dst_alpha[sprX] = 16;
@@ -1669,7 +1661,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 						colour = src[offset];
 
-						if (colour && (prioTab[sprX]>=prio))
+						if (colour && (prio<prioTab[sprX]))
 						{ 
 							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (colour<<1))));
 							dst_alpha[sprX] = 16;
@@ -1714,7 +1706,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						
 						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, colour);
 
-						if((colour&0x8000) && (prioTab[sprX]>=prio))
+						if((colour&0x8000) && (prio<prioTab[sprX]))
 						{
 							T2WriteWord(dst, (sprX<<1), colour);
 							dst_alpha[sprX] = spriteInfo->PaletteIndex;
@@ -1768,12 +1760,17 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						if (auxX&1)	colour >>= 4;
 						else		colour &= 0xF;
 
-						if(colour && (prioTab[sprX]>=prio))
+						if(colour && (prio<prioTab[sprX]))
 						{
-							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, colour << 1)));
-							dst_alpha[sprX] = 16;
-							typeTab[sprX] = spriteInfo->Mode;
-							prioTab[sprX] = prio;
+							if(spriteInfo->Mode==2)
+								sprWin[sprX] = 1;
+							else
+							{
+								T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, colour << 1)));
+								dst_alpha[sprX] = 16;
+								typeTab[sprX] = spriteInfo->Mode;
+								prioTab[sprX] = prio;
+							}
 						}
 					}
 
@@ -2235,21 +2232,6 @@ static inline void CAPCOPY(GPU * gpu, u8* const src, u8* const dst, bool setAlph
 
 template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 {
-	//this macro takes advantage of the fact that there are only two possible values for capx
-	/*
-	#define CAPCOPY(SRC,DST,SETALPHABIT) \
-	switch(gpu->dispCapCnt.capx) { \
-		case DISPCAPCNT::_128: \
-			for (int i = 0; i < 128; i++)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
-			break; \
-		case DISPCAPCNT::_256: \
-			for (int i = 0; i < 256; i++)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
-			break; \
-			default: assert(false); \
-		}
-	//*/
 	
 	GPU * gpu = MainScreen.gpu;
 
@@ -2332,8 +2314,11 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 							case 1:
 								//capture dispfifo
 								//(not yet tested)
-								for(int i=128; i--;)
+								int i = 128; 
+								do{
 									T1WriteLong(cap_dst, i << 2, DISP_FIFOrecv());
+									--i;
+								}while(i >= 0);	
 								break;
 						}
 					}
@@ -2362,8 +2347,11 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 						{
 							//fifo - tested by splinter cell chaos theory thermal view
 							srcB = fifoLine;
-							for (int i=128; i--;)
+							int i = 128; 
+							do{
 								T1WriteLong((u8*)srcB, i << 2, DISP_FIFOrecv());
+								--i;
+							}while(i >= 0);
 						}
 
 
