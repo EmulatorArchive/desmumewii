@@ -1612,7 +1612,7 @@ void NDS_exec(s32 nb)
 	if(nds.sleeping)
 	{
 		gpu_UpdateRender();
-		if((MMU.reg_IE[1] & MMU.reg_IF[1]) & (1<<22))
+		if((MMU.reg_IE[1] & MMU.reg_IF_bits[1]) & (1<<22))
 		{
 			nds.sleeping = FALSE;
 		}
@@ -1687,7 +1687,7 @@ void NDS_exec(s32 nb)
 
 void execHardware_interrupts()
 {
-	if((MMU.reg_IF[0]&MMU.reg_IE[0]) && (MMU.reg_IME[0]))
+	if((MMU.reg_IF_bits[0]&MMU.reg_IE[0]) && (MMU.reg_IME[0]))
 	{
 #ifdef GDB_STUB
 		if ( armcpu_flagIrq( &NDS_ARM9)) 
@@ -1700,7 +1700,7 @@ void execHardware_interrupts()
 		}
 	}
 
-	if((MMU.reg_IF[1]&MMU.reg_IE[1]) && (MMU.reg_IME[1]))
+	if((MMU.reg_IF_bits[1]&MMU.reg_IE[1]) && (MMU.reg_IME[1]))
 	{
 #ifdef GDB_STUB
 		if ( armcpu_flagIrq( &NDS_ARM7)) 

@@ -347,7 +347,8 @@ TEMPLATE static  u32 FASTCALL OP_MOV_IMM8(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_MOV_SPE(const u32 i)
 {
-	u32 Rd = (i&7) | ((i>>4)&8);
+	u32 Rd = REG_NUM(i, 0) | ((i>>4)&8);
+	
 	cpu->R[Rd] = cpu->R[REG_POS(i, 3)];
 	
 	if(Rd==15)

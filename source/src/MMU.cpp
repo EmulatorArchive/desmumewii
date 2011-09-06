@@ -1035,7 +1035,7 @@ void MMU_Reset()
 	
 	memset(MMU.reg_IME,       0, sizeof(u32) * 2);
 	memset(MMU.reg_IE,        0, sizeof(u32) * 2);
-	memset(MMU.reg_IF,        0, sizeof(u32) * 2);
+	memset(MMU.reg_IF_bits,   0, sizeof(u32) * 2);
 	
 	memset(MMU.dscard,        0, sizeof(nds_dscard) * 2);
 
@@ -1608,6 +1608,44 @@ void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val)
 }
 #endif
 
+template<int PROCNUM>
+u32 MMU_struct::gen_IF()
+{
+	u32 IF = reg_IF_bits[PROCNUM];
+
+	if(PROCNUM==ARMCPU_ARM9)
+	{
+		//according to gbatek, these flags are forced on until the condition is removed.
+		//no proof of this though...
+		switch(MMU_new.gxstat.gxfifo_irq)
+		{
+		case 0: //never
+			break;
+		case 1: //less than half full
+			if(MMU_new.gxstat.fifo_low) 
+				IF |= IRQ_MASK_ARM9_GXFIFO;
+			break;
+		case 2: //empty
+			if(MMU_new.gxstat.fifo_empty) 
+				IF |= IRQ_MASK_ARM9_GXFIFO;
+			break;
+		case 3: //reserved/unknown
+			break;
+		}
+	}
+
+	//generate IPC IF states from the ipc registers
+	u16 ipc = T1ReadWord(MMU.MMU_MEM[PROCNUM][0x40], 0x184);
+	if(ipc&IPCFIFOCNT_FIFOENABLE)
+	{
+		if(ipc&IPCFIFOCNT_SENDIRQEN) if(ipc&IPCFIFOCNT_SENDEMPTY) 
+			IF |= IRQ_MASK_IPCFIFO_SENDEMPTY;
+		if(ipc&IPCFIFOCNT_RECVIRQEN) if(!(ipc&IPCFIFOCNT_RECVEMPTY))
+			IF |= IRQ_MASK_IPCFIFO_RECVNONEMPTY;
+	}
+
+	return IF;
+}
 //a stub for memory profiler, if we choose to re-add it
 #define PROFILE_PREFETCH 1
 #define profile_memory_access(X,Y,Z)
@@ -1619,13 +1657,13 @@ void validateIF_arm9()
 	//no proof of this though...
 	if(MMU_new.gxstat.gxfifo_irq == 1)
 		if(gxFIFO.size <= 127) 
-			MMU.reg_IF[ARMCPU_ARM9] |= (1<<21);
-		else MMU.reg_IF[ARMCPU_ARM9] &= ~(1<<21);
+			MMU.reg_IF_bits[ARMCPU_ARM9] |= (1<<21);
+		else MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
 	else if(MMU_new.gxstat.gxfifo_irq == 2)
 		if(gxFIFO.size == 0) 
-			MMU.reg_IF[ARMCPU_ARM9] |= (1<<21);
-		else  MMU.reg_IF[ARMCPU_ARM9] &= ~(1<<21);
-	else if(MMU_new.gxstat.gxfifo_irq == 0) MMU.reg_IF[ARMCPU_ARM9] &= ~(1<<21);
+			MMU.reg_IF_bits[ARMCPU_ARM9] |= (1<<21);
+		else  MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
+	else if(MMU_new.gxstat.gxfifo_irq == 0) MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
 }
 
 static INLINE void MMU_IPCSync(u8 proc, u32 val)
@@ -2792,7 +2830,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 					if ( new_val && old_val != new_val) 
 					{
 						// raise an interrupt request to the CPU if needed
-						if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF[ARMCPU_ARM9])
+						if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF_bits[ARMCPU_ARM9])
 						{
 							NDS_ARM9.waitIRQ = FALSE;
 						}
@@ -2807,7 +2845,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				if ( MMU.reg_IME[ARMCPU_ARM9])
 				{
 					// raise an interrupt request to the CPU if needed
-					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF[ARMCPU_ARM9]) 
+					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF_bits[ARMCPU_ARM9]) 
 					{
 						NDS_ARM9.waitIRQ = FALSE;
 					}
@@ -2821,7 +2859,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				if ( MMU.reg_IME[ARMCPU_ARM9])
 				{
 					// raise an interrupt request to the CPU if needed
-					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF[ARMCPU_ARM9]) 
+					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF_bits[ARMCPU_ARM9]) 
 					{
 						NDS_ARM9.waitIRQ = FALSE;
 					}
@@ -2831,12 +2869,12 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				
 			case REG_IF :
 				NDS_Reschedule();
-				MMU.reg_IF[ARMCPU_ARM9] &= (~((u32)val)); 
+				MMU.reg_IF_bits[ARMCPU_ARM9] &= (~((u32)val)); 
 				validateIF_arm9();
 				return;
 			case REG_IF + 2 :
 				NDS_Reschedule();
-				MMU.reg_IF[ARMCPU_ARM9] &= (~(((u32)val)<<16));
+				MMU.reg_IF_bits[ARMCPU_ARM9] &= (~(((u32)val)<<16));
 				validateIF_arm9();
 				return;
 
@@ -3196,7 +3234,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 					if ( new_val && old_val != new_val) 
 					{
 						// raise an interrupt request to the CPU if needed
-						if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF[ARMCPU_ARM9]) 
+						if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF_bits[ARMCPU_ARM9]) 
 						{
 							NDS_ARM9.waitIRQ = FALSE;
 						}
@@ -3212,7 +3250,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				if ( MMU.reg_IME[ARMCPU_ARM9]) 
 				{
 					// raise an interrupt request to the CPU if needed
-					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF[ARMCPU_ARM9]) 
+					if ( MMU.reg_IE[ARMCPU_ARM9] & MMU.reg_IF_bits[ARMCPU_ARM9]) 
 					{
 						NDS_ARM9.waitIRQ = FALSE;
 					}
@@ -3222,7 +3260,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 			
 			case REG_IF :
 				NDS_Reschedule();
-				MMU.reg_IF[ARMCPU_ARM9] &= (~val); 
+				MMU.reg_IF_bits[ARMCPU_ARM9] &= (~val); 
 				validateIF_arm9();
 				return;
 
@@ -3395,9 +3433,9 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 				return (u16)(MMU.reg_IE[ARMCPU_ARM9]>>16);
 				
 			case REG_IF :
-				return (u16)MMU.reg_IF[ARMCPU_ARM9];
+				return (u16)MMU.reg_IF_bits[ARMCPU_ARM9];
 			case REG_IF + 2 :
-				return (u16)(MMU.reg_IF[ARMCPU_ARM9]>>16);
+				return (u16)(MMU.reg_IF_bits[ARMCPU_ARM9]>>16);
 
 			case REG_TM0CNTL :
 			case REG_TM1CNTL :
@@ -3507,7 +3545,7 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 			case REG_IE :
 				return MMU.reg_IE[ARMCPU_ARM9];
 			case REG_IF :
-				return MMU.reg_IF[ARMCPU_ARM9];
+				return MMU.reg_IF_bits[ARMCPU_ARM9];
 			case REG_IPCFIFORECV :
 				return IPC_FIFOrecv(ARMCPU_ARM9);
 			case REG_TM0CNTL :
@@ -3820,7 +3858,7 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 					if ( new_val && old_val != new_val) 
 					{
 						/* raise an interrupt request to the CPU if needed */
-						if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF[ARMCPU_ARM7])
+						if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF_bits[ARMCPU_ARM7])
 						{
 							NDS_ARM7.waitIRQ = FALSE;
 						}
@@ -3835,7 +3873,7 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 				if ( MMU.reg_IME[ARMCPU_ARM7]) 
 				{
 					/* raise an interrupt request to the CPU if needed */
-					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF[ARMCPU_ARM7]) 
+					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF_bits[ARMCPU_ARM7]) 
 					{
 						NDS_ARM7.waitIRQ = FALSE;
 					}
@@ -3850,7 +3888,7 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 				if ( MMU.reg_IME[ARMCPU_ARM7]) 
 				{
 					/* raise an interrupt request to the CPU if needed */
-					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF[ARMCPU_ARM7]) 
+					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF_bits[ARMCPU_ARM7]) 
 					{
 						NDS_ARM7.waitIRQ = FALSE;
 					}
@@ -3861,12 +3899,12 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 			case REG_IF :
 				NDS_Reschedule();
 				//emu_halt();
-				MMU.reg_IF[ARMCPU_ARM7] &= (~((u32)val)); 
+				MMU.reg_IF_bits[ARMCPU_ARM7] &= (~((u32)val)); 
 				return;
 			case REG_IF + 2 :
 				NDS_Reschedule();
 				//emu_halt();
-				MMU.reg_IF[ARMCPU_ARM7] &= (~(((u32)val)<<16));
+				MMU.reg_IF_bits[ARMCPU_ARM7] &= (~(((u32)val)<<16));
 				return;
 				
             case REG_IPCSYNC :
@@ -3956,7 +3994,7 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 				if ( new_val && old_val != new_val) 
 				{
 					// raise an interrupt request to the CPU if needed
-					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF[ARMCPU_ARM7]) 
+					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF_bits[ARMCPU_ARM7]) 
 					{
 						NDS_ARM7.waitIRQ = FALSE;
 					}
@@ -3972,7 +4010,7 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 				if ( MMU.reg_IME[ARMCPU_ARM7])
 				{
 					/* raise an interrupt request to the CPU if needed */
-					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF[ARMCPU_ARM7]) 
+					if ( MMU.reg_IE[ARMCPU_ARM7] & MMU.reg_IF_bits[ARMCPU_ARM7]) 
 					{
 						NDS_ARM7.waitIRQ = FALSE;
 					}
@@ -3982,7 +4020,7 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 			
 			case REG_IF :
 				NDS_Reschedule();
-				MMU.reg_IF[ARMCPU_ARM7] &= (~val); 
+				MMU.reg_IF_bits[ARMCPU_ARM7] &= (~val); 
 				return;
 
             case REG_TM0CNTL:
@@ -4091,9 +4129,9 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 				return (u16)(MMU.reg_IE[ARMCPU_ARM7]>>16);
 				
 			case REG_IF :
-				return (u16)MMU.reg_IF[ARMCPU_ARM7];
+				return (u16)MMU.reg_IF_bits[ARMCPU_ARM7];
 			case REG_IF + 2 :
-				return (u16)(MMU.reg_IF[ARMCPU_ARM7]>>16);
+				return (u16)(MMU.reg_IF_bits[ARMCPU_ARM7]>>16);
 
 			case REG_TM0CNTL :
 			case REG_TM1CNTL :
@@ -4156,7 +4194,7 @@ u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 			case REG_IE :
 				return MMU.reg_IE[ARMCPU_ARM7];
 			case REG_IF :
-				return MMU.reg_IF[ARMCPU_ARM7];
+				return MMU.reg_IF_bits[ARMCPU_ARM7];
 			case REG_IPCFIFORECV :
 				return IPC_FIFOrecv(ARMCPU_ARM7);
             case REG_TM0CNTL :
