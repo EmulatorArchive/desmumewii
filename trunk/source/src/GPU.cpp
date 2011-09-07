@@ -223,7 +223,6 @@ void GPU_Reset(GPU *g, u8 l)
 	g->core = l;
 	g->BGSize[0][0] = g->BGSize[1][0] = g->BGSize[2][0] = g->BGSize[3][0] = 256;
 	g->BGSize[0][1] = g->BGSize[1][1] = g->BGSize[2][1] = g->BGSize[3][1] = 256;
-	g->dispOBJ = g->dispBG[0] = g->dispBG[1] = g->dispBG[2] = g->dispBG[3] = TRUE;
 
 	g->spriteRenderMode = GPU::SPRITE_1D;
 
@@ -264,11 +263,11 @@ static void GPU_resortBGs(GPU *gpu)
 #define OP ^ !
 // if we untick boxes, layers become invisible
 //#define OP &&
-	gpu->LayersEnable[0] = gpu->dispBG[0] OP(cnt->BG0_Enable/* && !(cnt->BG0_3D && (gpu->core==0))*/);
-	gpu->LayersEnable[1] = gpu->dispBG[1] OP(cnt->BG1_Enable);
-	gpu->LayersEnable[2] = gpu->dispBG[2] OP(cnt->BG2_Enable);
-	gpu->LayersEnable[3] = gpu->dispBG[3] OP(cnt->BG3_Enable);
-	gpu->LayersEnable[4] = gpu->dispOBJ   OP(cnt->OBJ_Enable);
+	gpu->LayersEnable[0] = CommonSettings.dispLayers[gpu->core][0] OP(cnt->BG0_Enable/* && !(cnt->BG0_3D && (gpu->core==0))*/);
+	gpu->LayersEnable[1] = CommonSettings.dispLayers[gpu->core][1] OP(cnt->BG1_Enable);
+	gpu->LayersEnable[2] = CommonSettings.dispLayers[gpu->core][2] OP(cnt->BG2_Enable);
+	gpu->LayersEnable[3] = CommonSettings.dispLayers[gpu->core][3] OP(cnt->BG3_Enable);
+	gpu->LayersEnable[4] = CommonSettings.dispLayers[gpu->core][4] OP(cnt->OBJ_Enable);
 
 	// KISS ! lower priority first, if same then lower num
 	for (i=0;i<NB_PRIORITIES;i++) {
@@ -495,15 +494,12 @@ void GPU_setBGProp(GPU * gpu, u16 num, u16 p)
 
 void GPU_remove(GPU * gpu, u8 num)
 {
-	if (num == 4)	gpu->dispOBJ = 0;
-	else		gpu->dispBG[num] = 0;
+	CommonSettings.dispLayers[gpu->core][num] = false;
 	GPU_resortBGs(gpu);
 }
 void GPU_addBack(GPU * gpu, u8 num)
 {
-	//REG_DISPx_pack_test(gpu);
-	if (num == 4)	gpu->dispOBJ = 1;
-	else		gpu->dispBG[num] = 1;
+	CommonSettings.dispLayers[gpu->core][num] = true;
 	GPU_resortBGs(gpu);
 }
 
@@ -582,16 +578,13 @@ FORCEINLINE void GPU::renderline_checkWindows(u16 x, bool &draw, bool &effect) c
 template<BlendFunc FUNC, bool WINDOW>
 FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 {
-	int passing, bg_under, q;// = dstX<<1;
 	u8* dst = currDst;
 	COLOR32 color;
-	COLOR c2, cfinal;
 	u16 final;
 
 	this->currBgNum = 0;
 
-	const BGxOFS *bgofs = &this->dispx_st->dispx_BGxOFS[i16];
-	const u16 hofs = (T1ReadWord((u8*)&bgofs->BGxHOFS, 0) & 0x1FF);
+	const u16 hofs = this->getHOFS(i16);
 
 	gfx3d_GetLineData(l, &this->_3dColorLine);
 
@@ -599,16 +592,20 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 
 	for(int k = 256; k--;)
 	{
-		q = ((k + hofs) & 0x1FF);
+		int q = ((k + hofs) & 0x1FF);
 
+		//--DCN: Difference between this and 
+		// Vanilla is +3: (colorLine[(q<<2)+3])
 		if((q < 0) || (q > 255) || !colorLine[(q<<2)])
 			continue;
 
-		passing = k<<1;
+		int passing = k<<1;
 
 		color.val = (*(u32 *)&_3dColorLine[k<<2]);
 
-		bool windowEffect = blend1; // Desmume r3416
+		bool windowEffect = blend1; //bomberman land touch dialogbox will fail without setting to blend1
+	
+		//TODO - should we do an alpha==0 -> bail out entirely check here?
 
 		if(WINDOW)
 		{
@@ -619,24 +616,25 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 			if(!windowDraw) return;
 		}
 
-		bg_under = bgPixels[k];
+		int bg_under = bgPixels[k];
 		if(blend2[bg_under])
 		{
 			++color.bits.a;
 			if(color.bits.a < 32)
 			{
 				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
+				COLOR c2, cfinal;
 				c2.val = T2ReadWord(dst, passing);
-
-				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * (32 - color.bits.a))) >> 6;
-				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * (32 - color.bits.a))) >> 6;
-				cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * (32 - color.bits.a))) >> 6;
+				u8 invAlpha = (32 - color.bits.a);
+				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * invAlpha)) >> 6;
+				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * invAlpha)) >> 6;
+				cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * invAlpha)) >> 6;
 
 				final = cfinal.val;
 			}
 			else final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 		}
-		else 
+		else
 		{
 			final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 			//perform the special effect
@@ -693,20 +691,18 @@ FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x)
 }
 
 template<BlendFunc FUNC, bool WINDOW>
-FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 type, u16 x)
+static FORCEINLINE void _master_setFinalOBJColor(GPU *gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)
 {
 	bool windowDraw = true, windowEffect = true;
-	
-	u8 *dst = currDst;
 
 	if(WINDOW)
 	{
-		renderline_checkWindows(x, windowDraw, windowEffect);
+		gpu->renderline_checkWindows(x, windowDraw, windowEffect);
 		if(!windowDraw)
 			return;
 	}
 
-	const bool sourceEffectSelected = blend1;
+	const bool sourceEffectSelected = gpu->blend1;
 
 	//note that the fadein and fadeout is done here before blending, 
 	//so that a fade and blending can be applied at the same time (actually, I don't think that is legal..)
@@ -717,9 +713,9 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 			//zero 13-jun-2010 : if(allowBlend) was removed from these;
 			//it should be possible to increase/decrease and also blend
 			//(the effect would be increase, but the obj properties permit blending and the target layers are configured correctly)
-		
-			case Increase: color = currentFadeInColors[color&0x7FFF]; break;
-			case Decrease: color = currentFadeOutColors[color&0x7FFF]; break;
+
+			case Increase: color = gpu->currentFadeInColors[color&0x7FFF]; break;
+			case Decrease: color = gpu->currentFadeOutColors[color&0x7FFF]; break;
 
 			//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
 			case Blend: forceBlendingForNormal = true; break;
@@ -727,8 +723,8 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 		}
 
 	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
-	const int bg_under = bgPixels[x];
-	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
+	const int bg_under = gpu->bgPixels[x];
+	const bool allowBlend = (bg_under != 4) && gpu->blend2[bg_under];
 
 	if(allowBlend)
 	{
@@ -738,11 +734,11 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 		if(type == GPU_OBJ_MODE_Bitmap)
 			color = _blend(color,backColor,&gpuBlendTable555[alpha+1][15-alpha]);
 		else if(type == GPU_OBJ_MODE_Transparent || forceBlendingForNormal)
-			color = blend(color,backColor);
+			color = gpu->blend(color,backColor);
 	}
 
 	T2WriteWord(dst, x<<1, (color | 0x8000));
-	bgPixels[x] = 4;	
+	gpu->bgPixels[x] = 4;	
 }
 
 //FUNCNUM is only set for backdrop, for an optimization of looking it up early
@@ -793,18 +789,18 @@ FORCEINLINE void GPU::setFinalColor3d(int dstX, int srcX)
 	};
 }
 
-FORCEINLINE void GPU::setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x)
+FORCEINLINE void setFinalColorSpr(GPU* gpu, u8 *dst, u16 color, u8 alpha, u8 type, u16 x)
 {
-	switch(setFinalColorSpr_funcNum)
+	switch(gpu->setFinalColorSpr_funcNum)
 	{
-		case 0x0: _master_setFinalOBJColor<None,false>(color, alpha, type, x); break;
-		case 0x1: _master_setFinalOBJColor<Blend,false>(color, alpha, type, x); break;
-		case 0x2: _master_setFinalOBJColor<Increase,false>(color, alpha, type, x); break;
-		case 0x3: _master_setFinalOBJColor<Decrease,false>(color, alpha, type, x); break;
-		case 0x4: _master_setFinalOBJColor<None,true>(color, alpha, type, x); break;
-		case 0x5: _master_setFinalOBJColor<Blend,true>(color, alpha, type, x); break;
-		case 0x6: _master_setFinalOBJColor<Increase,true>(color, alpha, type, x); break;
-		case 0x7: _master_setFinalOBJColor<Decrease,true>(color, alpha, type, x); break;
+		case 0x0: _master_setFinalOBJColor<None,false>(gpu, dst, color, alpha, type, x); break;
+		case 0x1: _master_setFinalOBJColor<Blend,false>(gpu, dst, color, alpha, type, x); break;
+		case 0x2: _master_setFinalOBJColor<Increase,false>(gpu, dst, color, alpha, type, x); break;
+		case 0x3: _master_setFinalOBJColor<Decrease,false>(gpu, dst, color, alpha, type, x); break;
+		case 0x4: _master_setFinalOBJColor<None,true>(gpu, dst, color, alpha, type, x); break;
+		case 0x5: _master_setFinalOBJColor<Blend,true>(gpu, dst, color, alpha, type, x); break;
+		case 0x6: _master_setFinalOBJColor<Increase,true>(gpu, dst, color, alpha, type, x); break;
+		case 0x7: _master_setFinalOBJColor<Decrease,true>(gpu, dst, color, alpha, type, x); break;
 	};
 }
 
@@ -902,10 +898,9 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 		return;
 	}
 
-	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
 	u8 num = gpu->currBgNum;
-	u16 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
-	u16 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	u16 XBG = gpu->getHOFS(gpu->currBgNum);
+	u16 YBG = gpu->currLine + gpu->getVOFS(gpu->currBgNum);
 	u16 lg     = gpu->BGSize[num][0];
 	u16 ht     = gpu->BGSize[num][1];
 	u16 wmask  = (lg-1);
@@ -1244,10 +1239,6 @@ static void lineNull(GPU * gpu)
 
 template<bool MOSAIC> void lineText(GPU * gpu)
 {
-	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
-
-
-
 //	if(gpu->debug)
 //	{
 //		const s32 wh = gpu->BGSize[gpu->currBgNum][0];
@@ -1255,8 +1246,8 @@ template<bool MOSAIC> void lineText(GPU * gpu)
 //	}
 //	else
 //	{
-		const u16 vofs = T1ReadWord((u8 *)&ofs->BGxVOFS,0);
-		const u16 hofs = T1ReadWord((u8 *)&ofs->BGxHOFS,0);
+		const u16 vofs = gpu->getVOFS(gpu->currBgNum);
+		const u16 hofs = gpu->getHOFS(gpu->currBgNum);
 		renderline_textBG<MOSAIC>(gpu, hofs, gpu->currLine + vofs, 256);
 //	}
 }
@@ -2184,7 +2175,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 			for (int i=0; i < item->nbPixelsX; i++)
 			{
 				i16=item->PixelsX[i];
-				gpu->setFinalColorSpr(T2ReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
+				setFinalColorSpr(gpu, gpu->currDst, T2ReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
 			}
 		}
 	}

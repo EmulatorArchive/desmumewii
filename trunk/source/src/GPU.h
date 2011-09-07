@@ -692,9 +692,6 @@ struct GPU
 
 	//FIFO	fifo;
 
-	BOOL dispBG[4];
-	BOOL dispOBJ;
-
 	u8 bgPrio[5];
 
 	BOOL bg0HasHighestPrio;
@@ -808,8 +805,7 @@ struct GPU
 
 
 	void setFinalColor3d(int l, int i16);
-	void setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x);
-	
+
 	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
 	template<bool MOSAIC, bool BACKDROP> FORCEINLINE void __setFinalColorBck(u16 color, const u32 x, const int opaque);
 	template<bool MOSAIC, bool BACKDROP, int FUNCNUM> FORCEINLINE void ___setFinalColorBck(u16 color, const u32 x, const int opaque);
@@ -849,6 +845,9 @@ struct GPU
 		updateBLDALPHA();
 	}
 
+	u32 getHOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxHOFS,0) & 0x1FF; }
+	u32 getVOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxVOFS,0) & 0x1FF; }
+
 	typedef u8 TBlendTable[32][32];
 	TBlendTable *blendTable;
 
@@ -857,14 +856,6 @@ struct GPU
 		blendTable = (TBlendTable*)&gpuBlendTable555[BLDALPHA_EVA][BLDALPHA_EVB][0][0];
 	}
 	
-	typedef bool ( GPU::*FinalBGColor_ptr)(u16 &, u32, bool);
-	static FinalBGColor_ptr FinalBGColor_lut [8];
-	
-	typedef void ( GPU::*Final3dColor_ptr)(int, int);
-	static Final3dColor_ptr Final3dColor_lut [8];
-
-	typedef void ( GPU::*FinalColorSpr_ptr)(u16, u8, u8, u16);
-	static FinalColorSpr_ptr FinalColorSpr_lut [8];
 };
 #if 0
 // normally should have same addresses
