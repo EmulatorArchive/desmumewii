@@ -1656,24 +1656,10 @@ u32 MMU_struct::gen_IF()
 
 	return IF;
 }
-//a stub for memory profiler, if we choose to re-add it
-#define PROFILE_PREFETCH 1
-#define profile_memory_access(X,Y,Z)
 
 //does some validation on the game's choice of IF value, correcting it if necessary
-void validateIF_arm9()
+static void validateIF_arm9()
 {
-	//according to gbatek, these flags are forced on until the condition is removed.
-	//no proof of this though...
-	if(MMU_new.gxstat.gxfifo_irq == 1)
-		if(gxFIFO.size <= 127) 
-			MMU.reg_IF_bits[ARMCPU_ARM9] |= (1<<21);
-		else MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
-	else if(MMU_new.gxstat.gxfifo_irq == 2)
-		if(gxFIFO.size == 0) 
-			MMU.reg_IF_bits[ARMCPU_ARM9] |= (1<<21);
-		else  MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
-	else if(MMU_new.gxstat.gxfifo_irq == 0) MMU.reg_IF_bits[ARMCPU_ARM9] &= ~(1<<21);
 }
 
 static INLINE void MMU_IPCSync(u8 proc, u32 val)
@@ -4306,87 +4292,75 @@ void FASTCALL MMU_DumpMemBlock(u8 proc, u32 address, u32 size, u8 *buffer)
 	}
 }
 
+// These templates needed to be instantiated manually
+template u32 MMU_struct::gen_IF<ARMCPU_ARM9>();
+template u32 MMU_struct::gen_IF<ARMCPU_ARM7>();
+
 ////////////////////////////////////////////////////////////
 //function pointer handlers for gdb stub stuff
 
 static u16 FASTCALL arm9_prefetch16( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_PREFETCH);
-	return _MMU_read16<ARMCPU_ARM9>(adr);
+	return _MMU_read16<ARMCPU_ARM9,MMU_AT_CODE>(adr);
 }
 
 static u32 FASTCALL arm9_prefetch32( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_PREFETCH);
-	return _MMU_read32<ARMCPU_ARM9>(adr);
+	return _MMU_read32<ARMCPU_ARM9,MMU_AT_CODE>(adr);
 }
 
 static u8 FASTCALL arm9_read8( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read08<ARMCPU_ARM9>(adr);
 }
 
 static u16 FASTCALL arm9_read16( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read16<ARMCPU_ARM9>(adr);
 }
 
 static u32 FASTCALL arm9_read32( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read32<ARMCPU_ARM9>(adr);
 }
 
 static void FASTCALL arm9_write8(void *data, u32 adr, u8 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write08<ARMCPU_ARM9>(adr, val);
 }
 
 static void FASTCALL arm9_write16(void *data, u32 adr, u16 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write16<ARMCPU_ARM9>(adr, val);
 }
 
 static void FASTCALL arm9_write32(void *data, u32 adr, u32 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write32<ARMCPU_ARM9>(adr, val);
 }
 
 static u16 FASTCALL arm7_prefetch16( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_PREFETCH);
-  return _MMU_read16<ARMCPU_ARM7>(adr);
+	return _MMU_read16<ARMCPU_ARM7,MMU_AT_CODE>(adr);
 }
 
 static u32 FASTCALL arm7_prefetch32( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_PREFETCH);
-  return _MMU_read32<ARMCPU_ARM7>(adr);
+	return _MMU_read32<ARMCPU_ARM7,MMU_AT_CODE>(adr);
 }
 
 static u8 FASTCALL arm7_read8( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read08<ARMCPU_ARM7>(adr);
+	return _MMU_read08<ARMCPU_ARM7>(adr);
 }
 
 static u16 FASTCALL arm7_read16( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read16<ARMCPU_ARM7>(adr);
+	return _MMU_read16<ARMCPU_ARM7>(adr);
 }
 
 static u32 FASTCALL arm7_read32( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read32<ARMCPU_ARM7>(adr);
+	return _MMU_read32<ARMCPU_ARM7>(adr);
 }
 
 static void FASTCALL arm7_write8(void *data, u32 adr, u8 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write08<ARMCPU_ARM7>(adr, val);
+	_MMU_write08<ARMCPU_ARM7>(adr, val);
 }
 
 static void FASTCALL arm7_write16(void *data, u32 adr, u16 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write16<ARMCPU_ARM7>(adr, val);
+	_MMU_write16<ARMCPU_ARM7>(adr, val);
 }
 
 static void FASTCALL arm7_write32(void *data, u32 adr, u32 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write32<ARMCPU_ARM7>(adr, val);
+	_MMU_write32<ARMCPU_ARM7>(adr, val);
 }
 
 

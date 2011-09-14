@@ -390,6 +390,7 @@ void nds_savestate(EMUFILE* os);
 bool nds_loadstate(EMUFILE* is, int size);
 
 void NDS_Sleep();
+void NDS_ToggleCardEject();
 
 void NDS_SkipNextFrame();
 #define NDS_SkipFrame(s) if(s) NDS_SkipNext2DFrame();
@@ -401,42 +402,6 @@ template<bool FORCE> void NDS_exec(s32 nb = 560190<<1);
 
 extern int lagframecounter;
 
-static INLINE void NDS_ARM9HBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10)
-    {
-         //MMU.reg_IF[0] |= 2;// & (MMU.reg_IME[0] << 1);// (MMU.reg_IE[0] & (1<<1));
-		setIF(0, 2);
-    }
-}
-
-static INLINE void NDS_ARM7HBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10)
-    {
-        // MMU.reg_IF[1] |= 2;// & (MMU.reg_IME[1] << 1);// (MMU.reg_IE[1] & (1<<1));
-		setIF(1, 2);
-    }
-}
-
-static INLINE void NDS_ARM9VBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8)
-    {
-        // MMU.reg_IF[0] |= 1;// & (MMU.reg_IME[0]);// (MMU.reg_IE[0] & 1);
-		setIF(0, 1);
-              //emu_halt();
-              /*logcount++;*/
-    }
-}
-
-static INLINE void NDS_ARM7VBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8)
-        // MMU.reg_IF[1] |= 1;// & (MMU.reg_IME[1]);// (MMU.reg_IE[1] & 1);
-		setIF(1, 1);
-         //emu_halt();
-}
 
 void NDS_swapScreen(void);
 
