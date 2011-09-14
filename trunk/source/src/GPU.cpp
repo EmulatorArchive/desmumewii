@@ -1506,6 +1506,8 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	u16 l = currLine;
 	GPU *gpu = this;
 
+	//int cost = 0;
+
 	struct _DISPCNT * dispCnt = &(gpu->dispx_st)->dispx_DISPCNT.bits;
 	_OAM_ * spriteInfo = (_OAM_ *)(gpu->oam + (nbShow-1));// + 127;
 	u8 block = gpu->sprBoundary;
@@ -1515,17 +1517,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	*(((u16*)spriteInfo)+1) = (*(((u16*)spriteInfo)+1) >> 1) | *(((u16*)spriteInfo)+1) << 15;
 	*(((u16*)spriteInfo)+2) = (*(((u16*)spriteInfo)+2) >> 2) | *(((u16*)spriteInfo)+2) << 14;
 #endif
-
-	size sprSize;
-	s32 sprX, sprY, x, y, lg;
-	int xdir;
-	u8 prio, * src;
-	u16 j;
-/////
-	s32		fieldX, fieldY, auxX, auxY, realX, realY, offset;
-	u8		blockparameter, *pal;
-	s16		dx, dmx, dy, dmy;
-	u16		colour;
 
 	for(i = 0; i<nbShow; ++i, --spriteInfo
 #ifdef WORDS_BIGENDIAN    
@@ -1537,16 +1528,37 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	)     
 	{
 		//for each sprite:
+		/*
+		if(cost>=2130)
+		{
+			//out of sprite rendering time
+			//printf("sprite overflow!\n");
+			//return;		
+		}
+
+		//do we incur a cost if a sprite is disabled?? we guess so.
+		cost += 2;
+		//*/
+
+
 
 		// Check if sprite is disabled before everything
 		if (spriteInfo->RotScale == 2)
 			continue;
 
-		prio = spriteInfo->Priority;
+		size sprSize;
+		s32 sprX, sprY, x, y, lg;
+		int xdir;
+		u8* src;
+		u16 j;
+		u8 prio = spriteInfo->Priority;
 
 
 		if (spriteInfo->RotScale & 1) 
 		{
+			s32		fieldX, fieldY, auxX, auxY, realX, realY, offset;
+			u8		blockparameter, *pal;
+			u16		color;
 
 			// Get sprite positions and size
 			sprX = (spriteInfo->X<<23)>>23;
@@ -1586,6 +1598,8 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 				(sprX==256) || (sprX+fieldX<=0))
 				continue;
 
+			//cost += sprSize.x*2 + 10;
+
 			y = l - sprY;
 
 			// Get which four parameter block is assigned to this sprite
@@ -1593,18 +1607,18 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 			// Get rotation/scale parameters
 #ifdef WORDS_BIGENDIAN
-			dx  = ((s16)(gpu->oam + blockparameter+0)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+0)->attr30);
-			dmx = ((s16)(gpu->oam + blockparameter+1)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+1)->attr30);
-			dy  = ((s16)(gpu->oam + blockparameter+2)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+2)->attr30);
-			dmy = ((s16)(gpu->oam + blockparameter+3)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+3)->attr30);
+			s16 dx  = ((s16)(gpu->oam + blockparameter+0)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+0)->attr30);
+			s16 dmx = ((s16)(gpu->oam + blockparameter+1)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+1)->attr30);
+			s16 dy  = ((s16)(gpu->oam + blockparameter+2)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+2)->attr30);
+			s16 dmy = ((s16)(gpu->oam + blockparameter+3)->attr31 << 8) | ((s16)(gpu->oam + blockparameter+3)->attr30);
 #else
-			dx  = (s16)(gpu->oam + blockparameter+0)->attr3;
-			dmx = (s16)(gpu->oam + blockparameter+1)->attr3;
-			dy  = (s16)(gpu->oam + blockparameter+2)->attr3;
-			dmy = (s16)(gpu->oam + blockparameter+3)->attr3;
+			s16 dx  = (s16)(gpu->oam + blockparameter+0)->attr3;
+			s16 dmx = (s16)(gpu->oam + blockparameter+1)->attr3;
+			s16 dy  = (s16)(gpu->oam + blockparameter+2)->attr3;
+			s16 dmy = (s16)(gpu->oam + blockparameter+3)->attr3;
 #endif
 
-			// Calculate fixed poitn 8.8 start offsets
+			// Calculate fixed point 8.8 start offsets
 			realX = ((sprSize.x) << 7) - (fieldX >> 1)*dx - (fieldY>>1)*dmx + y * dmx;
 			realY = ((sprSize.y) << 7) - (fieldX >> 1)*dy - (fieldY>>1)*dmy + y * dmy;
 
@@ -1650,11 +1664,11 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						else
 							offset = (auxX&0x7) + ((auxX&0xFFF8)<<3) + ((auxY>>3)*sprSize.x*8) + ((auxY&0x7)*8);
 
-						colour = src[offset];
+						color = src[offset];
 
-						if (colour && (prio<prioTab[sprX]))
+						if (color && (prio<prioTab[sprX]))
 						{ 
-							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (colour<<1))));
+							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (color<<1))));
 							dst_alpha[sprX] = 16;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -1693,13 +1707,13 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 							offset = auxX + (auxY*sprSize.x);
 
 
-						colour = T1ReadWord (src, offset<<1);
+						color = T1ReadWord (src, offset<<1);
 						
-						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, colour);
+						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, color);
 
-						if((colour&0x8000) && (prio<prioTab[sprX]))
+						if((color&0x8000) && (prio<prioTab[sprX]))
 						{
-							T2WriteWord(dst, (sprX<<1), colour);
+							T2WriteWord(dst, (sprX<<1), color);
 							dst_alpha[sprX] = spriteInfo->PaletteIndex;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -1743,21 +1757,21 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						else
 							offset = ((auxX>>1)&0x3) + (((auxX>>1)&0xFFFC)<<3) + ((auxY>>3)*sprSize.x)*4 + ((auxY&0x7)*4);
 						
-						colour = src[offset];
+						color = src[offset];
 						
-						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, colour);
+						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, color);
 
 						// Get 4bits value from the readed 8bits
-						if (auxX&1)	colour >>= 4;
-						else		colour &= 0xF;
+						if (auxX&1)	color >>= 4;
+						else		color &= 0xF;
 
-						if(colour && (prio<prioTab[sprX]))
+						if(color && (prio<prioTab[sprX]))
 						{
 							if(spriteInfo->Mode==2)
 								sprWin[sprX] = 1;
 							else
 							{
-								T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, colour << 1)));
+								T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, color << 1)));
 								dst_alpha[sprX] = 16;
 								typeTab[sprX] = spriteInfo->Mode;
 								prioTab[sprX] = prio;
@@ -1776,11 +1790,11 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 		}
 		else
 		{
-			u16 * pal;
-
 	
 			if (!compute_sprite_vars(spriteInfo, l, sprSize, sprX, sprY, x, y, lg, xdir))
 				continue;
+
+			//cost += sprSize.x;
 
 			if (spriteInfo->Mode == 2)
 			{
@@ -1814,7 +1828,9 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 				render_sprite_BMP (gpu, i, l, dst, (u16*)src, dst_alpha, typeTab, prioTab, prio, lg, sprX, x, xdir, spriteInfo->PaletteIndex);
 				continue;
 			}
-				
+			
+			u16* pal;	
+			
 			if(spriteInfo->Depth)                   /* 256 colors */
 			{
 				if(MODE == SPRITE_2D)

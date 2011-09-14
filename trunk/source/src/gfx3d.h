@@ -302,8 +302,19 @@ private:
 //used to communicate state to the renderer
 struct GFX3D
 {
-    GFX3D()
-		: enableTexturing(true)
+    GFX3D() : 
+		  polylist(0)
+		, vertlist(0)
+		, fogColor(0)
+		, fogOffset(0)
+		, fogShift(0)
+		, shading(TOON)
+		, clearDepth(1)
+		, clearColor(0)
+		, frameCtr(0)
+		, frameCtrRaw(0)
+		, alphaTestRef(0)
+		, enableTexturing(true)
 		, enableAlphaTest(true)
 		, enableAlphaBlending(true)
 		, enableAntialiasing(false)
@@ -311,58 +322,52 @@ struct GFX3D
 		, enableClearImage(false)
 		, enableFog(false)
 		, enableFogAlphaOnly(false)
-		, fogShift(0)
-		, shading(TOON)
-		, polylist(0)
-		, vertlist(0)
-		, alphaTestRef(0)
-		, clearDepth(1)
-		, clearColor(0)
-		, fogColor(0)
-		, fogOffset(0)
-		, frameCtr(0)
-		, frameCtrRaw(0)
     {
 		int i = ARRAY_SIZE(u16ToonTable) - 1;
 		do{
 		        u16ToonTable[i] = 0;
 		        --i;
 		}while(i >= 0);
-    }
-    BOOL enableTexturing, enableAlphaTest, enableAlphaBlending,
-		enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
-
-    u32 fogShift;
-
-    static const u32 TOON = 0;
-    static const u32 HIGHLIGHT = 1;
-    u32 shading;
-
-    POLYLIST* polylist;
-    VERTLIST* vertlist;
-    int indexlist[POLYLIST_SIZE];
-
-    BOOL wbuffer, sortmode;
-
-    u8 alphaTestRef;
-
-    u32 clearDepth;
-    u32 clearColor;
-    #include "PACKED.h"
-    struct {
+	}
+	
+	
+	static const u32 TOON = 0;
+	static const u32 HIGHLIGHT = 1;
+	
+	
+	POLYLIST* polylist;
+	VERTLIST* vertlist;
+	int indexlist[POLYLIST_SIZE];
+	
+	#include "PACKED.h"
+	struct {
 		u32 fogColor;
 		u32 pad[3]; //for savestate compatibility as of 26-jul-09
-    };
-    #include "PACKED_END.h"
-    u32 fogOffset;
+	};
+	#include "PACKED_END.h"
 
-    //ticks every time flush() is called
-    int frameCtr;
+	u32 fogOffset;
+	u32 fogShift;	
 
-    //you can use this to track how many real frames passed, for comparing to frameCtr;
-    int frameCtrRaw;
+	u32 shading;
+	
+	u32 clearDepth;
+	u32 clearColor;
+	
+	// Ticks every time flush() is called
+	int frameCtr;
 
-    u16 u16ToonTable[32];
+	// You can use this to track how many real frames passed, for comparing to frameCtr;
+	int frameCtrRaw;
+	
+	u16 u16ToonTable[32];
+	
+	u8 alphaTestRef;
+	
+	bool enableTexturing, enableAlphaTest, enableAlphaBlending,
+		 enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
+	
+	bool wbuffer, sortmode;
 };
 extern GFX3D gfx3d;
 

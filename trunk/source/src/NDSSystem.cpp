@@ -193,6 +193,13 @@ int NDS_Init( void) {
 	TSCal.adc.y2 = 0x0800;
 	TSCal.scr.x2 = 0xE0 + 1;
 	TSCal.scr.y2 = 0x80 + 1;
+	TSCal.adc.width = (TSCal.adc.x2 - TSCal.adc.x1);
+	TSCal.adc.height = (TSCal.adc.y2 - TSCal.adc.y1);
+	TSCal.scr.width = (TSCal.scr.x2 - TSCal.scr.x1);
+	TSCal.scr.height = (TSCal.scr.y2 - TSCal.scr.y1);
+
+	//cheats = new CHEATS();
+	//cheatSearch = new CHEATSEARCH();
 
 	return 0;
 }
@@ -207,7 +214,12 @@ void NDS_DeInit(void) {
 	gpu3D->NDS_3D_Close();
 
 	WIFI_DeInit();
-//	cheatsSearchClose();
+	/*
+	if (cheats)
+		delete cheats;
+	if (cheatSearch)
+		delete cheatSearch;
+	//*/
 }
 
 BOOL NDS_SetROM(u8 * rom, u32 mask)
@@ -456,7 +468,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #endif
 
 
-//	cheatsSearchClose();
+	//if (cheatSearch)
+	//	cheatSearch->close();
 	MMU_unsetRom();
 	NDS_SetROM(data, mask);
 	
@@ -479,13 +492,17 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	path.getpathnoext(path.CHEATS, buf);
 	
 	strcat(buf, ".dct");							// DeSmuME cheat		:)
-//	cheatsInit(buf);
+	//cheats->init(buf);
 
 	gameInfo.populate();
 	//gameInfo.crc = crc32(0,data,size);
 	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
 	INFO("\nROM crc: %08X\n", gameInfo.crc);
 	INFO("ROM serial: %s\n", gameInfo.ROMserial);
+
+	//for homebrew, try auto-patching DLDI. should be benign if there is no DLDI or if it fails
+	//if(!memcmp(gameInfo.header.gameCode,"####",4))
+	//	DLDI::tryPatch((void*)data, gameInfo.mask + 1); -- Fix this later -- Arikado
 
 	return ret;
 }
@@ -1208,29 +1225,13 @@ void Sequencer::init()
 
 static void execHardware_hblank()
 {
-	//turn on hblank status bit
-	T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 2);
-	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 2);
-
-	//fire hblank interrupts if necessary
-	NDS_ARM9HBlankInt();
-	NDS_ARM7HBlankInt();
-
-	//emulation housekeeping. for some reason we always do this at hblank,
-	//even though it sounds more reasonable to do it at hstart
-	SPU_Emulate_core();
-//	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
-//	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
-
-	//this logic was formerly at hblank time. it was moved to the beginning of the scanline on a whim
+	//this logic keeps moving around.
+	//now, we try and give the game as much time as possible to finish doing its work for the scanline,
+	//by drawing scanline N at the end of drawing time (but before subsequent interrupt or hdma-driven events happen)
+	//don't try to do this at the end of the scanline, because some games (sonic classics) may use hblank IRQ to set
+	//scroll regs for the next scanline
 	if(nds.VCount<192)
 	{
-		//so, we have chosen to do the line drawing at hblank time.
-		//this is the traditional time for it in desmume.
-		//while it may seem more ruthlessly accurate to do it at hstart,
-		//in practice we need to be more forgiving, in case things have overrun the scanline start.
-		//this should be safe since games cannot do anything timing dependent until this next
-		//scanline begins, anyway (as this scanline was in the middle of drawing)
 		//taskSubGpu.execute(renderSubScreen,NULL);
 		GPU_RenderLine(&MainScreen, nds.VCount, frameSkipper.ShouldSkip2D());
 		GPU_RenderLine(&SubScreen, nds.VCount, frameSkipper.ShouldSkip2D());
@@ -1241,6 +1242,36 @@ static void execHardware_hblank()
 		//(values copied by this hdma should not be used until the next scanline)
 		triggerDma(EDMAMode_HBlank);
 	}
+
+	if(nds.VCount==262)
+	{
+		//we need to trigger one last hblank dma since 
+		//a. we're sort of lagged behind by one scanline
+		//b. i think that 193 hblanks actually fire (one for the hblank in scanline 262)
+		//this is demonstrated by NSMB splot-parallaxing clouds
+		//for some reason the game will setup two hdma scroll register buffers
+		//to be run consecutively, and unless we do this, the second buffer will be offset by one scanline
+		//causing a glitch in the 0th scanline
+		//triggerDma(EDMAMode_HBlank);
+
+		//BUT! this was removed in order to make glitches in megaman zero collection (mmz 4 1st level) work.
+		//and, it seems that it is no longer necessary in nsmb. perhaps something else fixed it
+	}
+
+
+	//turn on hblank status bit
+	T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 2);
+	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 2);
+
+	//fire hblank interrupts if necessary
+	if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10) NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_HBLANK);
+	if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10) NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_HBLANK);
+
+	//emulation housekeeping. for some reason we always do this at hblank,
+	//even though it sounds more reasonable to do it at hstart
+	SPU_Emulate_core();
+//	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
+//	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
 }
 
 static void execHardware_hstart_vblankEnd()
@@ -1314,7 +1345,20 @@ static void execHardware_hstart()
 {
 	nds.VCount++;
 
+	//end of 3d vblank
+	//this should be 214, but we are going to be generous for games with tight timing
+	//they shouldnt be changing any textures at 262 but they might accidentally still be at 214
+	//so..
+	if((CommonSettings.rigorous_timing && nds.VCount==214) || (!CommonSettings.rigorous_timing && nds.VCount==262))
+	{
+		gfx3d_VBlankEndSignal(frameSkipper.ShouldSkip3D());
+	}
+
 	if(nds.VCount==263)
+	{
+		nds.VCount=0;
+	}
+	else if(nds.VCount==262)
 	{
 		execHardware_hstart_vblankEnd();
 	} else if(nds.VCount==192)
@@ -1346,12 +1390,6 @@ static void execHardware_hstart()
 		//but that isnt even possible until we have some sort of sub-scanline timing.
 		//it may not be necessary.
 		triggerDma(EDMAMode_MemDisplay);
-	}
-
-	//end of 3d vblank
-	if(nds.VCount==214)
-	{
-		gfx3d_VBlankEndSignal(frameSkipper.ShouldSkip3D());
 	}
 }
 
@@ -1469,27 +1507,37 @@ static bool loadUserInput(EMUFILE* is, int version);
 void nds_savestate(EMUFILE* os)
 {
 	//version
-	write32le(2,os);
+	write32le(3,os);
 
 	sequencer.save(os);
 
 	saveUserInput(os);
+
+	write32le(LidClosed,os);
+	write8le(countLid,os);
 }
 
 bool nds_loadstate(EMUFILE* is, int size)
 {
+	// this isn't part of the savestate loading logic, but
+	// don't skip the next frame after loading a savestate
+	frameSkipper.OmitSkip(true, true);
+
 	//read version
 	u32 version;
 	if(read32le(&version,is) != 1) return false;
 
-	if(version > 2) return false;
+	if(version > 3) return false;
 
 	bool temp = true;
 	temp &= sequencer.load(is, version);
 	if(version <= 1 || !temp) return temp;
 	temp &= loadUserInput(is, version);
 
-	frameSkipper.OmitSkip(true, true);
+	if(version < 3) return temp;
+
+	read32le(&LidClosed,is);
+	read8le(&countLid,is);
 
 	return temp;
 }
@@ -1682,7 +1730,8 @@ void NDS_exec(s32 nb)
 		lagframecounter = 0;
 	}
 
-//	cheatsProcess();
+	//if (cheats)
+	//	cheats->process();
 }
 
 void execHardware_interrupts()
@@ -1744,6 +1793,11 @@ void NDS_Reset()
 
 	MMU_Reset();
 
+	NDS_ARM7.BIOS_loaded = false;
+	NDS_ARM9.BIOS_loaded = false;
+	memset(MMU.ARM7_BIOS, 0, sizeof(MMU.ARM7_BIOS));
+	memset(MMU.ARM9_BIOS, 0, sizeof(MMU.ARM9_BIOS));
+
 	//ARM7 BIOS IRQ HANDLER
 	if(CommonSettings.UseExtBIOS == true)
 		inf = fopen(CommonSettings.ARM7BIOS,"rb");
@@ -1752,26 +1806,24 @@ void NDS_Reset()
 
 	if(inf) 
 	{
-		fread(MMU.ARM7_BIOS,1,16384,inf);
+		if (fread(MMU.ARM7_BIOS,1,16384,inf) == 16384) NDS_ARM7.BIOS_loaded = true;
 		fclose(inf);
 
-		if(CommonSettings.SWIFromBIOS == true) NDS_ARM7.swi_tab = 0;
+		if((CommonSettings.SWIFromBIOS) && (NDS_ARM7.BIOS_loaded)) NDS_ARM7.swi_tab = 0;
 		else NDS_ARM7.swi_tab = ARM7_swi_tab;
 
 		if (CommonSettings.PatchSWI3)
 			_MMU_write16<ARMCPU_ARM7>(0x00002F08, 0x4770);
 
-		INFO("ARM7 BIOS is loaded.\n");
+		INFO("ARM7 BIOS is %s.\n", NDS_ARM7.BIOS_loaded?"loaded":"failed");
 	} 
 	else 
 	{
 		NDS_ARM7.swi_tab = ARM7_swi_tab;
 
-		for (int t = 0; t < 16384; t++)
-			MMU.ARM7_BIOS[t] = 0xFF;
 
 		T1WriteLong(MMU.ARM7_BIOS, 0x0000, 0xE25EF002);
-		T1WriteLong(MMU.ARM7_BIOS, 0x0004, 0xEAFFFFFE);
+
 		T1WriteLong(MMU.ARM7_BIOS, 0x0018, 0xEA000000);
 		T1WriteLong(MMU.ARM7_BIOS, 0x0020, 0xE92D500F);
 		T1WriteLong(MMU.ARM7_BIOS, 0x0024, 0xE3A00301);
@@ -1790,38 +1842,82 @@ void NDS_Reset()
 
 	if(inf) 
 	{
-		fread(MMU.ARM9_BIOS,1,4096,inf);
+		if (fread(MMU.ARM9_BIOS,1,4096,inf) == 4096) NDS_ARM9.BIOS_loaded = true;
 		fclose(inf);
 
-		if(CommonSettings.SWIFromBIOS == true) NDS_ARM9.swi_tab = 0;
+		if((CommonSettings.SWIFromBIOS) && (NDS_ARM9.BIOS_loaded)) NDS_ARM9.swi_tab = 0;
 		else NDS_ARM9.swi_tab = ARM9_swi_tab;
 
 		if (CommonSettings.PatchSWI3)
 			_MMU_write16<ARMCPU_ARM9>(0xFFFF07CC, 0x4770);
 
-		INFO("ARM9 BIOS is loaded.\n");
+		INFO("ARM9 BIOS is %s.\n", NDS_ARM9.BIOS_loaded?"loaded":"failed");
 	} 
 	else 
 	{
 		NDS_ARM9.swi_tab = ARM9_swi_tab;
 
-		for (int t = 0; t < 4096; t++)
-			MMU.ARM9_BIOS[t] = 0xFF;
+		//bios chains data abort to fast irq
 
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0018, 0xEA000095);
-
-		for (int t = 0; t < 156; t++)		// load logo
+		//exception vectors:
+		T1WriteLong(MMU.ARM9_BIOS, 0x0000, 0xEAFFFFFE);		// (infinite loop for) Reset !!!
+		//T1WriteLong(MMU.ARM9_BIOS, 0x0004, 0xEAFFFFFE);		// (infinite loop for) Undefined instruction
+		T1WriteLong(MMU.ARM9_BIOS, 0x0004, 0xEA000004);		// Undefined instruction -> Fast IRQ (just guessing)
+		T1WriteLong(MMU.ARM9_BIOS, 0x0008, 0xEA00009C);		// SWI -> ?????
+		T1WriteLong(MMU.ARM9_BIOS, 0x000C, 0xEAFFFFFE);		// (infinite loop for) Prefetch Abort
+		T1WriteLong(MMU.ARM9_BIOS, 0x0010, 0xEA000001);		// Data Abort -> Fast IRQ
+		T1WriteLong(MMU.ARM9_BIOS, 0x0014, 0x00000000);		// Reserved
+		T1WriteLong(MMU.ARM9_BIOS, 0x0018, 0xEA000095);		// Normal IRQ -> 0x0274
+		T1WriteLong(MMU.ARM9_BIOS, 0x001C, 0xEA00009D);		// Fast IRQ -> 0x0298
+		
+		// logo (do some games fail to boot without this? example?)
+		for (int t = 0; t < 0x9C; t++)
 			MMU.ARM9_BIOS[t + 0x20] = logo_data[t];
 
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0274, 0xE92D500F);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0278, 0xEE190F11);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF027C, 0xE1A00620);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0280, 0xE1A00600);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0284, 0xE2800C40);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0288, 0xE28FE000);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF028C, 0xE510F004);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0290, 0xE8BD500F);
-		_MMU_write32<ARMCPU_ARM9>(0xFFFF0294, 0xE25EF004);
+		//...0xBC:
+
+		//(now what goes in this gap??)
+
+		//IRQ handler: get dtcm address and jump to a vector in it
+		T1WriteLong(MMU.ARM9_BIOS, 0x0274, 0xE92D500F); //STMDB SP!, {R0-R3,R12,LR} 
+		T1WriteLong(MMU.ARM9_BIOS, 0x0278, 0xEE190F11); //MRC CP15, 0, R0, CR9, CR1, 0
+		T1WriteLong(MMU.ARM9_BIOS, 0x027C, 0xE1A00620); //MOV R0, R0, LSR #C
+		T1WriteLong(MMU.ARM9_BIOS, 0x0280, 0xE1A00600); //MOV R0, R0, LSL #C 
+		T1WriteLong(MMU.ARM9_BIOS, 0x0284, 0xE2800C40); //ADD R0, R0, #4000
+		T1WriteLong(MMU.ARM9_BIOS, 0x0288, 0xE28FE000); //ADD LR, PC, #0   
+		T1WriteLong(MMU.ARM9_BIOS, 0x028C, 0xE510F004); //LDR PC, [R0, -#4] 
+
+		//????
+		T1WriteLong(MMU.ARM9_BIOS, 0x0290, 0xE8BD500F); //LDMIA SP!, {R0-R3,R12,LR}
+		T1WriteLong(MMU.ARM9_BIOS, 0x0294, 0xE25EF004); //SUBS PC, LR, #4
+
+		//-------
+		//FIQ and abort exception handler
+		//TODO - this code is copied from the bios. refactor it
+		//friendly reminder: to calculate an immediate offset: encoded = (desired_address-cur_address-8)
+
+		T1WriteLong(MMU.ARM9_BIOS, 0x0298, 0xE10FD000); //MRS SP, CPSR  
+		T1WriteLong(MMU.ARM9_BIOS, 0x029C, 0xE38DD0C0); //ORR SP, SP, #C0
+		
+		T1WriteLong(MMU.ARM9_BIOS, 0x02A0, 0xE12FF00D); //MSR CPSR_fsxc, SP
+		T1WriteLong(MMU.ARM9_BIOS, 0x02A4, 0xE59FD000 | (0x2D4-0x2A4-8)); //LDR SP, [FFFF02D4]
+		T1WriteLong(MMU.ARM9_BIOS, 0x02A8, 0xE28DD001); //ADD SP, SP, #1   
+		T1WriteLong(MMU.ARM9_BIOS, 0x02AC, 0xE92D5000); //STMDB SP!, {R12,LR}
+		
+		T1WriteLong(MMU.ARM9_BIOS, 0x02B0, 0xE14FE000); //MRS LR, SPSR
+		T1WriteLong(MMU.ARM9_BIOS, 0x02B4, 0xEE11CF10); //MRC CP15, 0, R12, CR1, CR0, 0
+		T1WriteLong(MMU.ARM9_BIOS, 0x02B8, 0xE92D5000); //STMDB SP!, {R12,LR}
+		T1WriteLong(MMU.ARM9_BIOS, 0x02BC, 0xE3CCC001); //BIC R12, R12, #1
+
+		T1WriteLong(MMU.ARM9_BIOS, 0x02C0, 0xEE01CF10); //MCR CP15, 0, R12, CR1, CR0, 0
+		T1WriteLong(MMU.ARM9_BIOS, 0x02C4, 0xE3CDC001); //BIC R12, SP, #1    
+		T1WriteLong(MMU.ARM9_BIOS, 0x02C8, 0xE59CC010); //LDR R12, [R12, #10] 
+		T1WriteLong(MMU.ARM9_BIOS, 0x02CC, 0xE35C0000); //CMP R12, #0  
+
+		T1WriteLong(MMU.ARM9_BIOS, 0x02D0, 0x112FFF3C); //BLXNE R12    
+		T1WriteLong(MMU.ARM9_BIOS, 0x02D4, 0x027FFD9C); //0x027FFD9C  
+		//---------
+
 	}
 
 	if (firmware)
@@ -1831,8 +1927,7 @@ void NDS_Reset()
 	}
 	firmware = new CFIRMWARE();
 	fw_success = firmware->load();
-
-	if ((CommonSettings.UseExtBIOS == true) && (CommonSettings.BootFromFirmware == true) && (fw_success == TRUE))
+	if (NDS_ARM7.BIOS_loaded && NDS_ARM9.BIOS_loaded && CommonSettings.BootFromFirmware && fw_success)
 	{
 		// Copy secure area to memory if needed
 		if ((header->ARM9src >= 0x4000) && (header->ARM9src < 0x8000))
@@ -1910,6 +2005,9 @@ void NDS_Reset()
 	NDS_ARM9.R13_svc = 0x00803FC0;
 	NDS_ARM9.R13_irq = 0x00803FA0;
 	NDS_ARM9.R13_usr = 0x00803EC0;
+	NDS_ARM9.R13_abt = NDS_ARM9.R13_usr; //????? 
+	//I think it is wrong to take gbatek's "SYS" and put it in USR--maybe USR doesnt matter. 
+	//I think SYS is all the misc modes. please verify by setting nonsensical stack values for USR here
 	NDS_ARM9.R[13] = NDS_ARM9.R13_usr;
 	//n.b.: im not sure about all these, I dont know enough about arm9 svc/irq/etc modes
 	//and how theyre named in desmume to match them up correctly. i just guessed.
@@ -2068,13 +2166,13 @@ INLINE u16 NDS_getADCTouchPosX(u16 scrX)
 	// we're basically adjusting the ADC results to
 	// compensate for how they will be interpreted.
 	// the actual system doesn't do this transformation.
-	int rv = (scrX - TSCal.scr.x1 + 1) * (TSCal.adc.x2 - TSCal.adc.x1) / (TSCal.scr.x2 - TSCal.scr.x1) + TSCal.adc.x1;
+	int rv = (scrX - TSCal.scr.x1 + 1) * TSCal.adc.width / TSCal.scr.width + TSCal.adc.x1;
 	rv = min(0xFFF, max(0, rv));
 	return (u16)rv;
 }
 INLINE u16 NDS_getADCTouchPosY(u16 scrY)
 {
-	int rv = (scrY - TSCal.scr.y1 + 1) * (TSCal.adc.y2 - TSCal.adc.y1) / (TSCal.scr.y2 - TSCal.scr.y1) + TSCal.adc.y1;
+	int rv = (scrY - TSCal.scr.y1 + 1) * TSCal.adc.height / TSCal.scr.height + TSCal.adc.y1;
 	rv = min(0xFFF, max(0, rv));
 	return (u16)rv;
 }
@@ -2250,13 +2348,6 @@ void NDS_endProcessingInput()
 	// use the final input for a few things right away
 	NDS_applyFinalInput();
 }
-
-
-
-
-
-
-
 
 static void NDS_applyFinalInput()
 {
