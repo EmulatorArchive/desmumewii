@@ -1012,6 +1012,8 @@ void MMU_Reset()
 	memset(MMU.MAIN_MEM,  0, 0x400000);
 
 	memset(MMU.blank_memory,  0, sizeof(MMU.blank_memory));
+	memset(MMU.UNUSED_RAM,    0, sizeof(MMU.UNUSED_RAM));
+	memset(MMU.MORE_UNUSED_RAM,0, sizeof(MMU.UNUSED_RAM));
 	
 	memset(MMU.ARM7_ERAM,     0, sizeof(MMU.ARM7_ERAM));
 	memset(MMU.ARM7_REG,      0, sizeof(MMU.ARM7_REG));
@@ -1220,6 +1222,14 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 	}
 
 	memcpy(&card.command[0], &MMU.MMU_MEM[TEST_PROCNUM][0x40][0x1A8], 8);
+	
+	u32 shift = (val>>24&7); 
+	if(shift == 7)
+		card.transfer_count = 1;
+	else if(shift == 0)
+		card.transfer_count = 0;
+	else
+		card.transfer_count = (0x100<<shift)/4;
 
 	switch (card.mode)
 	{

@@ -973,7 +973,7 @@ static void gfx3d_glLightDirection_cache(int index){
 	guVecHalfAngle(&cacheLightDirection[index], &lineOfSight, &cacheHalfVector[index]);
 	//guVecHalfAngle(cacheLightDirection[index], lineOfSight[i], cacheHalfVector[index]);
 
-#else   
+#else
 	s32 v = lightDirection[index];
 
 	// Convert format into floating point value
@@ -1521,10 +1521,10 @@ static void gfx3d_glNormal(s32 v)
 	guMtx44MultQuat(mtxCurrent[2], &normal, &normal);
 
 #else
-	ALIGN(16) float normal[4] = { normalTable[v&1023],
-									normalTable[(v>>10)&1023],
-									normalTable[(v>>20)&1023],
-									1};
+	float normal[4] = { normalTable[v&1023],
+						normalTable[(v>>10)&1023],
+						normalTable[(v>>20)&1023],
+						1};
 
 	if (texCoordinateTransform == 2)
 	{
@@ -2039,7 +2039,6 @@ static void gfx3d_glVecTest(u32 v)
 	s16 y = (s16)(normal[1]);
 	s16 z = (s16)(normal[2]);
 #endif
-      
 
 	MMU_new.gxstat.tb = 0;		// clear busy
 	T1WriteWord(MMU.MMU_MEM[0][0x40], 0x630, x);
@@ -2600,13 +2599,19 @@ void gfx3d_Control(u32 v)
 /*
 void gfx3d_glGetMatrix(unsigned int m_mode, int index, float* dest)
 {
-        if(index == -1)
-        {
-                MatrixCopy(dest, mtxCurrent[m_mode]);
-                return;
-        }
+	//if(index == -1)
+	//{
+	//	MatrixCopy(dest, mtxCurrent[m_mode]);
+	//	return;
+	//}
 
-        MatrixCopy(dest, MatrixStackGetPos(&mtxStack[m_mode], index));
+	//MatrixCopy(dest, MatrixStackGetPos(&mtxStack[m_mode], index));
+	s32* src;
+	if(index==-1)
+		src = mtxCurrent[m_mode];
+	else src=MatrixStackGetPos(&mtxStack[m_mode],index);
+	for(int i=0;i<16;i++)
+		dest[i] = src[i]/4096.0f;
 }
 //*/
 
