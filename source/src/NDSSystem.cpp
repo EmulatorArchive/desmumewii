@@ -1640,6 +1640,8 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 
 		timer = minarmtime<doarm9,doarm7>(arm9,arm7);
 		nds_timer = nds_timer_base + timer;
+		if (nds_timer >= MMU.gfx3dCycles) 
+			MMU_new.gxstat.sb = 0;	// clear stack busy flag
 	}
 
 	return std::make_pair(arm9, arm7);
@@ -1734,32 +1736,28 @@ void NDS_exec(s32 nb)
 	//	cheats->process();
 }
 
-void execHardware_interrupts()
+template<int PROCNUM> static void execHardware_interrupts_core()
 {
-	if((MMU.reg_IF_bits[0]&MMU.reg_IE[0]) && (MMU.reg_IME[0]))
+	u32 IF = MMU.gen_IF<PROCNUM>();
+	u32 IE = MMU.reg_IE[PROCNUM];
+	u32 masked = IF & IE;
+	if(ARMPROC.halt_IE_and_IF && masked)
 	{
-#ifdef GDB_STUB
-		if ( armcpu_flagIrq( &NDS_ARM9)) 
-#else
-		if ( armcpu_irqException(&NDS_ARM9))
-#endif
-		{
-			//printf("ARM9 interrupt! flags: %08X ; mask: %08X ; result: %08X\n",MMU.reg_IF[0],MMU.reg_IE[0],MMU.reg_IF[0]&MMU.reg_IE[0]);
-			//nds.ARM9Cycle = nds.cycles;
-		}
+		ARMPROC.halt_IE_and_IF = FALSE;
+		ARMPROC.waitIRQ = FALSE;
 	}
 
-	if((MMU.reg_IF_bits[1]&MMU.reg_IE[1]) && (MMU.reg_IME[1]))
+	if(masked && MMU.reg_IME[PROCNUM] && !ARMPROC.CPSR.bits.I)
 	{
-#ifdef GDB_STUB
-		if ( armcpu_flagIrq( &NDS_ARM7)) 
-#else
-		if ( armcpu_irqException(&NDS_ARM7))
-#endif
-		{
-			//nds.ARM7Cycle = nds.cycles;
-		}
+		//printf("Executing IRQ on procnum %d with IF = %08X and IE = %08X\n",PROCNUM,IF,IE);
+		armcpu_irqException(&ARMPROC);
 	}
+}
+
+void execHardware_interrupts()
+{
+	execHardware_interrupts_core<ARMCPU_ARM9>();
+	execHardware_interrupts_core<ARMCPU_ARM7>();
 }
 
 static void resetUserInput();

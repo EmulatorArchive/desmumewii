@@ -79,15 +79,15 @@ inline bool CFlash_IsUsingPath() { return CFlash_Mode==ADDON_CFLASH_MODE_Path ||
 
 extern ADDONINTERFACE addon;						// current pak
 extern ADDONINTERFACE addonList[NDS_ADDON_COUNT];	// lists pointer on paks
-extern u8 addon_type;								// current type pak
+extern NDS_ADDON_TYPE addon_type;								// current type pak
 
 extern char GBAgameName[MAX_PATH];					// file name for GBA game (rom)
 extern void (*FeedbackON)(BOOL enable);				// feedback on/off
 
-extern BOOL addonsInit();							// Init addons
+extern bool addonsInit();							// Init addons
 extern void addonsClose();							// Shutdown addons
 extern void addonsReset();							// Reset addon
-extern BOOL addonsChangePak(u8 type);				// change current adddon
+extern bool addonsChangePak(u8 type);				// change current adddon
 
 extern void guitarGrip_setKey(bool green, bool red, bool yellow, bool blue); // Guitar grip keys
 extern void piano_setKey(bool c, bool cs, bool d, bool ds, bool e, bool f, bool fs, bool g, bool gs, bool a, bool as, bool b, bool hic); //piano keys
