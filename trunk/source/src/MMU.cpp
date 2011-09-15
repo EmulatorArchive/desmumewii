@@ -2280,7 +2280,11 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 
 	if (adr >> 24 == 4)
 	{
-		if(MMU_new.is_dma(adr)) { MMU_new.write_dma(ARMCPU_ARM9,8,adr,val); return; }
+
+		if(MMU_new.is_dma(adr)) {
+			MMU_new.write_dma(ARMCPU_ARM9,8,adr,val);
+			return;
+		}
 		
 		switch(adr)
 		{
