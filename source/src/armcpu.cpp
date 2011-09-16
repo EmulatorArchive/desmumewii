@@ -518,23 +518,33 @@ BOOL armcpu_irqException(armcpu_t *armcpu)
 }
 
 
-/*
-u32 TRAPUNDEF(armcpu_t* cpu)
-{
-	INFO("ARM%c: Undefined instruction: 0x%08X (%s) PC=0x%08X\n", cpu->proc_ID?'7':'9', cpu->instruction, decodeIntruction(false, cpu->instruction), cpu->instruct_adr);
-
-	if (((cpu->intVector != 0) ^ (cpu->proc_ID == ARMCPU_ARM9)))
-	{
-		armcpu_exception(&NDS_ARM9,0x04);
+u32 TRAPUNDEF(armcpu_t* cpu){
+	LOG("Undefined instruction: %#08X PC = %#08X \n", cpu->instruction, cpu->instruct_adr); 
+	if (((cpu->intVector != 0) ^ (cpu->proc_ID == ARMCPU_ARM9))){
+		Status_Reg tmp = cpu->CPSR; 
+		armcpu_switchMode(cpu, UND);					// enter und mode
+		cpu->R[14] = cpu->R[15] - 4;					// jump to und Vector 
+		cpu->SPSR = tmp;								// save old CPSR as new SPSR 
+		cpu->CPSR.bits.T = 0;							// handle as ARM32 code  
+		cpu->CPSR.bits.I = cpu->SPSR.bits.I;			// keep int disable flag 
+		cpu->changeCPSR();
+		cpu->R[15] = cpu->intVector + 0x04;
+		cpu->next_instruction = cpu->R[15];
 		return 4;
 	}
-	else
-	{
+
+	/*
+	INFO("ARM%c: Undefined instruction: 0x%08X (%s) PC=0x%08X\n", cpu->proc_ID?'7':'9', cpu->instruction, decodeIntruction(false, cpu->instruction), cpu->instruct_adr);
+
+	if (((cpu->intVector != 0) ^ (cpu->proc_ID == ARMCPU_ARM9))){
+		armcpu_exception(&NDS_ARM9,0x04);
+		return 4;
+	//*/
+	else{
 		emu_halt();
 		return 4;
 	}
 }
-//*/
 
 template<int PROCNUM>
 u32 armcpu_exec()
