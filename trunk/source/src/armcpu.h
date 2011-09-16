@@ -54,6 +54,31 @@ inline T SIGNED_OVERFLOW(T a,T b,T c) { return BIT31(((a)&(b)&(~c)) | ((~a)&(~(b
 template<typename T>
 inline T SIGNED_UNDERFLOW(T a,T b,T c) { return BIT31(((a)&(~(b))&(~c)) | ((~a)&(b)&(c))); }
 
+// ============================= CPRS flags funcs
+inline bool CarryFrom(s32 left, s32 right)
+{
+  u32 res  = (0xFFFFFFFFU - (u32)left);
+
+  return ((u32)right > res);
+}
+
+inline bool BorrowFrom(s32 left, s32 right)
+{
+  return ((u32)right > (u32)left);
+}
+
+inline bool OverflowFromADD(s32 alu_out, s32 left, s32 right)
+{
+    return ((left >= 0 && right >= 0) || (left < 0 && right < 0))
+			&& ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
+}
+
+inline bool OverflowFromSUB(s32 alu_out, s32 left, s32 right)
+{
+    return ((left < 0 && right >= 0) || (left >= 0 && right < 0))
+			&& ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
+}
+
 //zero 15-feb-2009 - these werent getting used and they were getting in my way
 //#define EQ	0x0
 //#define NE	0x1
@@ -227,7 +252,7 @@ template<int PROCNUM> u32 armcpu_exec();
 BOOL armcpu_irqException(armcpu_t *armcpu);
 BOOL armcpu_flagIrq( armcpu_t *armcpu);
 void armcpu_exception(armcpu_t *cpu, u32 number);
-//u32 TRAPUNDEF(armcpu_t* cpu);
+u32 TRAPUNDEF(armcpu_t* cpu);
 u32 armcpu_Wait4IRQ(armcpu_t *cpu);
 
 extern armcpu_t NDS_ARM7;
@@ -236,7 +261,11 @@ extern armcpu_t NDS_ARM9;
 
 static INLINE void setIF(int PROCNUM, u32 flag)
 {
-	MMU.reg_IF[PROCNUM] |= flag;
+	//--DCN: This doesn't work for some reason.
+	// Don't set generated bits!!! 
+	//assert(!(flag&0x00260000));
+
+	MMU.reg_IF_bits[PROCNUM] |= flag;
 
 	extern void NDS_Reschedule();
 	NDS_Reschedule();
