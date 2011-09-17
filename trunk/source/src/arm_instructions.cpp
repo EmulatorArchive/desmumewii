@@ -274,10 +274,10 @@ TEMPLATE static u32 FASTCALL  OP_UND(const u32 i)
 	return a;
 
 #define OP_ANDS(a, b) \
-	if(REG_POS(i,12)==15) \
-	{ \
+	u32 reg = REG_POS(i,12); \
+	cpu->R[reg] = cpu->R[REG_POS(i,16)] & shift_op; \
+	if(reg==15){ \
 		Status_Reg SPSR = cpu->SPSR; \
-		cpu->R[15] = cpu->R[REG_POS(i,16)] & shift_op; \
 		armcpu_switchMode(cpu, SPSR.bits.mode); \
 		cpu->CPSR=SPSR; \
 		cpu->changeCPSR(); \
@@ -285,7 +285,6 @@ TEMPLATE static u32 FASTCALL  OP_UND(const u32 i)
 		cpu->next_instruction = cpu->R[15]; \
 		return b; \
 	} \
-	cpu->R[REG_POS(i,12)] = cpu->R[REG_POS(i,16)] & shift_op; \
 	cpu->CPSR.bits.C = c; \
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_POS(i,12)]); \
 	cpu->CPSR.bits.Z = (cpu->R[REG_POS(i,12)]==0); \
@@ -1151,7 +1150,6 @@ TEMPLATE static u32 FASTCALL  OP_ADC_S_IMM_VAL(const u32 i)
 	} \
 	return a;
 
-//zero 14-feb-2009 - reverting flag logic to fix zoning bug in ff4
 #define OP_SBCS(a, b) \
 	{ \
 	u32 tmp = v  + cpu->CPSR.bits.C - 1; \
@@ -1304,7 +1302,6 @@ TEMPLATE static u32 FASTCALL  OP_SBC_S_IMM_VAL(const u32 i)
 	} \
 	return a;
 
-//zero 14-feb-2009 - reverting flag logic to fix zoning bug in ff4
 #define OP_RSCS(a,b) \
 	{ \
 	u32 tmp = shift_op + cpu->CPSR.bits.C - 1; \
@@ -1315,7 +1312,7 @@ TEMPLATE static u32 FASTCALL  OP_SBC_S_IMM_VAL(const u32 i)
 		armcpu_switchMode(cpu, SPSR.bits.mode); \
 		cpu->CPSR=SPSR; \
 		cpu->changeCPSR(); \
-		cpu->R[15] &= (0XFFFFFFFC|(((u32)SPSR.bits.T)<<1)); \
+		cpu->R[15] &= (0xFFFFFFFC|(((u32)cpu->CPSR.bits.T)<<1)); \
 		cpu->next_instruction = cpu->R[15]; \
 		return b; \
 	} \
@@ -1870,7 +1867,7 @@ TEMPLATE static u32 FASTCALL  OP_ORR_S_IMM_VAL(const u32 i)
 	
 #define OP_MOVS(a, b) \
 	cpu->R[REG_POS(i,12)] = shift_op; \
-	if(BIT20(i) && REG_POS(i,12)==15) \
+	if(REG_POS(i,12)==15) \
 	{ \
 		Status_Reg SPSR = cpu->SPSR; \
 		armcpu_switchMode(cpu, SPSR.bits.mode); \
@@ -2419,10 +2416,9 @@ TEMPLATE static u32 FASTCALL  OP_UMLAL_S(const u32 i)
 TEMPLATE static u32 FASTCALL  OP_SMULL(const u32 i)
 {
 	s64 v = (s32)cpu->R[REG_POS(i,8)];
-	s64 b = (s32)cpu->R[REG_POS(i,0)];
-	s64 res = v * b;
+	s64 res = v * (s64)(s32)cpu->R[REG_POS(i,0)];
 	
-	cpu->R[REG_POS(i,12)] = (u32)(res&0xFFFFFFFF);
+	cpu->R[REG_POS(i,12)] = (u32)res;
 	cpu->R[REG_POS(i,16)] = (u32)(res>>32);	
 	
 	MUL_SMxxL_END(2);
@@ -3063,7 +3059,7 @@ TEMPLATE static u32 FASTCALL  OP_BX(const u32 i)
 	u32 tmp = cpu->R[REG_POS(i, 0)];
 
 	cpu->CPSR.bits.T = BIT0(tmp);
-	cpu->R[15] = tmp & 0xFFFFFFFE;
+	cpu->R[15] = tmp & (0xFFFFFFFC|(cpu->CPSR.bits.T<<1));
 	cpu->next_instruction = cpu->R[15];
 	return 3;
 }
@@ -3074,7 +3070,7 @@ TEMPLATE static u32 FASTCALL  OP_BLX_REG(const u32 i)
 	
 	cpu->R[14] = cpu->next_instruction;
 	cpu->CPSR.bits.T = BIT0(tmp);
-	cpu->R[15] = tmp & 0xFFFFFFFE;
+	cpu->R[15] = tmp & (0xFFFFFFFC|(cpu->CPSR.bits.T<<1));
 	cpu->next_instruction = cpu->R[15];
 	return 3;
 }
@@ -3090,6 +3086,7 @@ TEMPLATE static u32 FASTCALL  OP_B(const u32 i)
 		cpu->CPSR.bits.T = 1;
 	}
 	cpu->R[15] += (off<<2);
+	cpu->R[15] &= (0xFFFFFFFC|(cpu->CPSR.bits.T<<1));
 	cpu->next_instruction = cpu->R[15];
 
     return 3;
@@ -3105,6 +3102,7 @@ TEMPLATE static u32 FASTCALL  OP_BL(const u32 i)
 	}
 	cpu->R[14] = cpu->next_instruction;
 	cpu->R[15] += (off<<2);
+	cpu->R[15] &= (0xFFFFFFFC|(cpu->CPSR.bits.T<<1));
 	cpu->next_instruction = cpu->R[15];
 
 	return 3;
@@ -3309,7 +3307,6 @@ TEMPLATE static u32 FASTCALL  OP_SMLA_B_B(const u32 i)
 	u32 tmp = (u32)(LWORD(cpu->R[REG_POS(i,0)])* LWORD(cpu->R[REG_POS(i,8)]));
 	u32 a = cpu->R[REG_POS(i,12)];
 
-	//LOG("SMLABB %08X * %08X + %08X = %08X \r \n", cpu->R[REG_POS(i,0)], cpu->R[REG_POS(i,8)], a, tmp + a);
 	cpu->R[REG_POS(i,16)] = tmp + a;
 	
 	if(SIGNED_OVERFLOW(tmp, a, cpu->R[REG_POS(i,16)]))
@@ -3483,8 +3480,7 @@ TEMPLATE static u32 FASTCALL  OP_SMLAW_T(const u32 i)
 //   LDR
 //-----------------------------------------------------------------------------
 #define OP_LDR(a, b) \
-	u32 val = READ32(cpu->mem_if->data, adr); \
-	val = ROR(val, 8*(adr&3)); \
+	u32 val = ROR(READ32(cpu->mem_if->data, adr), 8*(adr&3)); \
 	if(REG_POS(i,12)==15){ \
 		cpu->R[15] = val & (0XFFFFFFFC | (((u32)cpu->LDTBit)<<1)); \
 		cpu->CPSR.bits.T = BIT0(val) & cpu->LDTBit; \
@@ -3496,8 +3492,8 @@ TEMPLATE static u32 FASTCALL  OP_SMLAW_T(const u32 i)
 
 // PRE
 #define OP_LDR_W(a, b) \
-	u32 val = READ32(cpu->mem_if->data, adr); \
-	val = ROR(val, 8*(adr&3)); \
+	cpu->R[REG_POS(i,16)] = adr; \
+	u32 val = ROR(READ32(cpu->mem_if->data, adr), 8*(adr&3)); \
 	if(REG_POS(i,12)==15){ \
 		cpu->R[15] = val & (0XFFFFFFFC | (((u32)cpu->LDTBit)<<1)); \
 		cpu->CPSR.bits.T = BIT0(val) & cpu->LDTBit; \
@@ -3505,23 +3501,20 @@ TEMPLATE static u32 FASTCALL  OP_SMLAW_T(const u32 i)
 		cpu->R[REG_POS(i,16)] = adr; \
 		return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(b,adr); \
 	} \
-	cpu->R[REG_POS(i,16)] = adr; \
 	cpu->R[REG_POS(i,12)] = val; \
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(a,adr)
 
-//POST
+// POST
 #define OP_LDR_W2(a, b, c) \
 	u32 adr = cpu->R[REG_POS(i,16)]; \
-	u32 val = READ32(cpu->mem_if->data, adr); \
-	val = ROR(val, 8*(adr&3)); \
+	cpu->R[REG_POS(i,16)] = adr + c; \
+	u32 val = ROR(READ32(cpu->mem_if->data, adr), 8*(adr&3)); \
 	if(REG_POS(i,12)==15){ \
 		cpu->R[15] = val & (0XFFFFFFFC | (((u32)cpu->LDTBit)<<1)); \
 		cpu->CPSR.bits.T = BIT0(val) & cpu->LDTBit; \
 		cpu->next_instruction = cpu->R[15]; \
-		cpu->R[REG_POS(i,16)] = adr + c; \
 		return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(b,adr); \
 	} \
-	cpu->R[REG_POS(i,16)] = adr + c; \
 	cpu->R[REG_POS(i,12)] = val; \
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(a,adr)
 
@@ -3598,10 +3591,9 @@ TEMPLATE static u32 FASTCALL  OP_LDR_P_ROR_IMM_OFF(const u32 i)
 		cpu->next_instruction = cpu->R[15];
 		return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(5,adr);
 	}
-	
-	cpu->R[REG_POS(i,16)] = adr;
-	INFO("OP_LDR_P_ROR_IMM_OFF\n");
+
 	cpu->R[REG_POS(i,12)] = val;
+	cpu->R[REG_POS(i,16)] = adr;
 	
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3,adr);
 }
@@ -3708,33 +3700,6 @@ TEMPLATE static u32 FASTCALL  OP_LDR_M_ROR_IMM_OFF_PREIND(const u32 i)
 TEMPLATE static u32 FASTCALL  OP_LDR_P_IMM_OFF_POSTIND(const u32 i)
 {
 	OP_LDR_W2(3, 5, IMM_OFF_12);
-}
-
-//------------------------------------------------------------
-TEMPLATE static u32 FASTCALL  OP_LDR_P_IMM_OFF_POSTIND2(const u32 i)
-{
-	
-	u32 adr = cpu->R[REG_POS(i,16)];
-	u32 val = READ32(cpu->mem_if->data, adr);
-	u32 old;
-	val = ROR(val, 8*(adr&3));
-	
-	if(REG_POS(i,12)==15)
-	{
-		cpu->R[15] = val & (0XFFFFFFFC | (((u32)cpu->LDTBit)<<1));
-		cpu->CPSR.bits.T = BIT0(val) & cpu->LDTBit;
-		cpu->next_instruction = cpu->R[15];
-		cpu->R[REG_POS(i,16)] = adr + IMM_OFF_12;
-		return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(5,adr);
-	}
-	
-	old = armcpu_switchMode(cpu, USR);
-	cpu->R[REG_POS(i,12)] = val;
-	armcpu_switchMode(cpu, old);
-	
-	cpu->R[REG_POS(i,16)] = adr + IMM_OFF_12;
-	
-	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3,adr);
 }
 
 //------------------------------------------------------------
@@ -4200,7 +4165,6 @@ TEMPLATE static u32 FASTCALL  OP_STR_P_ROR_IMM_OFF(const u32 i)
 	ROR_IMM; 
 	u32 adr = cpu->R[REG_POS(i,16)] + shift_op;
 	WRITE32(cpu->mem_if->data, adr, cpu->R[REG_POS(i,12)]);
-	INFO("OP_STR_P_ROR_IMM_OFF\n");
 	cpu->R[REG_POS(i,16)] = adr;
 	
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_WRITE>(2,adr);
