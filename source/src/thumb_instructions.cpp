@@ -230,22 +230,22 @@ TEMPLATE static  u32 FASTCALL OP_ADD_IMM3(const u32 i)
 	cpu->R[REG_NUM(i, 0)] = Rn + imm3;
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = CarryFrom(Rn, imm3);
+	cpu->CPSR.bits.V = OverflowFromADD(cpu->R[REG_NUM(i, 0)], Rn, imm3);
 
 	return 1;
 }
 
 TEMPLATE static  u32 FASTCALL OP_ADD_IMM8(const u32 i)
 {
-	u32 tmp = cpu->R[REG_NUM(i, 8)] + (i & 0xFF);
+	u32 imm8 = (i & 0xFF);
+	u32 Rd = cpu->R[REG_NUM(i, 8)];
 
-
-	cpu->CPSR.bits.N = BIT31(tmp);
-	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
-	cpu->R[REG_NUM(i, 8)] = tmp;
+	cpu->R[REG_NUM(i, 8)] = Rd + imm8;
+	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 8)]);
+	cpu->CPSR.bits.Z = (cpu->R[REG_NUM(i, 8)] == 0);
+	cpu->CPSR.bits.C = CarryFrom(Rd, imm8);
+	cpu->CPSR.bits.V = OverflowFromADD(cpu->R[REG_NUM(i, 8)], Rd, imm8);
 
 	return 1;
 }
@@ -258,8 +258,8 @@ TEMPLATE static  u32 FASTCALL OP_ADD_REG(const u32 i)
 	cpu->R[REG_NUM(i, 0)] = Rn + Rm;
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(Rn, Rm, cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(Rn, Rm, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = CarryFrom(Rn, Rm);
+	cpu->CPSR.bits.V = OverflowFromADD(cpu->R[REG_NUM(i, 0)], Rn, Rm);
 
 	return 1;
 }
@@ -306,8 +306,8 @@ TEMPLATE static  u32 FASTCALL OP_SUB_IMM3(const u32 i)
 	cpu->R[REG_NUM(i, 0)] = tmp;
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = (tmp == 0);
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(Rn, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(Rn, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = !BorrowFrom(Rn, imm3);
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, Rn, imm3);
 
 	return 1;
 }
@@ -321,8 +321,8 @@ TEMPLATE static  u32 FASTCALL OP_SUB_IMM8(const u32 i)
 	cpu->R[REG_NUM(i, 8)] = tmp;
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = (tmp == 0);
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(Rd, imm8, tmp);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(Rd, imm8, tmp);
+	cpu->CPSR.bits.C = !BorrowFrom(Rd, imm8);
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, Rd, imm8);
 
 	return 1;
 }
@@ -336,8 +336,8 @@ TEMPLATE static  u32 FASTCALL OP_SUB_REG(const u32 i)
 	cpu->R[REG_NUM(i, 0)] = tmp;
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = (tmp == 0);
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(Rn, Rm, cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(Rn, Rm, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = !BorrowFrom(Rn, Rm);
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, Rn, Rm);
 
 	return 1;
 }
@@ -379,8 +379,8 @@ TEMPLATE static  u32 FASTCALL OP_CMP_IMM8(const u32 i)
 
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
+	cpu->CPSR.bits.C = !BorrowFrom(cpu->R[REG_NUM(i, 8)], (i & 0xFF));
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, cpu->R[REG_NUM(i, 8)], (i & 0xFF));
 
 	return 1;
 }
@@ -391,8 +391,8 @@ TEMPLATE static  u32 FASTCALL OP_CMP(const u32 i)
 
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)], tmp);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)], tmp);
+	cpu->CPSR.bits.C = !BorrowFrom(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)]);
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)]);
 	
 	return 1;
 }
@@ -405,8 +405,8 @@ TEMPLATE static  u32 FASTCALL OP_CMP_SPE(const u32 i)
 	
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(cpu->R[Rn], cpu->R[REG_POS(i, 3)], tmp);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(cpu->R[Rn], cpu->R[REG_POS(i, 3)], tmp);
+	cpu->CPSR.bits.C = !BorrowFrom(cpu->R[Rn], cpu->R[REG_POS(i, 3)]);
+	cpu->CPSR.bits.V = OverflowFromSUB(tmp, cpu->R[Rn], cpu->R[REG_POS(i, 3)]);
 	
 	return 1;
 }
@@ -535,8 +535,8 @@ TEMPLATE static  u32 FASTCALL OP_NEG(const u32 i)
 	
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = (cpu->R[REG_NUM(i, 0)] == 0);
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW((u32)0, Rm, cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW((u32)0, Rm, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = !BorrowFrom(0, Rm);
+	cpu->CPSR.bits.V = OverflowFromSUB(cpu->R[REG_NUM(i, 0)], 0, Rm);
 	
 	return 1;
 }
@@ -551,8 +551,8 @@ TEMPLATE static  u32 FASTCALL OP_CMN(const u32 i)
 
 	cpu->CPSR.bits.N = BIT31(tmp);
 	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)], tmp);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)], tmp);
+	cpu->CPSR.bits.C = CarryFrom(cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)]);
+	cpu->CPSR.bits.V = OverflowFromADD(tmp, cpu->R[REG_NUM(i, 0)], cpu->R[REG_NUM(i, 3)]);
 	
 	return 1;
 }
