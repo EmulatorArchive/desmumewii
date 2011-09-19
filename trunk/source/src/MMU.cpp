@@ -866,7 +866,7 @@ void SetUp_Lookups()
 	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
 	p=i;
 
-	for(i = p; i < p+16; i++)MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
+	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
 	p=i;
 
 	for(i = p; i < p+16; i++) MMU.MMU_MEM[ARMCPU_ARM9][i] = MMU.UNUSED_RAM;
@@ -1553,70 +1553,6 @@ u32 MMU_readFromGC()
 
 	return val;
 }
-
-
-#ifdef MMU_ENABLE_ACL
-
-INLINE void check_access(u32 adr, u32 access) {
-	/* every other mode: sys */
-	access |= 1;
-	if ((NDS_ARM9.CPSR.val & 0x1F) == 0x10) {
-		/* is user mode access */
-		access ^= 1 ;
-	}
-	if (armcp15_isAccessAllowed((armcp15_t *)NDS_ARM9.coproc[15],adr,access)==FALSE) {
-		execute = FALSE ;
-	}
-}
-INLINE void check_access_write(u32 adr) {
-	u32 access = CP15_ACCESS_WRITE;
-	check_access(adr, access)
-}
-
-u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read8(proc,adr);
-}
-u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read16(proc,adr);
-}
-u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read32(proc,adr);
-}
-
-void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write8(proc,adr,val);
-}
-void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write16(proc,adr,val) ;
-}
-void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write32(proc,adr,val) ;
-}
-#endif
 
 template<int PROCNUM>
 u32 MMU_struct::gen_IF()

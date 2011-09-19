@@ -1077,15 +1077,6 @@ static void gfx3d_glPopMatrix(u32 _i)
 
 #else
 
-	if (i > mtxStack[mymode].position)
-	{
-	        //was commented out before zero sep modifications
-	        //handled in matrix now
-	        //MMU_new.gxstat.se = 1;
-	//      T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600, gxstat);
-	//      return;
-	}
-	
 	MatrixCopy(mtxCurrent[mymode], MatrixStackPopMatrix (&mtxStack[mymode], i));
 	
 	GFX_DELAY(36);
@@ -1577,14 +1568,12 @@ static void gfx3d_glNormal(s32 v)
 #ifdef GX_3D_FUNCTIONS	
 
 #define quat3dot(a,b) (((a.x) * (b.x)) + ((a.y) * (b.y)) + ((a.z) * (b.z)))
-	float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
-	float shininessLevel = pow(std::max(0.0f, quat3dot((-cacheHalfVector[i]), normal)), 2);
+		float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
+		float shininessLevel = pow(std::max(0.0f, quat3dot((-cacheHalfVector[i]), normal)), 2);
 #else
 
-	float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
-	float shininessLevel = pow(std::max(0.0f, vec3dot(((cacheHalfVector[i])), normal)), 2);
-	//Original: (doesn't work anymore though)
-	//float shininessLevel = pow(std::max(0.0f, vec3dot(((-cacheHalfVector[i])), normal)), 2);
+		float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
+		float shininessLevel = pow(std::max(0.0f, vec3dot(((cacheHalfVector[i])), normal)), 2);
 #endif
 		if(dsSpecular & 0x8000)
 		{
@@ -1936,7 +1925,6 @@ static bool gfx3d_glBoxTest(u32 v)
 		guMtx44MultQuat(mtxCurrent[0], q, q); 
 #else		
 			
-		//void _NOSSE_MatrixMultVec4x4 (const float *matrix, float *vecPtr);
 		_NOSSE_MatrixMultVec4x4(mtxCurrent[1],verts[i].coord);
 		_NOSSE_MatrixMultVec4x4(mtxCurrent[0],verts[i].coord);
 #endif
@@ -2029,9 +2017,9 @@ static void gfx3d_glVecTest(u32 v)
 #else
 
 	CACHE_ALIGN float normal[4] = { normalTable[v&1023],
-	                                normalTable[(v>>10)&1023],
-	                                normalTable[(v>>20)&1023],
-	                                1};
+									normalTable[(v>>10)&1023],
+									normalTable[(v>>20)&1023],
+									1};
 
 	MatrixMultVec4x4(mtxCurrent[2], normal);
 	
