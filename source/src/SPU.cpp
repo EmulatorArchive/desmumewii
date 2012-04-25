@@ -1,7 +1,8 @@
-/*  SPU.cpp
-    Copyright (C) 2006 yopyop
+/*  Copyright (C) 2006 yopyop
+    yopyop156@ifrance.com
+    yopyop156.ifrance.com
     Copyright (C) 2006 Theo Berkau
-    Copyright (C) 2008-2010 DeSmuME team
+    Copyright (C) 2008-2009 DeSmuME team
 
     Ideas borrowed from Stephane Dallongeville's SCSP core
 
@@ -250,17 +251,13 @@ void SPU_Reset(void)
 	int i;
 
 	SPU_core->reset();
+	if(SPU_user) SPU_user->reset();
 
-	if(SPU_user) {
-		//--DCN: Originally this was first;
-		//SPU_user->reset();
-		if(SNDCore)
-		{
-			SNDCore->DeInit();
-			SNDCore->Init(SPU_user->bufsize*2);
-			SNDCore->SetVolume(volume);
-		}
-		SPU_user->reset();
+	if(SNDCore && SPU_user) {
+		SNDCore->DeInit();
+		SNDCore->Init(SPU_user->bufsize*2);
+		SNDCore->SetVolume(volume);
+		//todo - check success?
 	}
 
 	// Reset Registers
@@ -278,8 +275,6 @@ void SPU_struct::reset()
 	memset(outbuf,0,bufsize*2*2);
 
 	memset((void *)channels, 0, sizeof(channel_struct) * 16);
-
-	reconstruct(&regs);
 
 	for(int i = 0; i < 16; i++)
 	{
@@ -328,38 +323,11 @@ static FORCEINLINE void adjust_channel_timer(channel_struct *chan)
 	chan->sampinc = (((double)ARM7_CLOCK) / (DESMUME_SAMPLE_RATE * 2)) / (double)(0x10000 - chan->timer);
 }
 
-void SPU_struct::KeyProbe(int chan_num)
-{
-	channel_struct &thischan = channels[chan_num];
-	if(thischan.status == CHANSTAT_STOPPED)
-	{
-		if(thischan.keyon && regs.masteren)
-			KeyOn(chan_num);
-	}
-	else if(thischan.status == CHANSTAT_PLAY)
-	{
-		if(!thischan.keyon || !regs.masteren)
-			KeyOff(chan_num);
-	}
-}
-
-void SPU_struct::KeyOff(int channel)
-{
-	//printf("keyoff%d\n",channel);
-	channel_struct &thischan = channels[channel];
-	thischan.status = CHANSTAT_STOPPED;
-}
-
 void SPU_struct::KeyOn(int channel)
 {
 	channel_struct &thischan = channels[channel];
-	thischan.status = CHANSTAT_PLAY;
 
-	thischan.totlength = thischan.length + thischan.loopstart;
 	adjust_channel_timer(&thischan);
-
-	//printf("keyon %d totlength:%d\n",channel,thischan.totlength);
-
 
 	//LOG("Channel %d key on: vol = %d, datashift = %d, hold = %d, pan = %d, waveduty = %d, repeat = %d, format = %d, source address = %07X,"
 	//		"timer = %04X, loop start = %04X, length = %06X, MMU.ARM7_REG[0x501] = %02X\n", channel, chan->vol, chan->datashift, chan->hold, 
@@ -401,8 +369,6 @@ void SPU_struct::KeyOn(int channel)
 	default: break;
 	}
 
-	thischan.double_totlength_shifted = (double)(thischan.totlength << format_shift[thischan.format]);
-
 	if(thischan.format != 3)
 	{
 		if(thischan.double_totlength_shifted == 0)
@@ -411,6 +377,8 @@ void SPU_struct::KeyOn(int channel)
 			thischan.status = CHANSTAT_STOPPED;
 		}
 	}
+	
+	thischan.double_totlength_shifted = (double)(thischan.totlength << format_shift[thischan.format]);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -445,57 +413,6 @@ void SPU_struct::WriteByte(u32 addr, u8 val)
 
 }
 
-SPUFifo::SPUFifo()
-{
-	reset();
-}
-
-void SPUFifo::reset()
-{
-	head = tail = size = 0;
-}
-
-void SPUFifo::enqueue(s16 val)
-{
-	if(size==16) return;
-	buffer[tail] = val;
-	tail++;
-	tail &= 15;
-	size++;
-}
-
-s16 SPUFifo::dequeue()
-{
-	if(size==0) return 0;
-	head++;
-	head &= 15;
-	s16 ret = buffer[head];
-	size--;
-	return ret;
-}
-
-void SPUFifo::save(EMUFILE* fp)
-{
-	u32 version = 1;
-	write32le(version,fp);
-	write32le(head,fp);
-	write32le(tail,fp);
-	write32le(size,fp);
-	for(int i=0;i<16;i++)
-		write16le(buffer[i],fp);
-}
-
-bool SPUFifo::load(EMUFILE* fp)
-{
-	u32 version;
-	if(read32le(&version,fp) != 1) return false;
-	read32le(&head,fp);
-	read32le(&tail,fp);
-	read32le(&size,fp);
-	for(int i=0;i<16;i++)
-		read16le(&buffer[i],fp);
-	return true;
-}
 void SPU_WriteByte(u32 addr, u8 val)
 {
 	addr &= 0xFFF;
@@ -704,7 +621,7 @@ template<SPUInterpolationMode INTERPOLATE_MODE> static FORCEINLINE void FetchADP
 	    	chan->pcm16b_last = chan->pcm16b;
 	    	chan->pcm16b = MinMax(chan->pcm16b+diff, -0x8000, 0x7FFF);
 
-			if(i == ((u32)(chan->loopstart)<<3)) {
+			if(i == (u32)(chan->loopstart<<3)) {
 				if(chan->loop_index != K_ADPCM_LOOPING_RECOVERY_INDEX) printf("over-snagging\n");
 				chan->loop_pcm16b = chan->pcm16b;
 				chan->loop_index = chan->index;
@@ -857,10 +774,8 @@ template<int CHANNELS> FORCEINLINE static void SPU_Mix(SPU_struct* SPU, channel_
 		case 1: MixLR(SPU, chan, data); break;
 		case 2: MixR(SPU, chan, data); break;
 	}
-	SPU->lastdata = data;
 }
 
-//WORK
 template<int FORMAT, SPUInterpolationMode INTERPOLATE_MODE, int CHANNELS> 
 	FORCEINLINE static void ____SPU_ChanUpdate(SPU_struct* const SPU, channel_struct* const chan)
 {

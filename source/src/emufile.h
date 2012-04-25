@@ -1,4 +1,4 @@
- /* Copyright (C) 2009-2011 DeSmuME team
+ /* Copyright (C) 2009 DeSmuME team
  *
  * This file is part of DeSmuME
  *
@@ -23,15 +23,15 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "types.h"
 #include <vector>
 #include <algorithm>
 #include <string>
 #include <stdarg.h>
 
-#include "types.h"
-
-#ifdef _MSC_VER
-#include <io.h>
+#ifdef _XBOX
+#undef min;
+#undef max;
 #endif
 
 class EMUFILE {
@@ -94,29 +94,12 @@ protected:
 
 public:
 
-	EMUFILE_MEMORY(std::vector<u8> *underlying) : vec(underlying), ownvec(false), pos(0), len((s32)underlying->size()) { }
-	EMUFILE_MEMORY(u32 preallocate) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { 
-		vec->resize(preallocate);
-		len = preallocate;
-	}
+	EMUFILE_MEMORY(std::vector<u8> *underlying) : vec(underlying), ownvec(false), pos(0), len(underlying->size()) { }
+	EMUFILE_MEMORY(u32 preallocate) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { vec->reserve(preallocate); }
 	EMUFILE_MEMORY() : vec(new std::vector<u8>()), ownvec(true), pos(0), len(0) { vec->reserve(1024); }
-	EMUFILE_MEMORY(void* buf, s32 size) : vec(new std::vector<u8>()), ownvec(true), pos(0), len(size) { 
-		vec->resize(size);
-		if(size != 0)
-			memcpy(&vec[0],buf,size);
-	}
 
 	~EMUFILE_MEMORY() {
 		if(ownvec) delete vec;
-	}
-
-	virtual EMUFILE* memwrap();
-
-	virtual void truncate(s32 length)
-	{
-		vec->resize(length);
-		len = length;
-		if(pos>length) pos=length;
 	}
 
 	u8* buf() { return &(*vec)[0]; }
@@ -128,7 +111,7 @@ public:
 	virtual int fprintf(const char *format, ...) {
 		va_list argptr;
 		va_start(argptr, format);
-
+		
 		//we dont generate straight into the buffer because it will null terminate (one more byte than we want)
 		int amt = vsnprintf(0,0,format,argptr);
 		char* tempbuf = new char[amt+1];
@@ -154,7 +137,15 @@ public:
 		return 0;
 	}
 
-	virtual size_t _fread(const void *ptr, size_t bytes);
+	virtual size_t _fread(const void *ptr, size_t bytes){
+		u32 remain = len-pos;
+		u32 todo = std::min<u32>(remain,(u32)bytes);
+		memcpy((void*)ptr,buf()+pos,todo);
+		pos += todo;
+		if(todo<bytes)
+			failbit = true;
+		return todo;
+	}
 
 	//removing these return values for now so we can find any code that might be using them and make sure
 	//they handle the return values correctly
@@ -162,7 +153,7 @@ public:
 	virtual void fwrite(const void *ptr, size_t bytes){
 		reserve(pos+bytes);
 		memcpy(buf()+pos,ptr,bytes);
-		pos += (s32)bytes;
+		pos += bytes;
 		len = std::max(pos,len);
 	}
 
@@ -189,11 +180,6 @@ public:
 		return pos;
 	}
 
-	void trim()
-	{
-		vec->resize(len);
-	}
-
 	virtual int size() { return (int)len; }
 };
 
@@ -201,20 +187,14 @@ class EMUFILE_FILE : public EMUFILE {
 protected:
 	FILE* fp;
 
-private:
-	void open(const char* fname, const char* mode)
+public:
+
+	EMUFILE_FILE(const char* fname, const char* mode)
 	{
 		fp = fopen(fname,mode);
 		if(!fp)
 			failbit = true;
-		//this->fname = fname;
-		//strcpy(this->mode,mode);
-	}
-
-public:
-
-	EMUFILE_FILE(const std::string& fname, const char* mode) { open(fname.c_str(),mode); }
-	EMUFILE_FILE(const char* fname, const char* mode) { open(fname,mode); }
+	};
 
 	virtual ~EMUFILE_FILE() {
 		if(NULL != fp)

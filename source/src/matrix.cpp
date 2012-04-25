@@ -216,6 +216,7 @@ MatrixStack::MatrixStack(int size)
 
 void MatrixStackSetStackPosition (MatrixStack *stack, int pos)
 {
+	//printf("SetPosition: %d by %d",stack->position,pos);
 	stack->position += pos;
 
 	//this wraparound behavior fixed sims apartment pets which was constantly going up to 32

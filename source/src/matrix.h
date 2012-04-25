@@ -1,5 +1,5 @@
 /*  Copyright (C) 2006-2007 shash
-	Copyright (C) 2009-2010 DeSmuME team
+	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -115,7 +115,7 @@ FORCEINLINE s32 s32floor(float f)
 
 //switched SSE2 functions
 //-------------
-#ifdef ENABLE_SSE2
+#ifdef ENABLE_SSE
 
 template<int NUM>
 FORCEINLINE void memset_u16_le(void* dst, u16 val)
@@ -146,10 +146,6 @@ static FORCEINLINE void memset_u16_le(void* dst, u16 val)
 }
 
 #endif
-
-// NOSSE version always used in gfx3d.cpp
-void _NOSSE_MatrixMultVec4x4 (const float *matrix, float *vecPtr);
-void MatrixMultVec3x3_fixed(const s32 *matrix, s32 *vecPtr);
 
 //---------------------------
 //switched SSE functions
@@ -215,6 +211,7 @@ FORCEINLINE void MatrixMultVec4x4_M2(const float *matrix, float *vecPtr)
 	MatrixMultVec4x4(matrix+16,vecPtr);
 	MatrixMultVec4x4(matrix,vecPtr);
 }
+
 
 FORCEINLINE void MatrixMultVec3x3(const float * matrix, float * vecPtr)
 {

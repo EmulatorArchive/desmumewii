@@ -144,7 +144,6 @@ static MemSpan MemSpan_TexMem(u32 ofs, u32 len)
 		currofs += curr.len;
 		u8* ptr = MMU.texInfo.textureSlotAddr[slot];
 		
-		//TODO - don't alert if the masterbrightnesses are max or min
 		if(ptr == MMU.blank_memory) {
 			PROGINFO("Tried to reference unmapped texture memory: slot %d\n",slot);
 		}
@@ -177,7 +176,6 @@ static MemSpan MemSpan_TexPalette(u32 ofs, u32 len)
 		currofs += curr.len;
 		u8* ptr = MMU.texInfo.texPalSlot[slot];
 		
-		//TODO - don't alert if the masterbrightnesses are max or min
 		if(ptr == MMU.blank_memory) {
 			PROGINFO("Tried to reference unmapped texture palette memory: 16k slot #%d\n",slot);
 		}
@@ -199,6 +197,10 @@ static void DebugDumpTexture(TexCacheItem* item)
 }
 #endif
 
+//notes on the cache:
+//I am really unhappy with the ref counting. this needs to be automatic.
+//We could do something better than a linear search through cache items, but it may not be worth it.
+//Also we may need to rescan more often (every time a sample loops)
 class TexCache
 {
 public:
@@ -461,7 +463,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; ++x)
+					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
 						u16 c = pal[*adr];
 						*dwdst++ = CONVERT(c,(*adr == 0) ? palZeroTransparent : opaqueColor);
@@ -492,8 +494,8 @@ public:
 				else 
 					slot1=(u16*)&MMU.texInfo.textureSlotAddr[1][(format & 0x3FFF)<<2];
 
-				u16 yTmpSize = (sizeY>>2);
-				u16 xTmpSize = (sizeX>>2);
+				u32 yTmpSize = (sizeY>>2);
+				u32 xTmpSize = (sizeX>>2);
 
 				//This is flagged whenever a 4x4 overruns its slot.
 				//I am guessing we just generate black in that case
@@ -611,7 +613,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; ++x)
+					for(u32 x = 0; x < ms.items[j].len; x++)
 					{
 						u16 c = pal[*adr&0x07];
 						u8 alpha = (*adr>>3);

@@ -1,4 +1,5 @@
-/*  Copyright (C) 2009-2010 DeSmuME team
+/*  Copyright (C) 2009 CrazyMax
+	Copyright (C) 2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -35,7 +36,6 @@ extern ADDONINTERFACE addonRumblePak;
 extern ADDONINTERFACE addonGBAgame;
 extern ADDONINTERFACE addonGuitarGrip;
 extern ADDONINTERFACE addonExpMemory;
-extern ADDONINTERFACE addonPiano;
 //extern ADDONINTERFACE addonExternalMic;
 
 ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
@@ -44,14 +44,13 @@ ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
 		addonRumblePak,
 		addonGBAgame,
 		addonGuitarGrip,
-		addonExpMemory,
-		addonPiano,
+		addonExpMemory
 };
 
 ADDONINTERFACE	addon = addonCFlash;		// default none pak
-NDS_ADDON_TYPE				addon_type = NDS_ADDON_CFLASH;
+u8				addon_type = NDS_ADDON_CFLASH;
 
-bool addonsInit()
+BOOL addonsInit()
 {
 	return addon.init();
 }
@@ -66,7 +65,7 @@ void addonsReset()
 	addon.reset();
 }
 
-bool addonsChangePak(NDS_ADDON_TYPE type)
+BOOL addonsChangePak(u8 type)
 {
 	printf("addonsChangePak\n");
 	if (type > NDS_ADDON_COUNT) return FALSE;
@@ -75,3 +74,4 @@ bool addonsChangePak(NDS_ADDON_TYPE type)
 	addon_type = type;
 	return addon.init();
 }
+

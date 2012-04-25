@@ -638,7 +638,7 @@ static void WIFI_triggerIRQMask(u16 mask)
 
 	if (!oResult && nResult)
 	{
-	//	NDS_makeARM7Int(24) ;   /* cascade it via arm7 wifi irq */
+		NDS_makeARM7Int(24) ;   /* cascade it via arm7 wifi irq */
 	}
 }
 

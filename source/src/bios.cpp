@@ -1,18 +1,22 @@
 /*  Copyright (C) 2006 yopyop
-	Copyright (C) 2008-2011 DeSmuME team
-	
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    yopyop156@ifrance.com
+    yopyop156.ifrance.com
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    This file is part of DeSmuME
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuME is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    DeSmuME is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuME; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include "cp15.h"
@@ -209,61 +213,64 @@ TEMPLATE static u32 WaitByLoop()
 
 TEMPLATE static u32 wait4IRQ()
 {
-   	cpu->waitIRQ = TRUE;
-	cpu->halt_IE_and_IF = TRUE;
-	return 1;
+     //execute= FALSE;
+     u32 instructAddr = cpu->instruct_adr;
+     if(cpu->wirq)
+     {
+          if(!cpu->waitIRQ)
+          {
+               cpu->waitIRQ = 0;
+               cpu->wirq = 0;
+               //cpu->switchMode(oldmode[cpu->proc_ID]);
+               return 1;
+          }
+          cpu->R[15] = instructAddr;
+          cpu->next_instruction = instructAddr;
+          return 1;
+     }
+     cpu->waitIRQ = 1;
+     cpu->wirq = 1;
+     cpu->R[15] = instructAddr;
+     cpu->next_instruction = instructAddr;
+     //oldmode[cpu->proc_ID] = cpu->switchMode(SVC);
+     return 1;
 }
 
 TEMPLATE u32 intrWaitARM()
 {
-	//TODO - account for differences between arm7 and arm9 (according to gbatek, the "bug doesn't work")
+	u32 intrFlagAdr = 0;
+	u32 intr = 0;
+	u32 intrFlag = 0;
 
-	const u32 intrFlagAdr = (PROCNUM == ARMCPU_ARM7)
-		? 0x380FFF8
-		: (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
+	//BOOL noDiscard = ((cpu->R[0] == 0) && (PROCNUM == ARMCPU_ARM7));
 
-	//set IME=1
-	//without this, no irq handlers can happen (even though IF&IE waits can happily happen)
-	//and so no bits in the OS irq flag variable can get set by the handlers
-	_MMU_write32<PROCNUM>(0x04000208, 1); 
+	if(PROCNUM == ARMCPU_ARM7)
+		intrFlagAdr = 0x380FFF8;
+	else
+		intrFlagAdr = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
 
-	//analyze the OS irq flag variable
-	u32 intr = _MMU_read32<PROCNUM>(intrFlagAdr);
-	u32 intrFlag = (cpu->R[1] & intr);
+	intr = _MMU_read32<PROCNUM>(intrFlagAdr);
+	intrFlag = (cpu->R[1] & intr);
 
-	//if the user requested us to discard flags, then clear the flag(s) we're going to be waiting on.
-	//(be sure to only do this only on the first run through. use a little state machine to control that)
-	if(cpu->intrWaitARM_state==0 && cpu->R[0]==1)
+	//INFO("ARM%c: wait for IRQ r0=0x%02X, r1=0x%08X - 0x%08X (flag 0x%08X)\n", PROCNUM?'7':'9', cpu->R[0], cpu->R[1], intr, intrFlag);
+	//if(!noDiscard)
+	//	intrFlag &= cpu->newIrqFlags;
+
+	_MMU_write32<PROCNUM>(0x04000208, 1);			// set IME=1
+
+	if (intrFlag)
 	{
 		intr ^= intrFlag;
-		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
-
-		//we want to make sure we wait at least once below
-		intrFlag = 0;
+		//if (intr)
+			_MMU_write32<PROCNUM>(intrFlagAdr, intr);
+		return wait4IRQ<PROCNUM>();
 	}
-
-	cpu->intrWaitARM_state = 1;
-
-	//now, if the condition is satisfied (and it won't be the first time through, no matter what, due to cares taken above)
-	if(intrFlag)
-	{
-		//write back the OS irq flags with the ones we were waiting for cleared
-		intr ^= intrFlag;
-		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
-
-		cpu->intrWaitARM_state = 0;
-		return 1;
-	}
-
-	//the condition wasn't satisfied. this means that we need to halt, wait for some enabled interrupt,
-	//and then ensure that we return to this opcode again to check the condition again
-	cpu->waitIRQ = TRUE;
-	cpu->halt_IE_and_IF = TRUE;
-
-	//(rewire PC to jump back to this opcode)
 	u32 instructAddr = cpu->instruct_adr;
 	cpu->R[15] = instructAddr;
 	cpu->next_instruction = instructAddr;
+	cpu->waitIRQ = 1;
+	cpu->wirq = 1;
+	
 	return 1;
 }
 
@@ -970,44 +977,21 @@ TEMPLATE static u32 setHaltCR()
 }
 
 TEMPLATE static u32 getSineTab()
-{
-	//ds returns garbage according to gbatek, but we must protect ourselves
-	if(cpu->R[0] >= ARRAY_SIZE(getsinetbl))
-	{
-		printf("Invalid SWI getSineTab: %08X\n",cpu->R[0]);
-		return 1;
-	}
-
-
-	cpu->R[0] = getsinetbl[cpu->R[0]];
-	return 1;
+{ 
+     cpu->R[0] = getsinetbl[cpu->R[0]];
+     return 1;
 }
 
 TEMPLATE static u32 getPitchTab()
 { 
-	//ds returns garbage according to gbatek, but we must protect ourselves
-	if(cpu->R[0] >= ARRAY_SIZE(getpitchtbl))
-	{
-		printf("Invalid SWI getPitchTab: %08X\n",cpu->R[0]);
-		return 1;
-	}
-
-	cpu->R[0] = getpitchtbl[cpu->R[0]];
-	return 1;
+     cpu->R[0] = getpitchtbl[cpu->R[0]];
+     return 1;
 }
 
 TEMPLATE static u32 getVolumeTab()
 { 
-	//ds returns garbage according to gbatek, but we must protect ourselves
-	if(cpu->R[0] >= ARRAY_SIZE(getvoltbl))
-	{
-		printf("Invalid SWI getVolumeTab: %08X\n",cpu->R[0]);
-		return 1;
-	}
-
-
-    cpu->R[0] = getvoltbl[cpu->R[0]];
-    return 1;
+     cpu->R[0] = getvoltbl[cpu->R[0]];
+     return 1;
 }
 
 

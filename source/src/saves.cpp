@@ -1,7 +1,7 @@
 /*  Copyright (C) 2006 Normmatt
     Copyright (C) 2006 Theo Berkau
     Copyright (C) 2007 Pascal Giard
-	Copyright (C) 2008-2010 DeSmuME team
+	Copyright (C) 2008-2009 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -20,11 +20,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+//--DCN: Force it to include the zlib compression library
 #define HAVE_LIBZ
+
 
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
+
 #include <stack>
 #include <set>
 #include <stdio.h>
@@ -49,7 +52,7 @@
 
 #include "path.h"
 
-#ifdef _WINDOWS
+#ifdef _MSC_VER
 #include "windows/main.h"
 #endif
 
@@ -104,8 +107,8 @@ SFORMAT SF_ARM7[]={
 	{ "7int", 4, 1, &NDS_ARM7.intVector },
 	{ "7LDT", 1, 1, &NDS_ARM7.LDTBit },
 	{ "7Wai", 4, 1, &NDS_ARM7.waitIRQ },
-	{ "7hef", 4, 1, &NDS_ARM7.halt_IE_and_IF },
-	{ "7iws", 1, 1, &NDS_ARM7.intrWaitARM_state },
+	//{ "7wIR", 4, 1, &NDS_ARM7.wIRQ, },
+	{ "7wir", 4, 1, &NDS_ARM7.wirq, },
 	{ 0 }
 };
 
@@ -141,8 +144,8 @@ SFORMAT SF_ARM9[]={
 	{ "9int", 4, 1, &NDS_ARM9.intVector},
 	{ "9LDT", 1, 1, &NDS_ARM9.LDTBit},
 	{ "9Wai", 4, 1, &NDS_ARM9.waitIRQ},
-	{ "9hef", 4, 1, &NDS_ARM9.halt_IE_and_IF },
-	{ "9iws", 1, 1, &NDS_ARM7.intrWaitARM_state },
+	//{ "9wIR", 4, 1, &NDS_ARM9.wIRQ},
+	{ "9wir", 4, 1, &NDS_ARM9.wirq},
 	{ 0 }
 };
 
@@ -196,7 +199,7 @@ SFORMAT SF_MMU[]={
 	{ "MTRL", 2, 8,       MMU.timerReload},
 	{ "MIME", 4, 2,       MMU.reg_IME},
 	{ "MIE_", 4, 2,       MMU.reg_IE},
-	{ "MIF_", 4, 2,       MMU.reg_IF_bits},
+	{ "MIF_", 4, 2,       MMU.reg_IF},
 
 	{ "MGXC", 8, 1,       &MMU.gfx3dCycles},
 	
@@ -249,7 +252,13 @@ SFORMAT SF_MMU[]={
 	{ 0 }
 };
 
-
+#ifdef _MOVIETIME_
+SFORMAT SF_MOVIE[]={
+	{ "FRAC", 4, 1, &currFrameCounter},
+	{ "LAGC", 4, 1, &TotalLagFrames},
+	{ 0 }
+};
+#endif
 
 static void mmu_savestate(EMUFILE* os)
 {
@@ -271,12 +280,6 @@ static void mmu_savestate(EMUFILE* os)
 	MMU_timing.arm7dataFetch.savestate(os, version);
 	MMU_timing.arm9codeCache.savestate(os, version);
 	MMU_timing.arm9dataCache.savestate(os, version);
-
-	//version 4:
-	/*
-	MMU_new.sqrt.savestate(os);
-	MMU_new.div.savestate(os);
-	//*/
 }
 
 SFORMAT SF_WIFI[]={
@@ -366,14 +369,14 @@ SFORMAT SF_WIFI[]={
 	{ "W560", 4, 1, &wifiMac.curPacketPos[0]},
 	{ "W570", 4, 1, &wifiMac.curPacketSending[0]},
 
-	//{ "W580", 2, 0x800, &wifiMac.IOPorts[0]},
+	{ "W580", 2, 0x800, &wifiMac.ioMem[0]},
 	{ "W590", 2, 1, &wifiMac.randomSeed},
 
-	//{ "WX00", 8, 1, &SoftAP.usecCounter},
-	//{ "WX10", 1, 4096, &SoftAP.curPacket[0]},
-	//{ "WX20", 4, 1, &SoftAP.curPacketSize},
-	//{ "WX30", 4, 1, &SoftAP.curPacketPos},
-	//{ "WX40", 4, 1, &SoftAP.curPacketSending},
+	{ "WX00", 8, 1, &wifiMac.SoftAP.usecCounter},
+	{ "WX10", 1, 4096, &wifiMac.SoftAP.curPacket[0]},
+	{ "WX20", 4, 1, &wifiMac.SoftAP.curPacketSize},
+	{ "WX30", 4, 1, &wifiMac.SoftAP.curPacketPos},
+	{ "WX40", 4, 1, &wifiMac.SoftAP.curPacketSending},
 
 	{ 0 }
 };
@@ -492,8 +495,7 @@ static void cp15_savestate(EMUFILE* os)
 	write32le(0,os);
 
 	cp15_saveone((armcp15_t *)NDS_ARM9.coproc[15],os);
-	//ARM7 does not have coprocessor
-	//cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
+	cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
 }
 
 static bool cp15_loadone(armcp15_t *cp15, EMUFILE* is)
@@ -575,24 +577,25 @@ void clear_savestates()
     savestates[i].exists = FALSE;
 }
 
-// Scan for existing savestates and update struct
+/* Scan for existing savestates and update struct */
 void scan_savestates()
 {
   struct stat sbuf;
   char filename[MAX_PATH+1];
+  u8 i;
 
   clear_savestates();
 
-  for(int i = 0; i < NB_STATES; i++ )
+  for( i = 1; i <= NB_STATES; i++ )
     {
-		path.getpathnoext(path.STATES, filename);
+    path.getpathnoext(path.STATES, filename);
 	  
-		if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
-		sprintf(filename+strlen(filename), ".ds%d", i);
-		if( stat(filename,&sbuf) == -1 ) continue;
-		savestates[i].exists = TRUE;
-		strncpy(savestates[i].date, format_time(sbuf.st_mtime),40);
-		savestates[i].date[40-1] = '\0';
+	  if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
+      sprintf(filename+strlen(filename), ".ds%d", i);
+      if( stat(filename,&sbuf) == -1 ) continue;
+      savestates[i-1].exists = TRUE;
+      strncpy(savestates[i-1].date, format_time(sbuf.st_mtime),40);
+	  savestates[i-1].date[40-1] = '\0';
     }
 
   return ;
@@ -655,6 +658,64 @@ void loadstate_slot(int num)
    }
 }
 
+u8 sram_read (u32 address) {
+	address = address - SRAM_ADDRESS;
+
+	if ( address > SRAM_SIZE )
+		return 0;
+
+	return MMU.CART_RAM[address];
+
+}
+
+void sram_write (u32 address, u8 value) {
+
+	address = address - SRAM_ADDRESS;
+
+	if ( address < SRAM_SIZE )
+		MMU.CART_RAM[address] = value;
+
+}
+
+int sram_load (const char *file_name) {
+
+	FILE *file;
+	size_t elems_read;
+
+	file = fopen ( file_name, "rb" );
+	if( file == NULL )
+		return 0;
+
+	elems_read = fread ( MMU.CART_RAM, SRAM_SIZE, 1, file );
+
+	fclose ( file );
+
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Loaded SRAM");
+
+	return 1;
+
+}
+
+int sram_save (const char *file_name) {
+
+	FILE *file;
+	size_t elems_written;
+
+	file = fopen ( file_name, "wb" );
+	if( file == NULL )
+		return 0;
+
+	elems_written = fwrite ( MMU.CART_RAM, SRAM_SIZE, 1, file );
+
+	fclose ( file );
+
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Saved SRAM");
+
+	return 1;
+
+}
 
 // note: guessSF is so we don't have to do a linear search through the SFORMAT array every time
 // in the (most common) case that we already know where the next entry is.
@@ -799,22 +860,25 @@ static int SubWrite(EMUFILE* os, const SFORMAT *sf)
 			keyset.insert(sf->desc);
 			#endif
 
-
 		#ifdef LOCAL_LE
 			// no need to ever loop one at a time if not flipping byte order
 			os->fwrite((char *)sf->v,size*count);
 		#else
-			if(size == 1) {
+			//--DCN 
+			//There IS no 'sz'! Never was. I'm commenting it out
+			/*
+			if(sz == 1) {
 				//special case: write a huge byte array
-				os->fwrite((char *)sf->v,count);
+				os->fwrite((char *)sf->v,1,count);
 			} else {
+			//*/
 				for(int i=0;i<count;i++) {
 					FlipByteOrder((u8*)sf->v + i*size, size);
 					os->fwrite((char*)sf->v + i*size,size);
 					//Now restore the original byte order.
 					FlipByteOrder((u8*)sf->v + i*size, size);
 				}
-			}
+			//}
 		#endif
 		}
 		sf++;
@@ -880,6 +944,9 @@ static void writechunks(EMUFILE* os);
 
 bool savestate_save(EMUFILE* outstream, int compressionLevel)
 {
+	//--DCN: This is from "zlib" in the windows folder, which is
+	// odd because up top it checks if we DO have "HAVE_LIBZ"
+	// Z_NO_COMPRESSION is equal to 0
 	#ifndef HAVE_LIBZ
 	compressionLevel = Z_NO_COMPRESSION;
 	#endif
@@ -942,7 +1009,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 bool savestate_save (const char *file_name)
 {
 	EMUFILE_MEMORY ms;
-	size_t elems_written;
+	int elems_written;
 #ifdef HAVE_LIBZ
 	if(!savestate_save(&ms, Z_DEFAULT_COMPRESSION))
 #else
@@ -952,9 +1019,9 @@ bool savestate_save (const char *file_name)
 	FILE* file = fopen(file_name,"wb");
 	if(file)
 	{
-		elems_written = fwrite(ms.buf(),1,ms.size(),file);
+		elems_written = (int)fwrite(ms.buf(), 1, ms.size(), file);
 		fclose(file);
-		return (elems_written == (size_t)(ms.size()));
+		return (elems_written == ms.size());
 	} else return false;
 }
 
@@ -973,7 +1040,12 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,8,spu_savestate);
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
-	savestate_WriteChunk(os,91,gfx3d_savestate);	
+	savestate_WriteChunk(os,91,gfx3d_savestate);
+#ifdef _MOVIETIME_
+	savestate_WriteChunk(os,100,SF_MOVIE);
+
+	savestate_WriteChunk(os,101,mov_savestate);
+#endif	
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,0xFFFFFFFF,(SFORMAT*)0);
@@ -1002,12 +1074,14 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			case 7: if(!gpu_loadstate(is,size)) ret=false; break;
 			case 8: if(!spu_loadstate(is,size)) ret=false; break;
 			case 81: if(!mic_loadstate(is,size)) ret=false; break;
-			// No movies
-			//case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
+#ifdef _MOVIETIME_
+			case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
+#endif
 			case 91: if(!gfx3d_loadstate(is,size)) ret=false; break;
-			// No movies
-			//case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
-			//case 101: if(!mov_loadstate(is, size)) ret=false; break;
+#ifdef _MOVIETIME_
+			case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
+			case 101: if(!mov_loadstate(is, size)) ret=false; break;
+#endif			
 			case 110: if(!ReadStateChunk(is,SF_WIFI,size)) ret=false; break;
 			case 120: if(!ReadStateChunk(is,SF_RTC,size)) ret=false; break;
 			default:
@@ -1116,7 +1190,7 @@ bool savestate_load(EMUFILE* is)
 	if(!x && !SAV_silent_fail_flag)
 	{
 		printf("Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked");
-#ifdef _WINDOWS
+#ifdef _MSC_VER
 		//HACK! we really need a better way to handle this kind of feedback
 		MessageBox(0,"Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked",0,0);
 #endif
@@ -1148,6 +1222,10 @@ int rewindinterval = 4;
 
 void rewindsave () {
 
+#ifdef _MOVIETIME_
+	if(currFrameCounter % rewindinterval)
+		return;
+#endif
 
 	//printf("rewindsave"); printf("%d%s", currFrameCounter, "\n");
 
@@ -1173,6 +1251,10 @@ void rewindsave () {
 
 void dorewind()
 {
+#ifdef _MOVIETIME_
+	if(currFrameCounter % rewindinterval)
+		return;
+#endif
 	//printf("rewind\n");
 
 	nds.debugConsole = FALSE;

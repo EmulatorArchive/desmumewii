@@ -1,18 +1,21 @@
 /*  Copyright (C) 2005 Guillaume Duhamel
-	Copyright (C) 2008-2010 DeSmuME team
+	Copyright (C) 2008-2009 DeSmuME team
 
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 2 of the License, or
-	(at your option) any later version.
+    This file is part of DeSmuME
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuME is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuME is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuME; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #ifndef TYPES_HPP
@@ -20,11 +23,15 @@
 
 //analyze microsoft compilers
 #ifdef _MSC_VER
-	#define _WINDOWS
-	#ifdef _M_X64
-		//#define _WIN64 //already defined in x64 compiler
+	#ifdef _XBOX
+		//#define _XBOX //already defined
 	#else
-		//#define _WIN32 //already defined
+		#define _WINDOWS
+		#ifdef _M_X64
+			//#define _WIN64 //already defined in x64 compiler
+		#else
+			//#define _WIN32 //already defined
+		#endif
 	#endif
 #endif
 
@@ -33,9 +40,10 @@
 #include "config.h"
 #endif
 
-//enforce a constraint: gdb stub requires developer
-#if defined(GDB_STUB) && !defined(DEVELOPER)
-#define DEVELOPER
+//xbox needs to include this to resemble windows
+#ifdef _XBOX
+	#include <xtl.h>
+	#include <io.h>
 #endif
 
 #ifdef DEVELOPER
@@ -73,7 +81,6 @@
 
 #ifdef _MSC_VER 
 #define strcasecmp(x,y) _stricmp(x,y)
-#define strncasecmp(x, y, l) strnicmp(x, y, l)
 #define snprintf _snprintf
 #else
 #define WINAPI
@@ -86,6 +93,12 @@
 #else
 #define MAX_PATH PATH_MAX
 #endif
+#endif
+
+
+#ifdef _XBOX
+#define MAX_PATH 1024
+#define PATH_MAX 1024
 #endif
 
 
@@ -179,7 +192,7 @@ typedef u32 uint32;
 
 /*---------- GPU3D fixed-points types -----------*/
 
-typedef float f32;
+//typedef s32 f32;
 #define inttof32(n)          ((n) << 12)
 #define f32toint(n)          ((n) >> 12)
 #define floattof32(n)        ((int32)((n) * (1 << 12)))

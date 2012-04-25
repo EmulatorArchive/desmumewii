@@ -51,15 +51,13 @@ static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE }
 static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
 
 //Derived values extracted from polyattr etc
-/*
 static u32 polyID = 0;
-static u32 envMode = 0;
-static u32 lightMask = 0;
-static bool alpha31 = false;
-//*/
 static u32 depthFuncMode = GX_LESS;
+static u32 envMode = 0;
 static u32 cullingMask = 0;
+static u32 lightMask = 0;
 static u32 textureFormat = 0, texturePalette = 0;
+static bool alpha31 = false;
 static bool alphaDepthWrite;
 static bool isTranslucent;
 
@@ -162,8 +160,8 @@ static void texDeleteCallback(TexCacheItem* item){
 static void GXReset(){
 
 	TexCache_Reset();
-	
-	delete currTexture;
+	if (currTexture) 
+		delete currTexture;
 	currTexture = NULL;
 
 	texMan->reset();
@@ -219,7 +217,8 @@ static void GXClose(){
 		freeTextureIds.pop();	
 	}
 	// Kill our texture manager
-	delete texMan;
+	if(texMan)
+		delete texMan;
 	texMan = NULL;
 }
 
@@ -593,13 +592,12 @@ static void GXRender(){
 			float* m = poly->projMatrix;
 			// Copy the matrix from Column-Major to Row-Major format
 			for(int j = 0; j < 4; ++j)
-				for(int i = 0; i < 4; ++i){
+				for(int i = 0; i < 4; ++i)
 					projection[i][j] = *m++;
-				}
 			
 			// Convert the z clipping planes from -1/1 to -1/0
-			projection[2][2] = (projection[2][2] - projection[3][2])*0.5f;
-			projection[2][3] = (projection[2][3] - projection[3][3])*0.5f;
+			projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
+			projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
 
 			if(projection[3][2] != 1) 
 			{		
@@ -616,6 +614,12 @@ static void GXRender(){
 			}else{
 				GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
 			}
+			/*
+			Mtx modelview;
+			guMtxIdentity(modelview);
+			// Load in an identity matrix to be our position matrix
+			GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+			//*/
 #endif
 		}
 
@@ -629,7 +633,7 @@ static void GXRender(){
 		}
 		//*/
 
-#ifdef TESTING
+#ifndef TESTING
 
 	static u32 count = 0;
 	count++;
@@ -698,9 +702,9 @@ static void Set3DVideoSettings(){
 	GX_SetViewport(0,0,256,192,0,1);
 	GX_SetScissor(0,0,256,192);
 
-	guMtxIdentity(modelview);
+	//guMtxIdentity(modelview);
 	// Load in an identity matrix to be our position matrix
-	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+	//GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
