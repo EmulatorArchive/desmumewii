@@ -2,22 +2,23 @@
 	Copyright (C) 2006 Mic
     Copyright (C) 2009 CrazyMax 
 	Copyright (C) 2009 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DeSmuME
+    This file is part of DeSmuMEWii
 
-    DeSmuME is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DeSmuME is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include "../addons.h"
@@ -364,7 +365,7 @@ static BOOL cflash_build_fat()
 	}
 
 	memset(dirEntriesInCluster, 0, NUMCLUSTERS*sizeof(int));
-	memset(dirEntryPtr, NULL, NUMCLUSTERS*sizeof(DIR_ENT*));
+	memset(dirEntryPtr, 0, NUMCLUSTERS*sizeof(DIR_ENT*));
 
 	// Change the hierarchical layout to a flat one 
 	for (i=0; i<=maxLevel; i++)
