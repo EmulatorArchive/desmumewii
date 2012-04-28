@@ -1,16 +1,14 @@
 /*
-	Copyright (C) 2006 yopyop
-	Copyright (C) 2006-2007 shash
-	Copyright (C) 2010 DesmumeWii team
+    Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DesmumeWii
+    This file is part of DeSmuMEWii
 
-    DesmumeWii is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DesmumeWii is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
@@ -25,14 +23,6 @@
 //------------------------------------------------------------
 // ------------- GX-specfic Texture Manager -----------------
 //------------------------------------------------------------
-
-//  (Special thanks to the fine people at gl2gx!)
-
-#define MAX_MIP_LEVEL 10
-
-// Defines the initial number of gxTex slots.  
-// If more are needed then the memory will be realloc-ed
-#define NUM_INIT_TEXTURES 128
 
 //----------------------------------------
 //
@@ -62,14 +52,10 @@ TexManager::TexManager(): textures(NULL), used(NULL),
 
 TexManager::~TexManager(){
 
-	if(used){
-		delete[] used;
-	}
+	delete[] used;
 	used = NULL;
 
-	if(textures){
-		delete[] textures;
-	}
+	delete[] textures;
 	textures = NULL;
 }
 

@@ -2,24 +2,28 @@
     Copyright (C) 2006 Theo Berkau
     Copyright (C) 2007 Pascal Giard
 	Copyright (C) 2008-2010 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DeSmuME
+    This file is part of DeSmuMEWii
 
-    DeSmuME is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DeSmuME is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
+    along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+<<<<<<< .mine
+=======
 
+>>>>>>> .r231
 #define HAVE_LIBZ
 
 #ifdef HAVE_LIBZ
@@ -583,8 +587,22 @@ void scan_savestates()
 
   clear_savestates();
 
+<<<<<<< .mine
+  for(int i = 1; i <= NB_STATES; i++ )
+=======
   for(int i = 0; i < NB_STATES; i++ )
+>>>>>>> .r231
     {
+<<<<<<< .mine
+		path.getpathnoext(path.STATES, filename);
+		
+		if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
+		sprintf(filename+strlen(filename), ".ds%d", i);
+		if( stat(filename,&sbuf) == -1 ) continue;
+		savestates[i-1].exists = TRUE;
+		strncpy(savestates[i-1].date, format_time(sbuf.st_mtime),40);
+		savestates[i-1].date[40-1] = '\0';
+=======
 		path.getpathnoext(path.STATES, filename);
 	  
 		if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
@@ -593,6 +611,7 @@ void scan_savestates()
 		savestates[i].exists = TRUE;
 		strncpy(savestates[i].date, format_time(sbuf.st_mtime),40);
 		savestates[i].date[40-1] = '\0';
+>>>>>>> .r231
     }
 
   return ;
@@ -656,6 +675,59 @@ void loadstate_slot(int num)
 }
 
 
+<<<<<<< .mine
+	if ( address > SRAM_SIZE )
+		return 0;
+
+	return MMU.CART_RAM[address];
+
+}
+
+void sram_write (u32 address, u8 value) {
+
+	address = address - SRAM_ADDRESS;
+
+	if ( address < SRAM_SIZE )
+		MMU.CART_RAM[address] = value;
+
+}
+
+int sram_load (const char *file_name) {
+
+	FILE *file = fopen ( file_name, "rb" );
+	if( file == NULL )
+		return 0;
+
+	fread ( MMU.CART_RAM, SRAM_SIZE, 1, file );
+
+	fclose ( file );
+
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Loaded SRAM");
+
+	return 1;
+
+}
+
+int sram_save (const char *file_name) {
+
+	FILE *file = fopen ( file_name, "wb" );
+	if( file == NULL )
+		return 0;
+
+	fwrite ( MMU.CART_RAM, SRAM_SIZE, 1, file );
+
+	fclose ( file );
+
+//	osd->setLineColor(255, 255, 255);
+//	osd->addLine("Saved SRAM");
+
+	return 1;
+
+}
+
+=======
+>>>>>>> .r231
 // note: guessSF is so we don't have to do a linear search through the SFORMAT array every time
 // in the (most common) case that we already know where the next entry is.
 static const SFORMAT *CheckS(const SFORMAT *guessSF, const SFORMAT *firstSF, u32 size, u32 count, char *desc)
@@ -973,7 +1045,11 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,8,spu_savestate);
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
+<<<<<<< .mine
+	savestate_WriteChunk(os,91,gfx3d_savestate);
+=======
 	savestate_WriteChunk(os,91,gfx3d_savestate);	
+>>>>>>> .r231
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,0xFFFFFFFF,(SFORMAT*)0);

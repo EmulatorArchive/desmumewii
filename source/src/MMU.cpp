@@ -1,21 +1,24 @@
 /*	Copyright (C) 2006 yopyop
 	Copyright (C) 2007 shash
 	Copyright (C) 2007-2010 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 2 of the License, or
-	(at your option) any later version.
+    This file is part of DeSmuMEWii
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuMEWii is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuMEWii is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -90,8 +93,13 @@ u32 _MMU_MAIN_MEM_MASK32 = 0x3FFFFF & ~3;
 void mmu_log_debug_ARM9(u32 adr, const char *fmt, ...)
 {
 	if (adr < 0x4000000) return;
+<<<<<<< .mine
+	if (adr > 0x4100014) return;
+
+=======
 //	if (adr > 0x4100014) return;
 
+>>>>>>> .r231
 	if (adr >= 0x4000000 && adr <= 0x400006E) return;		// Display Engine A
 	if (adr >= 0x40000B0 && adr <= 0x4000134) return;		// DMA, Timers and Keypad
 	if (adr >= 0x4000180 && adr <= 0x40001BC) return;		// IPC/ROM
@@ -1544,8 +1552,13 @@ u32 MMU_readFromGC()
 		return val;	// return data
 
 	// transfer is done
+<<<<<<< .mine
+	T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, 
+	T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+=======
 	T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, 
 	T1ReadLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+>>>>>>> .r231
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
@@ -1865,7 +1878,10 @@ void DmaController::write32(const u32 val)
 	/*if(wordcount==0x9FbFC || wordcount == 0x1FFFFC || wordcount == 0x1EFFFC || wordcount == 0x1FFFFF) {
 		int zzz=9;
 	}*/
+<<<<<<< .mine
+=======
 	//u8 wasRepeatMode = repeatMode;
+>>>>>>> .r231
 	u8 wasEnable = enable;
 	u32 valhi = val>>16;
 	dar = (EDMADestinationUpdate)((valhi>>5)&3);
@@ -1922,7 +1938,6 @@ void DmaController::write32(const u32 val)
 	if(startmode != EDMAMode_Immediate && startmode != EDMAMode_GXFifo && wasEnable) doNotStart = true;
 
 	//this dma may need to trigger now, so give it a chance
-	//if(!(wasRepeatMode && !repeatMode)) //this was an older test
 	if(!doNotStart)
 		doSchedule();
 
