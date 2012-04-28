@@ -1,18 +1,22 @@
 /*  Copyright (C) 2006 yopyop
 	Copyright (C) 2006-2010 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    This file is part of DeSmuMEWii
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuMEWii is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuMEWii is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include <stdlib.h>
@@ -533,9 +537,32 @@ BOOL armcp15_moveARM2CP(armcp15_t *armcp15, u32 val, u8 CRn, u8 CRm, u8 opcode1,
 			case 0:
 				switch(opcode2)
 				{
+<<<<<<< .mine
 				case 0:
 					armcp15->DcacheLock = val;
 					return TRUE;
+				case 1:
+					armcp15->IcacheLock = val;
+					return TRUE;
+				default:
+					return FALSE;
+				}
+			case 1:
+				switch(opcode2)
+				{
+				case 0:
+					armcp15->DTCMRegion = val;
+					MMU.DTCMRegion = val & 0x0FFFFFFC0;
+					/*sprintf(logbuf, "%08X", val);
+					log::ajouter(logbuf);*/
+=======
+				case 0:
+					armcp15->DcacheLock = val;
+>>>>>>> .r231
+					return TRUE;
+<<<<<<< .mine
+				case 1:
+=======
 				case 1:
 					armcp15->IcacheLock = val;
 					return TRUE;
@@ -550,6 +577,7 @@ BOOL armcp15_moveARM2CP(armcp15_t *armcp15, u32 val, u8 CRn, u8 CRm, u8 opcode1,
 					MMU.DTCMRegion = armcp15->DTCMRegion = val & 0x0FFFF000;
 					return TRUE;
 				case 1:
+>>>>>>> .r231
 					armcp15->ITCMRegion = val;
 					//ITCM base is not writeable!
 					MMU.ITCMRegion = 0;

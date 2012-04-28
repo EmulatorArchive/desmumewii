@@ -1,21 +1,22 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006 Theo Berkau
 	Copyright (C) 2008-2011 DeSmuME team
+	Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DeSmuME
+    This file is part of DeSmuMEWii
 
-    DeSmuME is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DeSmuME is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
+    along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
@@ -47,6 +48,14 @@
 
 struct memory_chip_t
 {
+<<<<<<< .mine
+	u8 com;	// persistent command actually handled
+	u32 addr;        // current address for reading/writing
+	u8 addr_shift;   // shift for address (since addresses are transfered by 3 bytes units)
+	u8 addr_size;    // size of addr when writing/reading
+
+	BOOL write_enable;	// is write enabled ?
+=======
 	u8 com;	//persistent command actually handled
 	u32 addr;        //current address for reading/writing
 	u8 addr_shift;   //shift for address (since addresses are transfered by 3 bytes units)
@@ -62,13 +71,26 @@ struct memory_chip_t
 	FILE *fp;
 	u8 autodetectbuf[32768];
 	int autodetectsize;
+>>>>>>> .r231
 	
+<<<<<<< .mine
+	u8 *data;       // memory data
+	u32 size;       // memory size
+	BOOL writeable_buffer;	// is "data" writeable ?
+	int type; // type of Memory
+	char *filename;
+	FILE *fp;
+	u8 autodetectbuf[32768];
+	int autodetectsize;
+} memory_chip_t;
+=======
 	// needs only for firmware
 	/*
 	bool isFirmware;
 	char userfile[260];
 	//*/
 };
+>>>>>>> .r231
 
 //the new backup system by zeromus
 class BackupDevice

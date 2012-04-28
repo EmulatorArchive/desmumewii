@@ -1,21 +1,22 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006-2007 Theo Berkau
 	Copyright (C) 2008-2010 DeSmuME team
+	Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DeSmuME
+    This file is part of DeSmuMEWii
 
-    DeSmuME is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DeSmuME is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with DeSmuME; if not, write to the Free Software
+    along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
@@ -678,6 +679,17 @@ void BackupDevice::load_old_state(u32 addr_size, u8* data, u32 datasize)
 
 static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 {
+<<<<<<< .mine
+        const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
+        const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
+        u8      *src = (u8 *)in_buf;
+        u8      *dst = (u8 *)out_buf;
+        u32     src_pos = 0;
+        u32     dst_pos = 0;
+        u8      cc = 0;
+        u32     size_unpacked = 0;
+        u32     compressMethod = 0;
+=======
 	const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
 	const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
 	u8	*src = (u8 *)in_buf;
@@ -688,6 +700,7 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 	u32	size_unpacked = 0;
 	u32	size_packed = 0;
 	u32	compressMethod = 0;
+>>>>>>> .r231
 
 	if (fsize < 0x50) return (1);
 
@@ -715,10 +728,17 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 		return (0);
 	}
 
+<<<<<<< .mine
+        if (compressMethod == 1)                                // packed (method 1)
+        {
+                //size_packed = *((u32*)(src+0x48));
+                size_unpacked = *((u32*)(src+0x4C));
+=======
 	if (compressMethod == 1)				// packed (method 1)
 	{
 		size_packed = *((u32*)(src+0x48));
 		size_unpacked = *((u32*)(src+0x4C));
+>>>>>>> .r231
 
 		src_pos = 0x50;
 		while (true)

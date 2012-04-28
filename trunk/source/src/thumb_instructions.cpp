@@ -4,22 +4,23 @@
 	Code added on 18/08/2006 by shash
 		- Missing missaligned addresses correction
 			(reference in http://nocash.emubase.de/gbatek.htm#cpumemoryalignments)
+    Copyright (C) 2012 DeSmuMEWii team
 
-	This file is part of DeSmuME 
+    This file is part of DeSmuMEWii
 
-	DeSmuME is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2 of the License, or
-	(at your option) any later version.
+    DeSmuMEWii is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	DeSmuME is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuMEWii is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with DeSmuME; if not, write to the Free Software
-	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+    You should have received a copy of the GNU General Public License
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 // THUMB core TODO:
@@ -452,7 +453,10 @@ TEMPLATE static  u32 FASTCALL OP_ADC_REG(const u32 i)
 	cpu->CPSR.bits.N = BIT31(res);
 	cpu->CPSR.bits.Z = res == 0;
 
+<<<<<<< .mine
+=======
 
+>>>>>>> .r231
 	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(b, (u32) cpu->CPSR.bits.C, tmp) | UNSIGNED_OVERFLOW(tmp, a, res);
 	cpu->CPSR.bits.V = SIGNED_OVERFLOW(b, (u32) cpu->CPSR.bits.C, tmp) | SIGNED_OVERFLOW(tmp, a, res);
 	
@@ -473,8 +477,16 @@ TEMPLATE static  u32 FASTCALL OP_SBC_REG(const u32 i)
 	cpu->CPSR.bits.N = BIT31(res);
 	cpu->CPSR.bits.Z = res == 0;
 
+<<<<<<< .mine
+	//zero 31-dec-2008 - apply normatt's fixed logic from the arm SBC instruction
+	//although it seemed a bit odd to me and to whomever wrote this for SBC not to work similar to ADC..
+	//but thats how it is.
+	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(a, b, res);
+	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(a, b, res);
+=======
 	 cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(Rd, Rm, res);
 	 cpu->CPSR.bits.V = SIGNED_UNDERFLOW(Rd, Rm, res);
+>>>>>>> .r231
 	
 	return 1;
 }
@@ -892,7 +904,10 @@ TEMPLATE static  u32 FASTCALL OP_POP_PC(const u32 i)
 {
 	u32 adr = cpu->R[13];
 	u32 c = 0, j;
+<<<<<<< .mine
+=======
 	u32 v = 0;
+>>>>>>> .r231
 
 	for(j = 0; j<8; ++j)
 		if(BIT_N(i, j))
@@ -902,7 +917,7 @@ TEMPLATE static  u32 FASTCALL OP_POP_PC(const u32 i)
 			adr += 4;
 		}
 
-	v = READ32(cpu->mem_if->data, adr);
+	u32 v = READ32(cpu->mem_if->data, adr);
 	c += MMU_memAccessCycles<PROCNUM,32,MMU_AD_READ>(adr);
 	if(PROCNUM==0)
 		cpu->CPSR.bits.T = BIT0(v);

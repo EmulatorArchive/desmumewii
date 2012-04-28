@@ -2,19 +2,23 @@
     Copyright (C) 2006-2007 Theo Berkau
     Copyright (C) 2007 shash
 	Copyright (C) 2008-2010 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 2 of the License, or
-	(at your option) any later version.
+    This file is part of DeSmuMEWii
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuMEWii is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuMEWii is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuMEWii; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include <algorithm>
@@ -1518,6 +1522,20 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	*(((u16*)spriteInfo)+2) = (*(((u16*)spriteInfo)+2) >> 2) | *(((u16*)spriteInfo)+2) << 14;
 #endif
 
+<<<<<<< .mine
+	size sprSize;
+	s32 sprX, sprY, x, y, lg;
+	int xdir;
+	u8 prio, * src;
+	u16 j;
+/////
+	s32		fieldX, fieldY, auxX, auxY, realX, realY, offset;
+	u8		blockparameter, *pal;
+	s16		dx, dmx, dy, dmy;
+	u16		color;
+
+=======
+>>>>>>> .r231
 	for(i = 0; i<nbShow; ++i, --spriteInfo
 #ifdef WORDS_BIGENDIAN    
 	,*(((u16*)(spriteInfo+1))+1) = (*(((u16*)(spriteInfo+1))+1) << 1) | *(((u16*)(spriteInfo+1))+1) >> 15
@@ -1664,9 +1682,23 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						else
 							offset = (auxX&0x7) + ((auxX&0xFFF8)<<3) + ((auxY>>3)*sprSize.x*8) + ((auxY&0x7)*8);
 
+<<<<<<< .mine
 						color = src[offset];
+						
+						/*Log_fprintf("%s[%d] %d %d\n", 
+							__FUNCTION__, 
+							__LINE__, 
+							color, LE_TO_LOCAL_16(T2ReadWord(pal, (color<<1)))
+						);*/
+=======
+						color = src[offset];
+>>>>>>> .r231
 
+<<<<<<< .mine
+						if (color && (prioTab[sprX]>=prio))
+=======
 						if (color && (prio<prioTab[sprX]))
+>>>>>>> .r231
 						{ 
 							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (color<<1))));
 							dst_alpha[sprX] = 16;
@@ -1711,7 +1743,11 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						
 						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, color);
 
+<<<<<<< .mine
+						if((color&0x8000) && (prioTab[sprX]>=prio))
+=======
 						if((color&0x8000) && (prio<prioTab[sprX]))
+>>>>>>> .r231
 						{
 							T2WriteWord(dst, (sprX<<1), color);
 							dst_alpha[sprX] = spriteInfo->PaletteIndex;
@@ -1765,8 +1801,18 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						if (auxX&1)	color >>= 4;
 						else		color &= 0xF;
 
+<<<<<<< .mine
+						if(color && (prioTab[sprX]>=prio))
+=======
 						if(color && (prio<prioTab[sprX]))
+>>>>>>> .r231
 						{
+<<<<<<< .mine
+							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, color << 1)));
+							dst_alpha[sprX] = 16;
+							typeTab[sprX] = spriteInfo->Mode;
+							prioTab[sprX] = prio;
+=======
 							if(spriteInfo->Mode==2)
 								sprWin[sprX] = 1;
 							else
@@ -1776,6 +1822,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 								typeTab[sprX] = spriteInfo->Mode;
 								prioTab[sprX] = prio;
 							}
+>>>>>>> .r231
 						}
 					}
 
@@ -2070,6 +2117,10 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	//we need to write backdrop colors in the same way as we do BG pixels in order to do correct window processing
 	//this is currently eating up 2fps or so. it is a reasonable candidate for optimization. 
 	gpu->currBgNum = 5;
+<<<<<<< .mine
+
+=======
+>>>>>>> .r231
 	switch(gpu->setFinalColorBck_funcNum) {
 		case 0: case 1: //for backdrops, (even with window enabled) none and blend are both the same: just copy the color
 			memset_u16_le<256>(gpu->currDst,backdrop_color); 

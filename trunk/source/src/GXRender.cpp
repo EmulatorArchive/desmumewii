@@ -1,16 +1,14 @@
 /*
-	Copyright (C) 2006 yopyop
-	Copyright (C) 2006-2007 shash
-	Copyright (C) 2010 DesmumeWii team
+    Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DesmumeWii
+    This file is part of DeSmuMEWii
 
-    DesmumeWii is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DesmumeWii is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
@@ -47,8 +45,8 @@ static CACHE_ALIGN u8 GPU_screen3D[256*192*4];
 static CACHE_ALIGN u8 tmp_texture[128*1024*4]; // Needed for temp. GX AAAARRRRGGGGBBB texture
 
 static const u8  map3d_cull[4] = {GX_CULL_ALL, GX_CULL_FRONT, GX_CULL_BACK, GX_CULL_NONE};
-static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
-static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
+static const int texEnv[4] = {GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE};
+static const int depthFunc[2] = {GX_LESS, GX_EQUAL};
 
 //Derived values extracted from polyattr etc
 /*
@@ -162,8 +160,12 @@ static void texDeleteCallback(TexCacheItem* item){
 static void GXReset(){
 
 	TexCache_Reset();
+<<<<<<< .mine
+	delete currTexture;
+=======
 	
 	delete currTexture;
+>>>>>>> .r231
 	currTexture = NULL;
 
 	texMan->reset();
@@ -215,7 +217,6 @@ static void GXClose(){
 	TexCache_Reset();
 
 	while(!freeTextureIds.empty()){
-		//u32 temp = freeTextureIds.front();
 		freeTextureIds.pop();	
 	}
 	// Kill our texture manager
@@ -629,6 +630,8 @@ static void GXRender(){
 		}
 		//*/
 
+<<<<<<< .mine
+=======
 #ifdef TESTING
 
 	static u32 count = 0;
@@ -644,6 +647,7 @@ static void GXRender(){
 #endif
 
 
+>>>>>>> .r231
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
 			int j = type - 1;
