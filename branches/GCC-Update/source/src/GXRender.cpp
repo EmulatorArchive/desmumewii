@@ -1,16 +1,14 @@
 /*
-	Copyright (C) 2006 yopyop
-	Copyright (C) 2006-2007 shash
-	Copyright (C) 2010 DesmumeWii team
+    Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DesmumeWii
+    This file is part of DeSmuMEWii
 
-    DesmumeWii is free software; you can redistribute it and/or modify
+    DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
-    DesmumeWii is distributed in the hope that it will be useful,
+    DeSmuMEWii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
@@ -47,17 +45,19 @@ static CACHE_ALIGN u8 GPU_screen3D[256*192*4];
 static CACHE_ALIGN u8 tmp_texture[128*1024*4]; // Needed for temp. GX AAAARRRRGGGGBBB texture
 
 static const u8  map3d_cull[4] = {GX_CULL_ALL, GX_CULL_FRONT, GX_CULL_BACK, GX_CULL_NONE};
-static const int texEnv[4] = { GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE };
-static const int depthFunc[2] = { GX_LESS, GX_EQUAL };
+static const int texEnv[4] = {GX_MODULATE, GX_DECAL, GX_MODULATE, GX_MODULATE};
+static const int depthFunc[2] = {GX_LESS, GX_EQUAL};
 
 //Derived values extracted from polyattr etc
+/*
 static u32 polyID = 0;
-static u32 depthFuncMode = GX_LESS;
 static u32 envMode = 0;
-static u32 cullingMask = 0;
 static u32 lightMask = 0;
-static u32 textureFormat = 0, texturePalette = 0;
 static bool alpha31 = false;
+//*/
+static u32 depthFuncMode = GX_LESS;
+static u32 cullingMask = 0;
+static u32 textureFormat = 0, texturePalette = 0;
 static bool alphaDepthWrite;
 static bool isTranslucent;
 
@@ -160,8 +160,8 @@ static void texDeleteCallback(TexCacheItem* item){
 static void GXReset(){
 
 	TexCache_Reset();
-	if (currTexture) 
-		delete currTexture;
+
+	delete currTexture;
 	currTexture = NULL;
 
 	texMan->reset();
@@ -213,12 +213,10 @@ static void GXClose(){
 	TexCache_Reset();
 
 	while(!freeTextureIds.empty()){
-		//u32 temp = freeTextureIds.front();
 		freeTextureIds.pop();	
 	}
 	// Kill our texture manager
-	if(texMan)
-		delete texMan;
+	delete texMan;
 	texMan = NULL;
 }
 
@@ -592,12 +590,13 @@ static void GXRender(){
 			float* m = poly->projMatrix;
 			// Copy the matrix from Column-Major to Row-Major format
 			for(int j = 0; j < 4; ++j)
-				for(int i = 0; i < 4; ++i)
+				for(int i = 0; i < 4; ++i){
 					projection[i][j] = *m++;
+				}
 			
 			// Convert the z clipping planes from -1/1 to -1/0
-			projection[2][2] = 0.5*projection[2][2] - 0.5*projection[3][2];
-			projection[2][3] = 0.5*projection[2][3] - 0.5*projection[3][3];
+			projection[2][2] = (projection[2][2] - projection[3][2])*0.5f;
+			projection[2][3] = (projection[2][3] - projection[3][3])*0.5f;
 
 			if(projection[3][2] != 1) 
 			{		
@@ -614,12 +613,6 @@ static void GXRender(){
 			}else{
 				GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
 			}
-			/*
-			Mtx modelview;
-			guMtxIdentity(modelview);
-			// Load in an identity matrix to be our position matrix
-			GX_LoadPosMtxImm(modelview, GX_PNMTX0);
-			//*/
 #endif
 		}
 
@@ -632,21 +625,6 @@ static void GXRender(){
 			lastViewport = poly->viewport;
 		}
 		//*/
-
-#ifndef TESTING
-
-	static u32 count = 0;
-	count++;
-	if(count>1200){
-		VERT *vert = &gfx3d.vertlist->list[poly->vertIndexes[0]];
-
-		printf("\nx:%f, y:%f, z:%f, u:%f, v:%f",
-			vert->x, vert->y, vert->z, vert->u, vert->v);
-
-		count = 0;
-	}
-#endif
-
 
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
@@ -702,9 +680,9 @@ static void Set3DVideoSettings(){
 	GX_SetViewport(0,0,256,192,0,1);
 	GX_SetScissor(0,0,256,192);
 
-	//guMtxIdentity(modelview);
+	guMtxIdentity(modelview);
 	// Load in an identity matrix to be our position matrix
-	//GX_LoadPosMtxImm(modelview, GX_PNMTX0);
+	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
 
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
