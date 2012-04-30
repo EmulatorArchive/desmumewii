@@ -484,7 +484,7 @@ bool CFIRMWARE::load()
 	if (data[0x17C] != 0xFF)
 		patched = true;
 
-//	INFO("Firmware:\n");
+	//INFO("Firmware:\n");
 	//INFO("- path: %s\n", CommonSettings.Firmware);
 	//INFO("- size: %i bytes (%i Mbit)\n", size, size/1024/8);
 	//INFO("- CRC : 0x%04X\n", header.part12_boot_crc16);
@@ -496,7 +496,7 @@ bool CFIRMWARE::load()
 	//INFO("   * ARM9 GUI code address:      0x%08X\n", part3addr);
 	//INFO("\n");
 	//INFO("   * ARM7 boot code address:     0x%08X\n", part2addr);
-//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
+	//INFO("   * ARM7 boot code RAM address: 0x%08X\n", ARM7bootAddr);
 	//INFO("   * ARM7 WiFi code address:     0x%08X\n", part4addr);
 	//INFO("   * ARM7 unpacked size:         0x%08X (%i) bytes\n", size7, size7);
 	//INFO("\n");
@@ -858,10 +858,10 @@ void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config) {
 	}
 	fw_config->message_len = str_length;
 
-	/* default to English */
+	// default to English
 	fw_config->language = 1;
 
-	/* default touchscreen calibration */
+	// default touchscreen calibration 
 	fw_config->touch_cal[0].adc_x = 0x200;
 	fw_config->touch_cal[0].adc_y = 0x200;
 	fw_config->touch_cal[0].screen_x = 0x20 + 1; // calibration screen coords are 1-based,

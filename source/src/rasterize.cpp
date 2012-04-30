@@ -156,15 +156,15 @@ static FragmentColor screenColor[256*192];
 static FragmentColor toonTable[32];
 static u8 fogTable[32768];
 
-FORCEINLINE int iround(float f) {
-	return (int)f; //lol
+static FORCEINLINE int iround(float f) {
+	return (int)f;
 }
 
 
 typedef int fixed28_4;
 
 // handle floor divides and mods correctly 
-FORCEINLINE void FloorDivMod(long Numerator, long Denominator, long &Floor, long &Mod, bool& failure)
+static FORCEINLINE void FloorDivMod(long Numerator, long Denominator, long &Floor, long &Mod, bool& failure)
 {
 	//These must be caused by invalid or degenerate shapes.. not sure yet.
 	//check it out in the mario face intro of SM64
@@ -195,10 +195,10 @@ FORCEINLINE void FloorDivMod(long Numerator, long Denominator, long &Floor, long
 	}
 }
 
-FORCEINLINE fixed28_4 FloatToFixed28_4( float Value ) {
+static FORCEINLINE fixed28_4 FloatToFixed28_4( float Value ) {
 	return (fixed28_4)(Value * 16);
 }
-FORCEINLINE float Fixed28_4ToFloat( fixed28_4 Value ) {
+static FORCEINLINE float Fixed28_4ToFloat( fixed28_4 Value ) {
 	return Value / 16.0f;
 }
 //inline fixed16_16 FloatToFixed16_16( float Value ) {
@@ -207,11 +207,11 @@ FORCEINLINE float Fixed28_4ToFloat( fixed28_4 Value ) {
 //inline float Fixed16_16ToFloat( fixed16_16 Value ) {
 //	return Value / 65536.0;
 //}
-FORCEINLINE fixed28_4 Fixed28_4Mul( fixed28_4 A, fixed28_4 B ) {
+static FORCEINLINE fixed28_4 Fixed28_4Mul( fixed28_4 A, fixed28_4 B ) {
 	// could make this asm to prevent overflow
 	return (A * B) / 16;	// 28.4 * 28.4 = 24.8 / 16 = 28.4
 }
-FORCEINLINE int Ceil28_4( fixed28_4 Value ) {
+static FORCEINLINE int Ceil28_4( fixed28_4 Value ) {
 	int ReturnValue;
 	int Numerator = Value - 1 + 16;
 	if(Numerator >= 0) {
@@ -336,6 +336,51 @@ static FORCEINLINE void alphaBlend(FragmentColor & dst, const FragmentColor & sr
 	}
 }
 
+struct PolyAttr
+{
+	u32 val;
+
+	bool decalMode;
+	bool translucentDepthWrite;
+	bool drawBackPlaneIntersectingPolys;
+	u8 polyid;
+	u8 alpha;
+	bool backfacing;
+	bool translucent;
+	u8 fogged;
+
+	bool isVisible(bool backfacing) 
+	{
+		//this was added after adding multi-bit stencil buffer
+		//it seems that we also need to prevent drawing back faces of shadow polys for rendering
+		u32 mode = (val>>4)&0x3;
+		if(mode==3 && polyid !=0) return !backfacing;
+		//another reasonable possibility is that we should be forcing back faces to draw (mariokart doesnt use them)
+		//and then only using a single bit buffer (but a cursory test of this doesnt actually work)
+		//
+		//this code needs to be here for shadows in wizard of oz to work.
+
+		switch((val>>6)&3) {
+			case 0: return false;
+			case 1: return backfacing;
+			case 2: return !backfacing;
+			case 3: return true;
+			default: assert(false); return false;
+		}
+	}
+
+	void setup(u32 polyAttr)
+	{
+		val = polyAttr;
+		decalMode = BIT14(val);
+		translucentDepthWrite = BIT11(val);
+		polyid = (polyAttr>>24)&0x3F;
+		alpha = (polyAttr>>16)&0x1F;
+		drawBackPlaneIntersectingPolys = BIT12(val);
+		fogged = BIT15(val);
+	}
+
+};
 
 
 class RasterizerUnit
@@ -355,49 +400,7 @@ public:
 	
 	VERT* verts[MAX_CLIPPED_VERTS];
 
-	struct PolyAttr
-	{
-		u32 val;
-
-		bool decalMode;
-		bool translucentDepthWrite;
-		bool drawBackPlaneIntersectingPolys;
-		u8 polyid;
-		u8 alpha;
-		bool backfacing;
-		bool translucent;
-		u8 fogged;
-
-		bool isVisible(bool backfacing) 
-		{
-			//this was added after adding multi-bit stencil buffer
-			//it seems that we also need to prevent drawing back faces of shadow polys for rendering
-			u32 mode = (val>>4)&0x3;
-			if(mode==3 && polyid !=0) return !backfacing;
-			//another reasonable possibility is that we should be forcing back faces to draw (mariokart doesnt use them)
-			//and then only using a single bit buffer (but a cursory test of this doesnt actually work)
-
-			switch((val>>6)&3) {
-				case 0: return false;
-				case 1: return backfacing;
-				case 2: return !backfacing;
-				case 3: return true;
-				default: assert(false); return false;
-			}
-		}
-
-		void setup(u32 polyAttr)
-		{
-			val = polyAttr;
-			decalMode = BIT14(val);
-			translucentDepthWrite = BIT11(val);
-			polyid = (polyAttr>>24)&0x3F;
-			alpha = (polyAttr>>16)&0x1F;
-			drawBackPlaneIntersectingPolys = BIT12(val);
-			fogged = BIT15(val);
-		}
-
-	} polyAttr;
+	PolyAttr polyAttr;
 
 
 	struct Sampler
@@ -405,7 +408,7 @@ public:
 		Sampler() {}
 
 		RasterizerUnit* unit;
-			
+		
 		int width, height;
 		int wmask, hmask;
 		int wrap;
@@ -518,17 +521,6 @@ public:
 				dst.b = modulate_table[texColor.b][materialColor.b];
 				dst.a = modulate_table[GFX3D_5TO6(texColor.a)][GFX3D_5TO6(materialColor.a)]>>1;
 				//dst.color.components.a = 31;
-				//#ifdef _MSC_VER
-				//if(GetAsyncKeyState(VK_SHIFT)) {
-				//	//debugging tricks
-				//	dst = materialColor;
-				//	if(GetAsyncKeyState(VK_TAB)) {
-				//		u8 alpha = dst.a;
-				//		dst.color = polynum*8+8;
-				//		dst.a = alpha;
-				//	}
-				//}
-				//#endif
 				break;
 			case 1: //decal
 				u = invu*w;
@@ -1356,7 +1348,7 @@ static void SoftRastRender()
 		VERT* verts = &clippedPoly.clipVerts[0];
 
 
-		RasterizerUnit::PolyAttr polyAttr;
+		PolyAttr polyAttr;
 		polyAttr.setup(poly->polyAttr);
 
 		//HACK: backface culling

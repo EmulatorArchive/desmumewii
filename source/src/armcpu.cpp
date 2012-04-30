@@ -1,4 +1,5 @@
 /*  Copyright (C) 2006 yopyop
+	Copyright (C) 2009-2011 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -17,6 +18,7 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -140,23 +142,22 @@ remove_post_exec_fn( void *instance) {
 #endif
 
 #ifdef GDB_STUB
-static u32
-read_cpu_reg( void *instance, u32 reg_num) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-  u32 reg_value = 0;
-
-  if ( reg_num <= 14) {
-    reg_value = armcpu->R[reg_num];
-  }
-  else if ( reg_num == 15) {
-    reg_value = armcpu->next_instruction;
-  }
-  else if ( reg_num == 16) {
-    /* CPSR */
-    reg_value = armcpu->CPSR.val;
-  }
-
-  return reg_value;
+static u32 read_cpu_reg( void *instance, u32 reg_num) {
+	armcpu_t *armcpu = (armcpu_t *)instance;
+	u32 reg_value = 0;
+	
+	if ( reg_num <= 14) {
+		reg_value = armcpu->R[reg_num];
+	}
+	else if ( reg_num == 15) {
+		reg_value = armcpu->next_instruction;
+	}
+	else if ( reg_num == 16) {
+		//CPSR
+		reg_value = armcpu->CPSR.val;
+	}
+	
+	return reg_value;
 }
 
 static void
@@ -213,13 +214,13 @@ int armcpu_new( armcpu_t *armcpu, u32 id)
 void armcpu_t::changeCPSR()
 {
 	//but all it does is give them a chance to unleash by forcing an immediate reschedule
+	//TODO - we could actually set CPSR through here and look for a change in the I bit
+	//that would be a little optimization as well as a safety measure if we prevented setting CPSR directly
 	NDS_Reschedule();
 }
 
 void armcpu_init(armcpu_t *armcpu, u32 adr)
 {
-   u32 i;
-
 	armcpu->LDTBit = (armcpu->proc_ID==0); //Si ARM9 utiliser le syte v5 pour le load
 	armcpu->intVector = 0xFFFF0000 * (armcpu->proc_ID==0);
 	armcpu->waitIRQ = FALSE;
@@ -231,11 +232,11 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 
 	if(armcpu->coproc[15]) free(armcpu->coproc[15]);
 	
-   for(i = 0; i < 15; ++i)
+   for(int i = 0; i < 15; ++i)
 	{
 		armcpu->R[i] = 0;
 		armcpu->coproc[i] = NULL;
-   }
+	}
 	
 	armcpu->CPSR.val = armcpu->SPSR.val = SYS;
 	

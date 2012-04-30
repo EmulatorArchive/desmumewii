@@ -46,24 +46,24 @@
 #define MC_SIZE_16MBITS                 0x200000
 #define MC_SIZE_64MBITS                 0x800000
 
-typedef struct
+struct memory_chip_t
 {
-	u8 com;	/* persistent command actually handled */
-        u32 addr;        /* current address for reading/writing */
-        u8 addr_shift;   /* shift for address (since addresses are transfered by 3 bytes units) */
-        u8 addr_size;    /* size of addr when writing/reading */
+	u8 com;	// persistent command actually handled
+	u32 addr;        // current address for reading/writing
+	u8 addr_shift;   // shift for address (since addresses are transfered by 3 bytes units)
+	u8 addr_size;    // size of addr when writing/reading
+
+	BOOL write_enable;	// is write enabled?
 	
-	BOOL write_enable;	/* is write enabled ? */
-	
-        u8 *data;       /* memory data */
-        u32 size;       /* memory size */
-	BOOL writeable_buffer;	/* is "data" writeable ? */
-        int type; /* type of Memory */
-        char *filename;
-        FILE *fp;
-        u8 autodetectbuf[32768];
-        int autodetectsize;
-} memory_chip_t;
+	u8 *data;       // memory data
+	u32 size;       // memory size
+	BOOL writeable_buffer;	// is "data" writeable?
+	int type; // type of Memory
+	char *filename;
+	FILE *fp;
+	u8 autodetectbuf[32768];
+	int autodetectsize;
+};
 
 //the new backup system by zeromus
 class BackupDevice
@@ -121,7 +121,7 @@ private:
 	u32 com;	//persistent command actually handled
 	u32 addr_size, addr_counter;
 	u32 addr;
-	bool isMovieMode;
+	//bool isMovieMode;
 
 	std::vector<u8> data;
 	std::vector<u8> data_autodetect;

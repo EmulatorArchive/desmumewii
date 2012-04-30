@@ -1605,10 +1605,6 @@ bool nds_loadstate(EMUFILE* is, int size)
 	return temp;
 }
 
-//#define LOG_ARM9
-//#define LOG_ARM7
-//static bool dolog = true;
-
 FORCEINLINE void arm9log()
 {
 #ifdef LOG_ARM9
@@ -1631,7 +1627,7 @@ FORCEINLINE void arm9log()
 
 FORCEINLINE void arm7log()
 {
-	#ifdef LOG_ARM7
+#ifdef LOG_ARM7
 	if(dolog)
 	{
 		char dasmbuf[4096];
@@ -1646,7 +1642,7 @@ FORCEINLINE void arm7log()
 			NDS_ARM7.R[0],  NDS_ARM7.R[1],  NDS_ARM7.R[2],  NDS_ARM7.R[3],  NDS_ARM7.R[4],  NDS_ARM7.R[5],  NDS_ARM7.R[6],  NDS_ARM7.R[7], 
 			NDS_ARM7.R[8],  NDS_ARM7.R[9],  NDS_ARM7.R[10],  NDS_ARM7.R[11],  NDS_ARM7.R[12],  NDS_ARM7.R[13],  NDS_ARM7.R[14],  NDS_ARM7.R[15]);
 	}
-	#endif
+#endif
 }
 
 //these have not been tuned very well yet.
@@ -1718,11 +1714,6 @@ void NDS_exec(s32 nb)
 	//TODO - singlestep is broken
 
 	LagFrameFlag=1;
-	
-#ifdef _MOVIETIME_
-	if((currFrameCounter&63) == 0)
-		MMU_new.backupDevice.lazy_flush();
-#endif
 
 	sequencer.nds_vblankEnded = false;
 
@@ -1747,7 +1738,7 @@ void NDS_exec(s32 nb)
 
 			//break out once per frame
 			if(sequencer.nds_vblankEnded) break;
-			//it should be benign to execute execHardware in the next frame,
+			//it should be begin to execute execHardware in the next frame,
 			//since there won't be anything for it to do (everything should be scheduled in the future)
 
 			execHardware_interrupts();
@@ -1760,6 +1751,7 @@ void NDS_exec(s32 nb)
 
 			sequencer.reschedule = false;
 
+			//cast these down to 32bits so that things run faster on 32bit procs
 			u64 nds_timer_base = nds_timer;
 			s32 arm9 = (s32)(nds_arm9_timer-nds_timer);
 			s32 arm7 = (s32)(nds_arm7_timer-nds_timer);
@@ -1798,9 +1790,7 @@ void NDS_exec(s32 nb)
 		lastLag = lagframecounter;
 		lagframecounter = 0;
 	}
-#ifdef _MOVIETIME_
-	currFrameCounter++;
-#endif	
+
 //	cheatsProcess();
 }
 
@@ -1834,12 +1824,11 @@ void execHardware_interrupts()
 
 static void resetUserInput();
 
-bool _HACK_DONT_STOPMOVIE = false;
 void NDS_Reset()
 {
-	u32 src;
-	u32 dst;
-	FILE* inf = 0;
+	u32 src = 0;
+	u32 dst = 0;
+	FILE* inf = NULL;
 	NDS_header * header = NDS_getROMHeader();
 	bool fw_success = false;
 
@@ -1851,22 +1840,10 @@ void NDS_Reset()
 	nds_timer = 0;
 	nds_arm9_timer = 0;
 	nds_arm7_timer = 0;
-#ifdef _MOVIETIME_
-
-	if(movieMode != MOVIEMODE_INACTIVE && !_HACK_DONT_STOPMOVIE)
-		movie_reset_command = true;
-
-	if(movieMode == MOVIEMODE_INACTIVE) {
-		currFrameCounter = 0;
-#endif		
-		lagframecounter = 0;
-		LagFrameFlag = 0;
-		lastLag = 0;
-		TotalLagFrames = 0;
-
-#ifdef _MOVIETIME_
-	}
-#endif	
+	lagframecounter = 0;
+	LagFrameFlag = 0;
+	lastLag = 0;
+	TotalLagFrames = 0;
 
 	//spu must reset early on, since it will crash due to keeping a pointer into MMU memory for the sample pointers. yuck!
 	SPU_Reset();
@@ -2379,13 +2356,6 @@ void NDS_endProcessingInput()
 	// use the final input for a few things right away
 	NDS_applyFinalInput();
 }
-
-
-
-
-
-
-
 
 static void NDS_applyFinalInput()
 {

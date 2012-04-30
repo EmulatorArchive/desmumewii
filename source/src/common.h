@@ -28,7 +28,7 @@
 
 extern const u8	logo_data[156];
 
-#if defined(WIN32) && !defined(_XBOX)
+#if defined(WIN32)
 
 	#include <winsock2.h>
 	#include <windows.h>

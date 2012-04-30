@@ -299,10 +299,8 @@ static bool cflash_build_fat( void) {
 	int i,j,k,l,
 		clust,numClusters,
 		clusterNum2,rootCluster;
-	int fileLevel;
 
 	numFiles  = 0;
-	fileLevel = -1;
 	maxLevel  = -1;
 	
 	sRomPath = "sd:/DS/SAVES/";

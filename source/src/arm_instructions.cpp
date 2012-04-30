@@ -23,6 +23,10 @@
 // ARM core TODO:
 // - Check all the LDM/STM opcodes: quirks when Rb included in Rlist; opcodes
 //    operating on user registers (LDMXX2/STMXX2)
+// - Force User mode memory access for LDRx/STRx opcodes with bit24=0 and bit21=1
+//    (has to be done at memory side; once the PU is emulated well enough)
+// - Check LDMxx2/STMxx2 (those opcodes that act on User mode registers instead 
+//    of current ones)
 
 #include "cp15.h"
 #include "debug.h"

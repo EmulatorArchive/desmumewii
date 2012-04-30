@@ -90,59 +90,11 @@ SFORMAT SF_RTC[]={
 
 static const u8 kDefaultCmdBitsSize[8] = {8, 8, 56, 24, 0, 24, 8, 8};
 
-#define toBCD(x) ((x / 10) << 4) | (x % 10);
-
-
-#ifdef _MOVIETIME_
-
-
-struct movietime {
-
-	int sec;
-	int minute;
-	int hour;
-	int monthday;
-	int month;
-	int year;
-	int weekday;
-};
-
-struct movietime movie;
-
-bool moviemode=false;
-
-void InitMovieTime(void)
+static inline u8 toBCD(u8 x)
 {
-	movie.year=9;
-	movie.month=1;
-	movie.monthday=1;
-	movie.weekday=4;
-}	
-
-static void MovieTime(void) {
-
-	//now, you might think it is silly to go through all these conniptions
-	//when we could just assume that there are 60fps and base the seconds on frameCounter/60
-	//but, we were imagining that one day we might need more precision
-
-	const u32 arm9rate_unitsperframe = 560190<<1;
-	const u32 arm9rate_unitspersecond = (u32)(arm9rate_unitsperframe * 59.8261);
-	const u64 noon = (u64)arm9rate_unitspersecond * 60 * 60 * 12;
-	           
-	u64 frameCycles = (u64)arm9rate_unitsperframe * currFrameCounter;
-	u64 totalcycles = frameCycles + noon;
-	u64 totalseconds=totalcycles/arm9rate_unitspersecond;
-
-	movie.sec=(int)(totalseconds % 60);
-	movie.minute=(int)(totalseconds/60);
-	movie.hour=movie.minute/60;
-
-	//convert to sane numbers
-	movie.minute=movie.minute % 60;
-	movie.hour=movie.hour % 24;
+	return ((x / 10) << 4) | (x % 10);
 }
 
-#endif
 
 
 static void rtcRecv()
@@ -169,34 +121,15 @@ static void rtcRecv()
 				struct tm *tm_local= localtime(&tm);
 				tm_local->tm_year %= 100;
 				tm_local->tm_mon++;
-#ifdef _MOVIETIME_
-				if(movieMode != MOVIEMODE_INACTIVE) {
-
-					MovieTime();
-					
-					rtc.data[0]=toBCD(movie.year);
-					rtc.data[1]=toBCD(movie.month);
-					rtc.data[2]=toBCD(movie.monthday);
-					rtc.data[3]=(movie.weekday + 6) & 7;
-					if (!(rtc.regStatus1 & 0x02)) movie.hour %= 12;
-					rtc.data[4] = ((movie.hour < 12) ? 0x00 : 0x40) | toBCD(movie.hour);		
-					rtc.data[5]=toBCD(movie.minute);
-					rtc.data[6]=toBCD(movie.sec);
-					break;
-				}
-				else 
-#endif
-				{
-					rtc.data[0] = toBCD(tm_local->tm_year);
-					rtc.data[1] = toBCD(tm_local->tm_mon);
-					rtc.data[2] = toBCD(tm_local->tm_mday);
-					rtc.data[3] =  (tm_local->tm_wday + 6) & 7;
-					if (!(rtc.regStatus1 & 0x02)) tm_local->tm_hour %= 12;
-					rtc.data[4] = ((tm_local->tm_hour < 12) ? 0x00 : 0x40) | toBCD(tm_local->tm_hour);
-					rtc.data[5] =  toBCD(tm_local->tm_min);
-					rtc.data[6] =  toBCD(tm_local->tm_sec);
-					break;
-				}
+				rtc.data[0] = toBCD(tm_local->tm_year);
+				rtc.data[1] = toBCD(tm_local->tm_mon);
+				rtc.data[2] = toBCD(tm_local->tm_mday);
+				rtc.data[3] =  (tm_local->tm_wday + 6) & 7;
+				if (!(rtc.regStatus1 & 0x02)) tm_local->tm_hour %= 12;
+				rtc.data[4] = ((tm_local->tm_hour < 12) ? 0x00 : 0x40) | toBCD(tm_local->tm_hour);
+				rtc.data[5] =  toBCD(tm_local->tm_min);
+				rtc.data[6] =  toBCD(tm_local->tm_sec);
+				break;
 			}
 		case 3:				// time
 			{
@@ -204,26 +137,11 @@ static void rtcRecv()
 				time_t	tm;
 				time(&tm);
 				struct tm *tm_local= localtime(&tm);
-#ifdef _MOVIETIME_
-				if(movieMode != MOVIEMODE_INACTIVE) {
-
-					MovieTime();
-
-					if (!(rtc.regStatus1 & 0x02)) movie.hour %= 12;
-					rtc.data[0] = ((movie.hour < 12) ? 0x00 : 0x40) | toBCD(movie.hour);
-					rtc.data[1] =  toBCD(movie.minute);
-					rtc.data[2] =  toBCD(movie.sec);
-				}
-				else
-#endif 
-				{
-
-					if (!(rtc.regStatus1 & 0x02)) tm_local->tm_hour %= 12;
-					rtc.data[0] = ((tm_local->tm_hour < 12) ? 0x00 : 0x40) | toBCD(tm_local->tm_hour);
-					rtc.data[1] =  toBCD(tm_local->tm_min);
-					rtc.data[2] =  toBCD(tm_local->tm_sec);
-					break;
-				}
+				if (!(rtc.regStatus1 & 0x02)) tm_local->tm_hour %= 12;
+				rtc.data[0] = ((tm_local->tm_hour < 12) ? 0x00 : 0x40) | toBCD(tm_local->tm_hour);
+				rtc.data[1] =  toBCD(tm_local->tm_min);
+				rtc.data[2] =  toBCD(tm_local->tm_sec);
+				break;
 			}
 		case 4:				// freq/alarm 1
 			/*if (cmdBitsSize[0x04] == 8)
@@ -248,7 +166,7 @@ static void rtcRecv()
 
 static void rtcSend()
 {
-	//INFO("RTC write 0x%02X\n", (rtc.cmd >> 1));
+	//INFO("RTC write command 0x%02X\n", (rtc.cmd >> 1));
 	switch (rtc.cmd >> 1)
 	{
 		case 0:				// status register 1

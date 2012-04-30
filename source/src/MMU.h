@@ -23,6 +23,7 @@
 #ifndef MMU_H
 #define MMU_H
 
+#include <malloc.h>
 #include "FIFO.h"
 #include "mem.h"
 #include "registers.h"
@@ -75,7 +76,9 @@ enum EDMADestinationUpdate
 	EDMADestinationUpdate_IncrementReload = 3,
 };
 
-
+//TODO
+//n.b. this may be a bad idea, for complex registers like the dma control register.
+//we need to know exactly what part was written to, instead of assuming all 32bits were written.
 class TRegister_32
 {
 public:
@@ -85,7 +88,6 @@ public:
 		if(size==32) write32(val);
 		else {
 			const u32 offset = adr&3;
-			//const u32 baseaddr = adr&~offset;
 			if(size==8) {
 				printf("WARNING! 8BIT DMA ACCESS\n"); 
 				u32 mask = 0xFF<<(offset<<3);
@@ -103,7 +105,6 @@ public:
 		if(size==32) return read32();
 		else {
 			const u32 offset = adr&3;
-			//const u32 baseaddr = adr&~offset;
 			if(size==8) { printf("WARNING! 8BIT DMA ACCESS\n"); return (read32()>>(offset<<3))&0xFF; }
 			else return (read32()>>(offset<<3))&0xFFFF;
 		}
@@ -251,108 +252,6 @@ typedef struct
 	
 } nds_dscard;
 
-/*struct MMU_struct 
-{
-	//ARM9 mem
-	u8 ARM9_ITCM[0x8000];
-    u8 ARM9_DTCM[0x4000];
-    u8 MAIN_MEM[0x800000]; //this has been expanded to 8MB to support debug consoles
-    u8 ARM9_REG[0x1000000];
-    u8 ARM9_BIOS[0x8000];
-    u8 ARM9_VMEM[0x800];
-	
-	#include "PACKED.h"
-	struct {
-		u8 ARM9_LCD[0xA4000];
-		//an extra 128KB for blank memory, directly after arm9_lcd, so that
-		//we can easily map things to the end of arm9_lcd to represent 
-		//an unmapped state
-		u8 blank_memory[0x20000];  
-	};
-	#include "PACKED_END.h"
-
-    u8 ARM9_OAM[0x800];
-
-	u8* ExtPal[2][4];
-	u8* ObjExtPal[2][2];
-	
-	struct TextureInfo {
-		u8* texPalSlot[6];
-		u8* textureSlotAddr[4];
-	} texInfo;
-
-	//ARM7 mem
-	u8 ARM7_BIOS[0x4000];
-	u8 ARM7_ERAM[0x10000];
-	u8 ARM7_REG[0x10000];
-	u8 ARM7_WIRAM[0x10000];
-
-	// VRAM mapping
-	u8 VRAM_MAP[4][32];
-	u32 LCD_VRAM_ADDR[10];
-	u8 LCDCenable[10];
-
-	//Shared ram
-	u8 SWIRAM[0x8000];
-
-	//Card rom & ram
-	u8 * CART_ROM;
-	u32 CART_ROM_MASK;
-	u8 CART_RAM[0x10000];
-
-	//Unused ram
-	u8 UNUSED_RAM[4];
-
-	//this is here so that we can trap glitchy emulator code
-	//which is accessing offsets 5,6,7 of unused ram due to unaligned accesses
-	//(also since the emulator doesn't prevent unaligned accesses)
-	u8 MORE_UNUSED_RAM[4];
-
-	static u8 * MMU_MEM[2][256];
-	static u32 MMU_MASK[2][256];
-
-	u8 ARM9_RW_MODE;
-
-	u32 DTCMRegion;
-	u32 ITCMRegion;
-
-	u16 timer[2][4];
-	s32 timerMODE[2][4];
-	u32 timerON[2][4];
-	u32 timerRUN[2][4];
-	u16 timerReload[2][4];
-
-	u32 reg_IME[2];
-	u32 reg_IE[2];
-	u32 reg_IF[2];
-
-	BOOL divRunning;
-	s64 divResult;
-	s64 divMod;
-	u32 divCnt;
-	u64 divCycles;
-
-	BOOL sqrtRunning;
-	u32 sqrtResult;
-	u32 sqrtCnt;
-	u64 sqrtCycles;
-
-	u16 SPI_CNT;
-	u16 SPI_CMD;
-	u16 AUX_SPI_CNT;
-	u16 AUX_SPI_CMD;
-
-	u64 gfx3dCycles;
-
-	u8 powerMan_CntReg;
-	BOOL powerMan_CntRegWritten;
-	u8 powerMan_Reg[4];
-
-	memory_chip_t fw;
-
-	nds_dscard dscard[2];
-};*/
-#include <malloc.h>
 struct MMU_struct 
 {
 	//ARM9 mem

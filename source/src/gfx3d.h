@@ -82,14 +82,14 @@
 //produce a 6665 32bit color from a ds RGB15 plus an 5bit alpha
 inline u32 RGB15TO6665(u16 col, u8 alpha5)
 {
-        u32 ret = alpha5<<24;
-        u16 r = (col&0x1F)>>0;
-        u16 g = (col&0x3E0)>>5;
-        u16 b = (col&0x7C00)>>10;
-        if(r) ret |= ((r<<1)+1);
-        if(g) ret |= ((g<<1)+1)<<8;
-        if(b) ret |= ((b<<1)+1)<<16;
-        return ret;
+	u32 ret = alpha5<<24;
+	u16 r = (col&0x1F)>>0;
+	u16 g = (col&0x3E0)>>5;
+	u16 b = (col&0x7C00)>>10;
+	if(r) ret |= ((r<<1)+1);
+	if(g) ret |= ((g<<1)+1)<<8;
+	if(b) ret |= ((b<<1)+1)<<16;
+	return ret;
 }
 
 //produce a 24bpp color from a ds RGB15, using a table
@@ -111,11 +111,11 @@ inline u32 RGB15TO6665(u16 col, u8 alpha5)
 
 inline u32 gfx3d_extendDepth_15_to_24(u32 depth)
 {
-        //formula from http://nocash.emubase.de/gbatek.htm#ds3drearplane
-        //return (depth*0x200)+((depth+1)>>15)*0x01FF;
-        //I think this might be slightly faster
-        if(depth==0x7FFF) return 0x00FFFFFF;
-        else return depth<<9;
+	//formula from http://nocash.emubase.de/gbatek.htm#ds3drearplane
+	//return (depth*0x200)+((depth+1)>>15)*0x01FF;
+	//I think this might be slightly faster
+	if(depth==0x7FFF) return 0x00FFFFFF;
+	else return depth<<9;
 }
 
 #define TEXMODE_NONE 0
@@ -134,151 +134,127 @@ void gfx3d_reset();
 #define OSREAD(x) is->fread((char*)&(x),sizeof((x)));
 
 struct POLY {
-        int type; //tri or quad
-        u16 vertIndexes[4]; //up to four verts can be referenced by this poly
-        u32 polyAttr, texParam, texPalette; //the hardware rendering params
-        u32 viewport;
-        float miny, maxy;
-		float projMatrix[16]; // current 3D projection mtx
-		float mvMatrix[16]; // current 3D modelview mtx
+	int type; //tri or quad
+	u16 vertIndexes[4]; //up to four verts can be referenced by this poly
+	u32 polyAttr, texParam, texPalette; //the hardware rendering params
+	u32 viewport;
+	float miny, maxy;
+	float projMatrix[16]; // current 3D projection mtx
+	float mvMatrix[16]; // current 3D modelview mtx
+	
+	void setVertIndexes(int a, int b, int c, int d=-1)
+	{
+		vertIndexes[0] = a;
+		vertIndexes[1] = b;
+		vertIndexes[2] = c;
+		if(d != -1) { vertIndexes[3] = d; type = 4; }
+		else type = 3;
+	}
 
-        void setVertIndexes(int a, int b, int c, int d=-1)
-        {
-                vertIndexes[0] = a;
-                vertIndexes[1] = b;
-                vertIndexes[2] = c;
-                if(d != -1) { vertIndexes[3] = d; type = 4; }
-                else type = 3;
-        }
+	bool isTranslucent()
+	{
+		//alpha != 31 -> translucent
+		//except for alpha 0 which is wireframe (unless it has a translucent tex)
+		if((polyAttr&0x001F0000) != 0x001F0000 && (polyAttr&0x001F0000) != 0)
+			return true;
+		int texFormat = (texParam>>26)&7;
 
-        bool isTranslucent()
-        {
-                //alpha != 31 -> translucent
-                //except for alpha 0 which is wireframe (unless it has a translucent tex)
-                if((polyAttr&0x001F0000) != 0x001F0000 && (polyAttr&0x001F0000) != 0)
-                        return true;
-                int texFormat = (texParam>>26)&7;
+		//a5i3 or a3i5 -> translucent
+		if(texFormat==1 || texFormat==6)
+			return true;
+		
+		return false;
+	}
 
-                //a5i3 or a3i5 -> translucent
-                if(texFormat==1 || texFormat==6)
-                        return true;
-               
-                return false;
-        }
+	int getAlpha() { return (polyAttr>>16)&0x1F; }
 
-        int getAlpha() { return (polyAttr>>16)&0x1F; }
+	void save(EMUFILE* os)
+	{
+		OSWRITE(type);
+		OSWRITE(vertIndexes[0]); OSWRITE(vertIndexes[1]); OSWRITE(vertIndexes[2]); OSWRITE(vertIndexes[3]);
+		OSWRITE(polyAttr); OSWRITE(texParam); OSWRITE(texPalette);
+		OSWRITE(viewport);
+		OSWRITE(miny);
+		OSWRITE(maxy);
+	}
 
-        void save(EMUFILE* os)
-        {
-                OSWRITE(type);
-                OSWRITE(vertIndexes[0]); OSWRITE(vertIndexes[1]); OSWRITE(vertIndexes[2]); OSWRITE(vertIndexes[3]);
-                OSWRITE(polyAttr); OSWRITE(texParam); OSWRITE(texPalette);
-                OSWRITE(viewport);
-                OSWRITE(miny);
-                OSWRITE(maxy);
-        }
-
-        void load(EMUFILE* is)
-        {
-                OSREAD(type);
-                OSREAD(vertIndexes[0]); OSREAD(vertIndexes[1]); OSREAD(vertIndexes[2]); OSREAD(vertIndexes[3]);
-                OSREAD(polyAttr); OSREAD(texParam); OSREAD(texPalette);
-                OSREAD(viewport);
-                OSREAD(miny);
-                OSREAD(maxy);
-        }
+	void load(EMUFILE* is)
+	{
+		OSREAD(type);
+		OSREAD(vertIndexes[0]); OSREAD(vertIndexes[1]); OSREAD(vertIndexes[2]); OSREAD(vertIndexes[3]);
+		OSREAD(polyAttr); OSREAD(texParam); OSREAD(texPalette);
+		OSREAD(viewport);
+		OSREAD(miny);
+		OSREAD(maxy);
+	}
 };
 
 #define POLYLIST_SIZE 40000 //100000
 //#define POLYLIST_SIZE 2048
 struct POLYLIST {
-/*      
-        POLYLIST()  //: //list(0), count(0)
-        {
-                //list = new POLY[POLYLIST_SIZE];
-                //if (!list) exit(0);
-        }
-        ~POLYLIST()
-        {
-                //delete [] list;
-                //list = 0;
-        }
-*/
-        POLY list[POLYLIST_SIZE];
-        long count;
+	POLY list[POLYLIST_SIZE];
+	long count;
 };
 
-
 struct VERT {
-        union {
-                float coord[4];
-                struct {
-                        float x,y,z,w;
-                };
-        };
-        union {
-                float texcoord[2];
-                struct {
-                        float u,v;
-                };
-        };
-        void set_coord(float x, float y, float z, float w) {
-                this->x = x;
-                this->y = y;
-                this->z = z;
-                this->w = w;
-        }
-        void set_coord(float* coords) {
-                x = coords[0];
-                y = coords[1];
-                z = coords[2];
-                w = coords[3];
-        }
-        u8 color[3];
-        float fcolor[3];
-        void color_to_float() {
-                fcolor[0] = color[0];
-                fcolor[1] = color[1];
-                fcolor[2] = color[2];
-        }
-        void save(EMUFILE* os)
-        {
-                OSWRITE(x); OSWRITE(y); OSWRITE(z); OSWRITE(w);
-                OSWRITE(u); OSWRITE(v);
-                OSWRITE(color[0]); OSWRITE(color[1]); OSWRITE(color[2]);
-                OSWRITE(fcolor[0]); OSWRITE(fcolor[1]); OSWRITE(fcolor[2]);
-        }
-        void load(EMUFILE* is)
-        {
-                OSREAD(x); OSREAD(y); OSREAD(z); OSREAD(w);
-                OSREAD(u); OSREAD(v);
-                OSREAD(color[0]); OSREAD(color[1]); OSREAD(color[2]);
-                OSREAD(fcolor[0]); OSREAD(fcolor[1]); OSREAD(fcolor[2]);
-        }
+	union {
+		float coord[4];
+		struct {
+			float x,y,z,w;
+		};
+	};
+	union {
+		float texcoord[2];
+		struct {
+			float u,v;
+		};
+	};
+	void set_coord(float x, float y, float z, float w) {
+		this->x = x;
+		this->y = y;
+		this->z = z;
+		this->w = w;
+	}
+	void set_coord(float* coords) {
+		x = coords[0];
+		y = coords[1];
+		z = coords[2];
+		w = coords[3];
+	}
+	u8 color[3];
+	float fcolor[3];
+	void color_to_float() {
+		fcolor[0] = color[0];
+		fcolor[1] = color[1];
+		fcolor[2] = color[2];
+	}
+	void save(EMUFILE* os)
+	{
+		OSWRITE(x); OSWRITE(y); OSWRITE(z); OSWRITE(w);
+		OSWRITE(u); OSWRITE(v);
+		OSWRITE(color[0]); OSWRITE(color[1]); OSWRITE(color[2]);
+		OSWRITE(fcolor[0]); OSWRITE(fcolor[1]); OSWRITE(fcolor[2]);
+	}
+	void load(EMUFILE* is)
+	{
+		OSREAD(x); OSREAD(y); OSREAD(z); OSREAD(w);
+		OSREAD(u); OSREAD(v);
+		OSREAD(color[0]); OSREAD(color[1]); OSREAD(color[2]);
+		OSREAD(fcolor[0]); OSREAD(fcolor[1]); OSREAD(fcolor[2]);
+	}
 };
 
 #define VERTLIST_SIZE 100000//400000
 //#define VERTLIST_SIZE 10000
 struct VERTLIST {
-/*      VERTLIST() //: list(0) , count(0)
-        {
-//              list = new VERT[VERTLIST_SIZE];
-//              if (!list) exit(0);
-        };
-        ~VERTLIST()
-        {
-//              delete [] list;
-//              list = 0;
-        };
-*/
-        VERT list[VERTLIST_SIZE];
-        long count;
+	VERT list[VERTLIST_SIZE];
+	long count;
 };
 
 
 struct VIEWPORT {
-        int x, y, width, height;
-        void decode(u32 v);
+	int x, y, width, height;
+	void decode(u32 v);
 };
 
 //ok, imagine the plane that cuts diagonally across a cube such that it clips
@@ -289,93 +265,94 @@ struct VIEWPORT {
 class GFX3D_Clipper
 {
 public:
-       
-        struct TClippedPoly
-        {
-                int type; //otherwise known as "count" of verts
-                POLY* poly;
-                VERT clipVerts[MAX_CLIPPED_VERTS];
-        };
-
-        //the entry point for poly clipping
-        void clipPoly(POLY* poly, VERT** verts);
-
-        //the output of clipping operations goes into here.
-        //be sure you init it before clipping!
-        TClippedPoly *clippedPolys;
-        int clippedPolyCounter;
+	
+	struct TClippedPoly
+	{
+		int type; //otherwise known as "count" of verts
+		POLY* poly;
+		VERT clipVerts[MAX_CLIPPED_VERTS];
+	};
+	
+	//the entry point for poly clipping
+	void clipPoly(POLY* poly, VERT** verts);
+	
+	//the output of clipping operations goes into here.
+	//be sure you init it before clipping!
+	TClippedPoly *clippedPolys;
+	int clippedPolyCounter;
 
 private:
-        TClippedPoly tempClippedPoly;
-        TClippedPoly outClippedPoly;
-        FORCEINLINE void clipSegmentVsPlane(VERT** verts, const int coord, int which);
-        FORCEINLINE void clipPolyVsPlane(const int coord, int which);
+	TClippedPoly tempClippedPoly;
+	TClippedPoly outClippedPoly;
+	FORCEINLINE void clipSegmentVsPlane(VERT** verts, const int coord, int which);
+	FORCEINLINE void clipPolyVsPlane(const int coord, int which);
 };
 
 //used to communicate state to the renderer
 struct GFX3D
 {
-        GFX3D()
-                : enableTexturing(true)
-                , enableAlphaTest(true)
-                , enableAlphaBlending(true)
-                , enableAntialiasing(false)
-                , enableEdgeMarking(false)
-                , enableClearImage(false)
-                , enableFog(false)
-                , enableFogAlphaOnly(false)
-                , fogShift(0)
-                , shading(TOON)
-                , polylist(0)
-                , vertlist(0)
-                , alphaTestRef(0)
-                , clearDepth(1)
-                , clearColor(0)
-                , fogColor(0)
-                , fogOffset(0)
-                , frameCtr(0)
-                , frameCtrRaw(0)
-        {
-                int i = ARRAY_SIZE(u16ToonTable) - 1;
-                do{
-                        u16ToonTable[i] = 0;
-                        --i;
-                }while(i >= 0);
-        }
-        BOOL enableTexturing, enableAlphaTest, enableAlphaBlending,
-                enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
-
-        u32 fogShift;
-
-        static const u32 TOON = 0;
-        static const u32 HIGHLIGHT = 1;
-        u32 shading;
-
-        POLYLIST* polylist;
-        VERTLIST* vertlist;
-        int indexlist[POLYLIST_SIZE];
-
-        BOOL wbuffer, sortmode;
-
-        u8 alphaTestRef;
-
-        u32 clearDepth;
-        u32 clearColor;
-        #include "PACKED.h"
-        struct {
-                u32 fogColor;
-                u32 pad[3]; //for savestate compatibility as of 26-jul-09
-        };
-        #include "PACKED_END.h"
-        u32 fogOffset;
-
-        //ticks every time flush() is called
-        int frameCtr;
-
-        //you can use this to track how many real frames passed, for comparing to frameCtr;
-        int frameCtrRaw;
-
-        u16 u16ToonTable[32];
+	GFX3D()
+		: enableTexturing(true)
+		, enableAlphaTest(true)
+		, enableAlphaBlending(true)
+		, enableAntialiasing(false)
+		, enableEdgeMarking(false)
+		, enableClearImage(false)
+		, enableFog(false)
+		, enableFogAlphaOnly(false)
+		, fogShift(0)
+		, shading(TOON)
+		, polylist(0)
+		, vertlist(0)
+		, alphaTestRef(0)
+		, clearDepth(1)
+		, clearColor(0)
+		, fogColor(0)
+		, fogOffset(0)
+		, frameCtr(0)
+		, frameCtrRaw(0)
+	{
+		int i = ARRAY_SIZE(u16ToonTable) - 1;
+		do{
+			u16ToonTable[i] = 0;
+			--i;
+		}while(i >= 0);
+	}
+	BOOL enableTexturing, enableAlphaTest, enableAlphaBlending,
+	        enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
+	
+	u32 fogShift;
+	
+	static const u32 TOON = 0;
+	static const u32 HIGHLIGHT = 1;
+	u32 shading;
+	
+	POLYLIST* polylist;
+	VERTLIST* vertlist;
+	int indexlist[POLYLIST_SIZE];
+	
+	BOOL wbuffer, sortmode;
+	
+	u8 alphaTestRef;
+	
+	u32 clearDepth;
+	u32 clearColor;
+	#include "PACKED.h"
+	struct {
+		u32 fogColor;
+		u32 pad[3]; //for savestate compatibility as of 26-jul-09
+	};
+	#include "PACKED_END.h"
+	u32 fogOffset;
+	
+	//ticks every time flush() is called
+	int frameCtr;
+	
+	
+	//you can use this to track how many real frames passed, for comparing to frameCtr;
+	int frameCtrRaw;
+	
+	u16 u16ToonTable[32];
 };
 extern GFX3D gfx3d;
 

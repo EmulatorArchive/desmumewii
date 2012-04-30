@@ -1,8 +1,9 @@
-/*  Copyright 2005-2006 Guillaume Duhamel
-    Copyright 2005 Theo Berkau
-    Copyright (C) 2012 DeSmuMEWii team
+/*  Copyright (C) 2005 Theo Berkau
+	Copyright (C) 2005-2006 Guillaume Duhamel
+	Copyright (C) 2010 DeSmuME team
+	Copyright (C) 2012 DeSmuMEWii team
 
-    This file is part of DeSmuMEWii
+    This file is part of DeSmuMEWii.
 
     DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
