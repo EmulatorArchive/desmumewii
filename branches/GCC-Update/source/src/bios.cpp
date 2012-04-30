@@ -260,8 +260,7 @@ TEMPLATE u32 intrWaitARM()
 	if (intrFlag)
 	{
 		intr ^= intrFlag;
-		//if (intr)
-			_MMU_write32<PROCNUM>(intrFlagAdr, intr);
+		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
 		return wait4IRQ<PROCNUM>();
 	}
 	u32 instructAddr = cpu->instruct_adr;

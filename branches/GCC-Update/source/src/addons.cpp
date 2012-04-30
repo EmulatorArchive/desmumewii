@@ -51,7 +51,7 @@ ADDONINTERFACE addonList[NDS_ADDON_COUNT] = {
 ADDONINTERFACE	addon = addonCFlash;		// default none pak
 u8				addon_type = NDS_ADDON_CFLASH;
 
-BOOL addonsInit()
+bool addonsInit()
 {
 	return addon.init();
 }
@@ -66,7 +66,7 @@ void addonsReset()
 	addon.reset();
 }
 
-BOOL addonsChangePak(u8 type)
+bool addonsChangePak(u8 type)
 {
 	printf("addonsChangePak\n");
 	if (type > NDS_ADDON_COUNT) return FALSE;

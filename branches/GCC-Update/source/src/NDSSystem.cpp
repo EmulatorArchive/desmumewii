@@ -262,7 +262,7 @@ NDS_header * NDS_getROMHeader(void)
 	memcpy(header->logo, MMU.CART_ROM + 192, 156);
 	header->logoCRC16 = T1ReadWord(MMU.CART_ROM, 348);
 	header->headerCRC16 = T1ReadWord(MMU.CART_ROM, 350);
-	memcpy(header->reserved, MMU.CART_ROM + 352, min(160, gameInfo.romsize - 352));
+	memcpy(header->reserved, MMU.CART_ROM + 352, min(160, (int)gameInfo.romsize - 352));
 
 	return header;
 } 
@@ -479,7 +479,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	ROMReader_struct	*reader;
 	int					ret;
 	int					type = ROM_NDS;
-	u32					size, mask;
+	u32					mask;
 	void				*file;
 	u8					*data;
 	char				buf[MAX_PATH];
@@ -509,7 +509,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 		return -1;
 	}
 
-	size = reader->Size(file);
+	u32 size = reader->Size(file);
 
 	if(type == ROM_DSGBA)
 	{
@@ -600,9 +600,6 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 #endif
 void NDS_FreeROM(void)
 {
-#ifdef _MOVIETIME_
-	FCEUI_StopMovie();
-#endif
 	if ((u8*)MMU.CART_ROM == (u8*)gameInfo.romdata)
 		gameInfo.romdata = NULL;
 	if (MMU.CART_ROM != MMU.UNUSED_RAM)

@@ -26,7 +26,7 @@
 #include "types.h"
 #include "debug.h"
 
-typedef struct
+struct ADDONINTERFACE
 {
 	// The name of the plugin, this name will appear in the plugins list
 	const char * name;
@@ -55,9 +55,10 @@ typedef struct
 	
 	//called when the user get info about addon pak (description)
 	void (*info)(char *info);
-} ADDONINTERFACE; 
+}; 
 
-enum {
+enum NDS_ADDON_TYPE
+{
 	NDS_ADDON_NONE,
 	NDS_ADDON_CFLASH,		// compact flash
 	NDS_ADDON_RUMBLEPAK,	// rumble pack
@@ -65,7 +66,7 @@ enum {
 	NDS_ADDON_GUITARGRIP,	// Guitar Grip
 	NDS_ADDON_EXPMEMORY,	// Memory Expansion 
 	//NDS_ADDON_EXTERNALMIC,
-	NDS_ADDON_COUNT		// use for counter addons - MUST TO BE LAST!!!
+	NDS_ADDON_COUNT		// use for counter addons - MUST BE LAST!!!
 };
 
 enum ADDON_CFLASH_MODE
@@ -84,10 +85,10 @@ extern u8 addon_type;								// current type pak
 extern char GBAgameName[MAX_PATH];					// file name for GBA game (rom)
 extern void (*FeedbackON)(BOOL enable);				// feedback on/off
 
-extern BOOL addonsInit();							// Init addons
+extern bool addonsInit();							// Init addons
 extern void addonsClose();							// Shutdown addons
 extern void addonsReset();							// Reset addon
-extern BOOL addonsChangePak(u8 type);				// change current adddon
+extern bool addonsChangePak(u8 type);				// change current adddon
 
 extern void guitarGrip_setKey(bool green, bool red, bool yellow, bool blue); // Guitar grip keys
 

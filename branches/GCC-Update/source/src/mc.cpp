@@ -96,30 +96,30 @@ void backup_setManualBackupType(int type)
 
 void mc_init(memory_chip_t *mc, int type)
 {
-        mc->com = 0;
-        mc->addr = 0;
-        mc->addr_shift = 0;
-        mc->data = NULL;
-        mc->size = 0;
-        mc->write_enable = FALSE;
-        mc->writeable_buffer = FALSE;
-        mc->type = type;
-        mc->autodetectsize = 0;
-                               
-        switch(mc->type)
-        {
-           case MC_TYPE_EEPROM1:
-              mc->addr_size = 1;
-              break;
-           case MC_TYPE_EEPROM2:
-           case MC_TYPE_FRAM:
-              mc->addr_size = 2;
-              break;
-           case MC_TYPE_FLASH:
-              mc->addr_size = 3;
-              break;
-           default: break;
-        }
+	mc->com = 0;
+	mc->addr = 0;
+	mc->addr_shift = 0;
+	mc->data = NULL;
+	mc->size = 0;
+	mc->write_enable = FALSE;
+	mc->writeable_buffer = FALSE;
+	mc->type = type;
+	mc->autodetectsize = 0;
+				   
+	switch(mc->type)
+	{
+		case MC_TYPE_EEPROM1:
+			mc->addr_size = 1;
+			break;
+		case MC_TYPE_EEPROM2:
+		case MC_TYPE_FRAM:
+			mc->addr_size = 2;
+			break;
+		case MC_TYPE_FLASH:
+			mc->addr_size = 3;
+			break;
+		default: break;
+	}
 }
 
 u8 *mc_alloc(memory_chip_t *mc, u32 size)
@@ -160,97 +160,97 @@ void fw_reset_com(memory_chip_t *mc)
 
 u8 fw_transfer(memory_chip_t *mc, u8 data)
 {
-        if(mc->com == FW_CMD_READ || mc->com == FW_CMD_PAGEWRITE) /* check if we are in a command that needs 3 bytes address */
-        {
-                if(mc->addr_shift > 0)   /* if we got a complete address */
-                {
-                        mc->addr_shift--;
-                        mc->addr |= data << (mc->addr_shift * 8); /* argument is a byte of address */
-                }
-                else    /* if we have received 3 bytes of address, proceed command */
-                {
-                        switch(mc->com)
-                        {
-                                case FW_CMD_READ:
-                                        if(mc->addr < mc->size)  /* check if we can read */
-                                        {
-                                                data = mc->data[mc->addr];       /* return byte */
-                                                mc->addr++;      /* then increment address */
-                                        }
-                                        break;
-                                       
-                                case FW_CMD_PAGEWRITE:
-                                        if(mc->addr < mc->size)
-                                        {
-                                                mc->data[mc->addr] = data;       /* write byte */
-                                                mc->addr++;
-                                        }
-                                        break;
-                        }
-                       
-                }
-        }
-        else if(mc->com == FW_CMD_READSTATUS)
-        {
-                return (mc->write_enable ? 0x02 : 0x00);
-        }
-        else    /* finally, check if it's a new command */
-        {
-                switch(data)
-                {
-                        case 0: break;  /* nothing */
-                       
-                        case FW_CMD_READ:    /* read command */
-                                mc->addr = 0;
-                                mc->addr_shift = 3;
-                                mc->com = FW_CMD_READ;
-                                break;
-                               
-                        case FW_CMD_WRITEENABLE:     /* enable writing */
-                                if(mc->writeable_buffer) { mc->write_enable = TRUE; }
-                                break;
-                               
-                        case FW_CMD_WRITEDISABLE:    /* disable writing */
-                                mc->write_enable = FALSE;
-                                break;
-                               
-                        case FW_CMD_PAGEWRITE:       /* write command */
-                                if(mc->write_enable)
-                                {
-                                        mc->addr = 0;
-                                        mc->addr_shift = 3;
-                                        mc->com = FW_CMD_PAGEWRITE;
-                                }
-                                else { data = 0; }
-                                break;
-                       
-                        case FW_CMD_READSTATUS:  /* status register command */
-                                mc->com = FW_CMD_READSTATUS;
-                                break;
-                               
-                        default:
-                                printf("Unhandled FW command: %02X\n", data);
-                                break;
-                }
-        }
-       
-        return data;
+	if(mc->com == FW_CMD_READ || mc->com == FW_CMD_PAGEWRITE) /* check if we are in a command that needs 3 bytes address */
+	{
+		if(mc->addr_shift > 0)   /* if we got a complete address */
+		{
+			mc->addr_shift--;
+			mc->addr |= data << (mc->addr_shift * 8); /* argument is a byte of address */
+		}
+		else    /* if we have received 3 bytes of address, proceed command */
+		{
+			switch(mc->com)
+			{
+				case FW_CMD_READ:
+					if(mc->addr < mc->size)  /* check if we can read */
+					{
+						data = mc->data[mc->addr];       /* return byte */
+						mc->addr++;      /* then increment address */
+					}
+					break;
+
+				case FW_CMD_PAGEWRITE:
+					if(mc->addr < mc->size)
+					{
+						mc->data[mc->addr] = data;       /* write byte */
+						mc->addr++;
+					}
+					break;
+			}
+		   
+		}
+	}
+	else if(mc->com == FW_CMD_READSTATUS)
+	{
+			return (mc->write_enable ? 0x02 : 0x00);
+	}
+	else    /* finally, check if it's a new command */
+	{
+		switch(data)
+		{
+			case 0: break;  /* nothing */
+		   
+			case FW_CMD_READ:    /* read command */
+				mc->addr = 0;
+				mc->addr_shift = 3;
+				mc->com = FW_CMD_READ;
+				break;
+				   
+			case FW_CMD_WRITEENABLE:     /* enable writing */
+				if(mc->writeable_buffer) { mc->write_enable = TRUE; }
+				break;
+				   
+			case FW_CMD_WRITEDISABLE:    /* disable writing */
+				mc->write_enable = FALSE;
+				break;
+				   
+			case FW_CMD_PAGEWRITE:       /* write command */
+				if(mc->write_enable)
+				{
+					mc->addr = 0;
+					mc->addr_shift = 3;
+					mc->com = FW_CMD_PAGEWRITE;
+				}
+				else { data = 0; }
+				break;
+		   
+			case FW_CMD_READSTATUS:  /* status register command */
+				mc->com = FW_CMD_READSTATUS;
+				break;
+				   
+			default:
+				printf("Unhandled FW command: %02X\n", data);
+				break;
+		}
+	}
+   
+	return data;
 }      
 
 
 bool BackupDevice::save_state(EMUFILE* os)
 {
-        u32 version = 1;
-        write32le(version,os);
-        write32le(write_enable,os);
-        write32le(com,os);
-        write32le(addr_size,os);
-        write32le(addr_counter,os);
-        write32le((u32)state,os);
-        writebuffer(data,os);
-        writebuffer(data_autodetect,os);
-        write32le(addr,os);
-        return true;
+	u32 version = 1;
+	write32le(version,os);
+	write32le(write_enable,os);
+	write32le(com,os);
+	write32le(addr_size,os);
+	write32le(addr_counter,os);
+	write32le((u32)state,os);
+	writebuffer(data,os);
+	writebuffer(data_autodetect,os);
+	write32le(addr,os);
+	return true;
 }
 
 bool BackupDevice::load_state(EMUFILE* is)
@@ -386,179 +386,177 @@ void BackupDevice::reset_command()
 }
 u8 BackupDevice::data_command(u8 val, int cpu)
 {
-        if(com == BM_CMD_READLOW || com == BM_CMD_WRITELOW)
-        {
-                //handle data or address
-                if(state == DETECTING)
-                {
-                        if(com == BM_CMD_WRITELOW)
-                        {
-                                printf("Unexpected backup device initialization sequence using writes!\n");
-                        }
+	if(com == BM_CMD_READLOW || com == BM_CMD_WRITELOW)
+	{
+		//handle data or address
+		if(state == DETECTING)
+		{
+			if(com == BM_CMD_WRITELOW)
+			{
+				printf("Unexpected backup device initialization sequence using writes!\n");
+			}
 
-                        //just buffer the data until we're no longer detecting
-                        data_autodetect.push_back(val);
-                        val = 0;
-                }
-                else
-                {
-                        if(addr_counter<addr_size)
-                        {
-                                //continue building address
-                                addr <<= 8;
-                                addr |= val;
-                                addr_counter++;
-                                //if(addr_counter==addr_size) printf("ADR: %08X\n",addr);
-                        }
-                        else
-                        {
-                                //why does tomb raider underworld access 0x180 and go clear through to 0x280?
-                                //should this wrap around at 0 or at 0x100?
-                                if(addr_size == 1) addr &= 0x1FF;
+			//just buffer the data until we're no longer detecting
+			data_autodetect.push_back(val);
+			val = 0;
+		}
+		else
+		{
+			if(addr_counter<addr_size)
+			{
+				//continue building address
+				addr <<= 8;
+				addr |= val;
+				addr_counter++;
+				//if(addr_counter==addr_size) printf("ADR: %08X\n",addr);
+			}
+			else
+			{
+				//why does tomb raider underworld access 0x180 and go clear through to 0x280?
+				//should this wrap around at 0 or at 0x100?
+				if(addr_size == 1) addr &= 0x1FF;
 
-                                //address is complete
-                                ensure(addr+1);
-                                if(com == BM_CMD_READLOW)
-                                {
-                                        val = data[addr];
-                                        //flushPending = true; //is this a good idea? it may slow stuff down, but it is helpful for debugging
-                                        lazyFlushPending = true; //lets do this instead
-                                        //printf("read: %08X\n",addr);
-                                }
-                                else
-                                {
-                                        data[addr] = val;
-                                        flushPending = true;
-                                        //printf("writ: %08X\n",addr);
-                                }
-                                addr++;
+				//address is complete
+				ensure(addr+1);
+				if(com == BM_CMD_READLOW)
+				{
+					val = data[addr];
+					//flushPending = true; //is this a good idea? it may slow stuff down, but it is helpful for debugging
+					lazyFlushPending = true; //lets do this instead
+					//printf("read: %08X\n",addr);
+				}
+				else
+				{
+					data[addr] = val;
+					flushPending = true;
+					//printf("writ: %08X\n",addr);
+				}
+				addr++;
+			}
+		}
+	}
+	else if(com == BM_CMD_READSTATUS)
+	{
+		//handle request to read status
+		//LOG("Backup Memory Read Status: %02X\n", mc->write_enable << 1);
+		return (write_enable << 1);
+	}
+	else
+	{
+		//there is no current command. receive one
+		switch(val)
+		{
+				case 0: break; //??
 
+				case 8:
+						val = 0xAA;
+						break;
+			   
+				case BM_CMD_WRITEDISABLE:
+						write_enable = FALSE;
+						break;
+											   
+				case BM_CMD_READSTATUS:
+						com = BM_CMD_READSTATUS;
+						break;
 
-                        }
-                }
-        }
-        else if(com == BM_CMD_READSTATUS)
-        {
-                //handle request to read status
-                //LOG("Backup Memory Read Status: %02X\n", mc->write_enable << 1);
-                return (write_enable << 1);
-        }
-        else
-        {
-                //there is no current command. receive one
-                switch(val)
-                {
-                        case 0: break; //??
+				case BM_CMD_WRITEENABLE:
+						write_enable = TRUE;
+						break;
 
-                        case 8:
-                                val = 0xAA;
-                                break;
-                       
-                        case BM_CMD_WRITEDISABLE:
-                                write_enable = FALSE;
-                                break;
-                                                       
-                        case BM_CMD_READSTATUS:
-                                com = BM_CMD_READSTATUS;
-                                break;
+				case BM_CMD_WRITELOW:
+				case BM_CMD_READLOW:
+						//printf("XLO: %08X\n",addr);
+						com = val;
+						addr_counter = 0;
+						addr = 0;
+						break;
 
-                        case BM_CMD_WRITEENABLE:
-                                write_enable = TRUE;
-                                break;
+				case BM_CMD_WRITEHIGH:
+				case BM_CMD_READHIGH:
+						//printf("XHI: %08X\n",addr);
+						if(val == BM_CMD_WRITEHIGH) val = BM_CMD_WRITELOW;
+						if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
+						com = val;
+						addr_counter = 0;
+						addr = 0;
+						if(addr_size==1) {
+								//"write command that's only available on ST M95040-W that I know of"
+								//this makes sense, since this device would only have a 256 bytes address space with writelow
+								//and writehigh would allow access to the upper 256 bytes
+								//but it was detected in pokemon diamond also during the main save process
+								addr = 0x1;
+						}
+						break;
 
-                        case BM_CMD_WRITELOW:
-                        case BM_CMD_READLOW:
-                                //printf("XLO: %08X\n",addr);
-                                com = val;
-                                addr_counter = 0;
-                                addr = 0;
-                                break;
-
-                        case BM_CMD_WRITEHIGH:
-                        case BM_CMD_READHIGH:
-                                //printf("XHI: %08X\n",addr);
-                                if(val == BM_CMD_WRITEHIGH) val = BM_CMD_WRITELOW;
-                                if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
-                                com = val;
-                                addr_counter = 0;
-                                addr = 0;
-                                if(addr_size==1) {
-                                        //"write command that's only available on ST M95040-W that I know of"
-                                        //this makes sense, since this device would only have a 256 bytes address space with writelow
-                                        //and writehigh would allow access to the upper 256 bytes
-                                        //but it was detected in pokemon diamond also during the main save process
-                                        addr = 0x1;
-                                }
-                                break;
-
-                        default:
-                                printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
-                                break;
-                }
-        }
+				default:
+						printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
+						break;
+		}
+	}
         return val;
 }
 
 //guarantees that the data buffer has room enough for the specified number of bytes
 void BackupDevice::ensure(u32 addr)
 {
-        u32 size = data.size();
-        if(size<addr)
-        {
-                data.resize(addr);
-                for(u32 i=size;i<addr;i++)
-                        data[i] = kUninitializedSaveDataValue;
-        }
+	u32 size = data.size();
+	if(size<addr)
+	{
+		data.resize(addr);
+		for(u32 i=size;i<addr;i++)
+			data[i] = kUninitializedSaveDataValue;
+	}
 }
 
 
 u32 BackupDevice::addr_size_for_old_save_size(int bupmem_size)
 {
-        switch(bupmem_size) {
-                case MC_SIZE_4KBITS:
-                        return 1;
-                case MC_SIZE_64KBITS:
-                case MC_SIZE_256KBITS:
-                case MC_SIZE_512KBITS:
-                        return 2;
-                case MC_SIZE_1MBITS:
-                case MC_SIZE_2MBITS:
-                case MC_SIZE_4MBITS:
-                case MC_SIZE_8MBITS:
-                case MC_SIZE_16MBITS:
-                case MC_SIZE_64MBITS:
-                        return 3;
-                default:
-                        return 0xFFFFFFFF;
-        }
+	switch(bupmem_size) {
+		case MC_SIZE_4KBITS:
+			return 1;
+		case MC_SIZE_64KBITS:
+		case MC_SIZE_256KBITS:
+		case MC_SIZE_512KBITS:
+			return 2;
+		case MC_SIZE_1MBITS:
+		case MC_SIZE_2MBITS:
+		case MC_SIZE_4MBITS:
+		case MC_SIZE_8MBITS:
+		case MC_SIZE_16MBITS:
+		case MC_SIZE_64MBITS:
+			return 3;
+		default:
+			return 0xFFFFFFFF;
+	}
 }
 
 u32 BackupDevice::addr_size_for_old_save_type(int bupmem_type)
 {
-        switch(bupmem_type)
-        {
-                case MC_TYPE_EEPROM1:
-                        return 1;
-                case MC_TYPE_EEPROM2:
-                case MC_TYPE_FRAM:
-              return 2;
-                case MC_TYPE_FLASH:
-                        return 3;
-                default:
-                        return 0xFFFFFFFF;
-        }
+	switch(bupmem_type)
+	{
+		case MC_TYPE_EEPROM1:
+			return 1;
+		case MC_TYPE_EEPROM2:
+		case MC_TYPE_FRAM:
+			return 2;
+		case MC_TYPE_FLASH:
+			return 3;
+		default:
+			return 0xFFFFFFFF;
+	}
 }
 
 
 void BackupDevice::load_old_state(u32 addr_size, u8* data, u32 datasize)
 {
-        state = RUNNING;
-        this->addr_size = addr_size;
-        this->data.resize(datasize);
-        memcpy(&this->data[0],data,datasize);
+	state = RUNNING;
+	this->addr_size = addr_size;
+	this->data.resize(datasize);
+	memcpy(&this->data[0],data,datasize);
 
-        //dump back out as a dsv, just to keep things sane
-        flush();
+	//dump back out as a dsv, just to keep things sane
+	flush();
 }
 
 //======================================================================= no$GBA
@@ -567,84 +565,84 @@ void BackupDevice::load_old_state(u32 addr_size, u8* data, u32 datasize)
 
 static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 {
-        const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
-        const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
-        u8      *src = (u8 *)in_buf;
-        u8      *dst = (u8 *)out_buf;
-        u32 src_pos = 0;
-        u32 dst_pos = 0;
-        u8      cc = 0;
-        u32     size_unpacked = 0;
-        u32     size_packed = 0;
-        u32     compressMethod = 0;
+	const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
+	const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
+	u8      *src = (u8 *)in_buf;
+	u8      *dst = (u8 *)out_buf;
+	u32 src_pos = 0;
+	u32 dst_pos = 0;
+	u8      cc = 0;
+	u32     size_unpacked = 0;
+	u32     size_packed = 0;
+	u32     compressMethod = 0;
 
-        if (fsize < 0x50) return (1);
+	if (fsize < 0x50) return (1);
 
-        for (int i = 0; i < 0x1F; i++)
-        {
-                if (src[i] != no_GBA_HEADER_ID[i]) return (2);
-        }
-        if (src[0x1F] != 0x1A) return (2);
-        for (int i = 0; i < 0x4; i++)
-        {
-                if (src[i+0x40] != no_GBA_HEADER_SRAM_ID[i]) return (2);
-        }
+	for (int i = 0; i < 0x1F; i++)
+	{
+		if (src[i] != no_GBA_HEADER_ID[i]) return (2);
+	}
+	if (src[0x1F] != 0x1A) return (2);
+	for (int i = 0; i < 0x4; i++)
+	{
+		if (src[i+0x40] != no_GBA_HEADER_SRAM_ID[i]) return (2);
+	}
 
-        compressMethod = *((u32*)(src+0x44));
+	compressMethod = *((u32*)(src+0x44));
 
-        if (compressMethod == 0)                                // unpacked
-        {
-                size_unpacked = *((u32*)(src+0x48));
-                src_pos = 0x4C;
-                for (u32 i = 0; i < size_unpacked; i++)
-                {
-                        dst[dst_pos++] = src[src_pos++];
-                }
-                size = dst_pos;
-                return (0);
-        }
+	if (compressMethod == 0)                                // unpacked
+	{
+		size_unpacked = *((u32*)(src+0x48));
+		src_pos = 0x4C;
+		for (u32 i = 0; i < size_unpacked; i++)
+		{
+				dst[dst_pos++] = src[src_pos++];
+		}
+		size = dst_pos;
+		return (0);
+	}
 
-        if (compressMethod == 1)                                // packed (method 1)
-        {
-                size_packed = *((u32*)(src+0x48));
-                size_unpacked = *((u32*)(src+0x4C));
+	if (compressMethod == 1)                                // packed (method 1)
+	{
+		size_packed = *((u32*)(src+0x48));
+		size_unpacked = *((u32*)(src+0x4C));
 
-                src_pos = 0x50;
-                while (true)
-                {
-                        cc = src[src_pos++];
-                       
-                        if (cc == 0)
-                        {
-                                size = dst_pos;
-                                return (0);
-                        }
+		src_pos = 0x50;
+		while (true)
+		{
+			cc = src[src_pos++];
+		   
+			if (cc == 0)
+			{
+				size = dst_pos;
+				return (0);
+			}
 
-                        if (cc == 0x80)
-                        {
-                                u16 tsize = *((u16*)(src+src_pos+1));
-                                for (int t = 0; t < tsize; t++)
-                                        dst[dst_pos++] = src[src_pos];
-                                src_pos += 3;
-                                continue;
-                        }
+			if (cc == 0x80)
+			{
+				u16 tsize = *((u16*)(src+src_pos+1));
+				for (int t = 0; t < tsize; t++)
+					dst[dst_pos++] = src[src_pos];
+				src_pos += 3;
+				continue;
+			}
 
-                        if (cc > 0x80)          // repeat
-                        {
-                                cc -= 0x80;
-                                for (int t = 0; t < cc; t++)
-                                        dst[dst_pos++] = src[src_pos];
-                                src_pos++;
-                                continue;
-                        }
-                        // copy
-                        for (int t = 0; t < cc; t++)
-                                dst[dst_pos++] = src[src_pos++];
-                }
-                size = dst_pos;
-                return (0);
-        }
-        return (200);
+			if (cc > 0x80)          // repeat
+			{
+				cc -= 0x80;
+				for (int t = 0; t < cc; t++)
+					dst[dst_pos++] = src[src_pos];
+				src_pos++;
+				continue;
+			}
+			// copy
+			for (int t = 0; t < cc; t++)
+				dst[dst_pos++] = src[src_pos++];
+		}
+		size = dst_pos;
+		return (0);
+	}
+	return (200);
 }
 
 
