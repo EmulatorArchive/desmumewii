@@ -24,14 +24,6 @@
 // ------------- GX-specfic Texture Manager -----------------
 //------------------------------------------------------------
 
-//  (Special thanks to the fine people at gl2gx!)
-
-#define MAX_MIP_LEVEL 10
-
-// Defines the initial number of gxTex slots.  
-// If more are needed then the memory will be realloc-ed
-#define NUM_INIT_TEXTURES 128
-
 //----------------------------------------
 //
 // Constructor
@@ -60,14 +52,10 @@ TexManager::TexManager(): textures(NULL), used(NULL),
 
 TexManager::~TexManager(){
 
-	if(used){
-		delete[] used;
-	}
+	delete[] used;
 	used = NULL;
 
-	if(textures){
-		delete[] textures;
-	}
+	delete[] textures;
 	textures = NULL;
 }
 

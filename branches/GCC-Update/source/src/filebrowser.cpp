@@ -210,7 +210,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 
 		/*if(GetInput(B, B, B)) 
 		{
-				return BROWSER_CANCELED;
+			return BROWSER_CANCELED;
 		}*/
 
 		if(draw){
@@ -228,8 +228,8 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 			printf("\tbrowsing %s\n\n", file_struct->path);
 			
 			for(int temp = start; temp < limit; temp++){
-					printf("\x1b[%um", (index == temp) ? 32 : 37);
-					printf("\t%s\t%s\n", (dir[temp].attr & S_IFDIR) ? "DIR" : "   ", dir[temp].name);
+				printf("\x1b[%um", (index == temp) ? 32 : 37);
+				printf("\t%s\t%s\n", (dir[temp].attr & S_IFDIR) ? "DIR" : "   ", dir[temp].name);
 			}
 
 			printf("\x1b[37m");
@@ -249,17 +249,17 @@ int FileBrowser( char *dir ) {
 	int ret = textFileBrowser(&game_filename);
 
 	if(ret == BROWSER_FILE_NOT_FOUND){
-			browse_back(game_filename.path);
-			browse_back(game_filename.path);        // move to the root if no DS/ROMS folder found
-			ret = textFileBrowser(&game_filename);
+		browse_back(game_filename.path);
+		browse_back(game_filename.path);	// move to the root if no DS/ROMS folder found
+		ret = textFileBrowser(&game_filename);
 	}
 	
 	while(ret == BROWSER_CHANGE_FOLDER) {
-			ret = textFileBrowser(&game_filename);
+		ret = textFileBrowser(&game_filename);
 	}
 	
 	if (ret == BROWSER_FILE_SELECTED) {
-			strcpy(dir, game_filename.path);
+		strcpy(dir, game_filename.path);
 	}
 
 	clear_console();

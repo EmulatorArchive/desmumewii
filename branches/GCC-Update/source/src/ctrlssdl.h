@@ -1,4 +1,5 @@
-/*  Copyright (C) 2007 Pascal Giard
+/* 
+    Copyright (C) 2007 Pascal Giard
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii

@@ -24,15 +24,11 @@
 
 //analyze microsoft compilers
 #ifdef _MSC_VER
-	#ifdef _XBOX
-		//#define _XBOX //already defined
+	#define _WINDOWS
+	#ifdef _M_X64
+		//#define _WIN64 //already defined in x64 compiler
 	#else
-		#define _WINDOWS
-		#ifdef _M_X64
-			//#define _WIN64 //already defined in x64 compiler
-		#else
-			//#define _WIN32 //already defined
-		#endif
+		//#define _WIN32 //already defined
 	#endif
 #endif
 
@@ -41,10 +37,9 @@
 #include "config.h"
 #endif
 
-//xbox needs to include this to resemble windows
-#ifdef _XBOX
-	#include <xtl.h>
-	#include <io.h>
+//enforce a constraint: gdb stub requires developer
+#if defined(GDB_STUB) && !defined(DEVELOPER)
+#define DEVELOPER
 #endif
 
 #ifdef DEVELOPER
@@ -94,12 +89,6 @@
 #else
 #define MAX_PATH PATH_MAX
 #endif
-#endif
-
-
-#ifdef _XBOX
-#define MAX_PATH 1024
-#define PATH_MAX 1024
 #endif
 
 

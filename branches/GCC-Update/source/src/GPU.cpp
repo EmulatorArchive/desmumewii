@@ -636,7 +636,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 			}
 			else final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 		}
-		else 
+		else
 		{
 			final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
 			//perform the special effect
@@ -718,12 +718,12 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 	if(windowEffect && sourceEffectSelected)
 		switch(FUNC) 
 		{
-		case Increase: if(!allowBlend) color = currentFadeInColors[color&0x7FFF]; break;
-		case Decrease: if(!allowBlend) color = currentFadeOutColors[color&0x7FFF]; break;
-
-		//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
-		case Blend: forceBlendingForNormal = true; break;
-		case None: break;
+			case Increase: if(!allowBlend) color = currentFadeInColors[color&0x7FFF]; break;
+			case Decrease: if(!allowBlend) color = currentFadeOutColors[color&0x7FFF]; break;
+	
+			//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
+			case Blend: forceBlendingForNormal = true; break;
+			case None: break;
 		}
 
 

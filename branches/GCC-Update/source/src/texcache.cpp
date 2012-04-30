@@ -161,6 +161,7 @@ static MemSpan MemSpan_TexMem(u32 ofs, u32 len)
 		currofs += curr.len;
 		u8* ptr = MMU.texInfo.textureSlotAddr[slot];
 		
+		//TODO - don't alert if the masterbrightnesses are max or min
 		if(ptr == MMU.blank_memory) {
 			PROGINFO("Tried to reference unmapped texture memory: slot %d\n",slot);
 		}
@@ -193,6 +194,7 @@ static MemSpan MemSpan_TexPalette(u32 ofs, u32 len)
 		currofs += curr.len;
 		u8* ptr = MMU.texInfo.texPalSlot[slot];
 		
+		//TODO - don't alert if the masterbrightnesses are max or min
 		if(ptr == MMU.blank_memory) {
 			PROGINFO("Tried to reference unmapped texture palette memory: 16k slot #%d\n",slot);
 		}
@@ -480,7 +482,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; x++)
+					for(u32 x = 0; x < ms.items[j].len; ++x)
 					{
 						u16 c = pal[*adr];
 						*dwdst++ = CONVERT(c,(*adr == 0) ? palZeroTransparent : opaqueColor);
@@ -630,7 +632,7 @@ public:
 			{
 				for(int j = 0; j < ms.numItems; ++j) {
 					adr = ms.items[j].ptr;
-					for(u32 x = 0; x < ms.items[j].len; x++)
+					for(u32 x = 0; x < ms.items[j].len; ++x)
 					{
 						u16 c = pal[*adr&0x07];
 						u8 alpha = (*adr>>3);

@@ -148,7 +148,7 @@ extern int spu_core_samples;
 
 void spu_savestate(EMUFILE* os);
 bool spu_loadstate(EMUFILE* is, int size);
-
+/*
 enum WAVMode
 {
 	WAVMODE_ANY = -1,
@@ -173,7 +173,7 @@ void WAV_End();
 bool WAV_Begin(const char* fname, WAVMode mode=WAVMODE_CORE);
 bool WAV_IsRecording(WAVMode mode=WAVMODE_ANY);
 void WAV_WavSoundUpdate(void* soundData, int numSamples, WAVMode mode=WAVMODE_CORE);
-
+//*/
 // we should make this configurable eventually
 // but at least defining it somewhere is probably a step in the right direction
 //#define DESMUME_SAMPLE_RATE 44100

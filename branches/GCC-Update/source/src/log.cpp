@@ -7,9 +7,11 @@
 
 #include "log.h"
 
-static FILE *flog;
-
 // #define _FLOG
+
+#ifdef _FLOG
+static FILE *flog;
+#endif
 
 void Log_Init() {
 #ifdef _FLOG

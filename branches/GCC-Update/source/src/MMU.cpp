@@ -99,7 +99,6 @@ void mmu_log_debug_ARM9(u32 adr, const char *fmt, ...)
 {
 	if (adr < 0x4000000) return;
 	if (adr > 0x4100014) return;
-#if 1
 	if (adr >= 0x4000000 && adr <= 0x400006E) return;		// Display Engine A
 	if (adr >= 0x40000B0 && adr <= 0x4000134) return;		// DMA, Timers and Keypad
 	if (adr >= 0x4000180 && adr <= 0x40001BC) return;		// IPC/ROM
@@ -108,7 +107,7 @@ void mmu_log_debug_ARM9(u32 adr, const char *fmt, ...)
 	if (adr >= 0x4000320 && adr <= 0x40006A3) return;		// 3D dispaly engine
 	if (adr >= 0x4001000 && adr <= 0x400106E) return;		// Display Engine B
 	if (adr >= 0x4100000 && adr <= 0x4100014) return;		// IPC/ROM
-#endif
+
 	va_list list;
 	char msg[512];
 
@@ -1898,7 +1897,7 @@ void DmaController::write32(const u32 val)
 	/*if(wordcount==0x9FbFC || wordcount == 0x1FFFFC || wordcount == 0x1EFFFC || wordcount == 0x1FFFFF) {
 		int zzz=9;
 	}*/
-	u8 wasRepeatMode = repeatMode;
+	//u8 wasRepeatMode = repeatMode;
 	u8 wasEnable = enable;
 	u32 valhi = val>>16;
 	dar = (EDMADestinationUpdate)((valhi>>5)&3);
