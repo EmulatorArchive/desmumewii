@@ -174,7 +174,7 @@ TEMPLATE static  u32 FASTCALL OP_ASR(const u32 i)
 {
 	u32 v = (i>>6) & 0x1F;
 	cpu->CPSR.bits.C = BIT_N(cpu->R[REG_NUM(i, 3)], v-1);
-	cpu->R[REG_NUM(i, 0)] = (((s32)cpu->R[REG_NUM(i, 3)]) >> v);
+	cpu->R[REG_NUM(i, 0)] = (u32)(((s32)cpu->R[REG_NUM(i, 3)]) >> v);
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
 
@@ -252,7 +252,7 @@ TEMPLATE static  u32 FASTCALL OP_ADD_IMM8(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_ADD_SPE(const u32 i)
 {
-	u32 Rd = (i&7) | ((i>>4)&8);
+	u32 Rd = REG_NUM(i, 0) | ((i>>4)&8);
 	cpu->R[Rd] += cpu->R[REG_POS(i, 3)];
 	
 	if(Rd==15)
@@ -544,7 +544,7 @@ TEMPLATE static  u32 FASTCALL OP_ORR(const u32 i)
 {
 	cpu->R[REG_NUM(i, 0)] |= cpu->R[REG_NUM(i, 3)];
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
+	cpu->CPSR.bits.Z = (cpu->R[REG_NUM(i, 0)] == 0);
 	
 	return 1;
 }
@@ -557,7 +557,7 @@ TEMPLATE static  u32 FASTCALL OP_BIC(const u32 i)
 {
 	cpu->R[REG_NUM(i, 0)] &= (~cpu->R[REG_NUM(i, 3)]);
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
+	cpu->CPSR.bits.Z = (cpu->R[REG_NUM(i, 0)] == 0);
 	
 	return 1;
 }
@@ -594,9 +594,19 @@ TEMPLATE static  u32 FASTCALL OP_MVN(const u32 i)
 TEMPLATE static  u32 FASTCALL OP_MUL_REG(const u32 i)
 {
 	u32 v = cpu->R[REG_NUM(i, 3)];
+
+	// FIXME:
+	//------ Rd = (Rm * Rd)[31:0]
+	//------ u64 res = ((u64)cpu->R[REG_NUM(i, 0)] * (u64)v));
+	//------ cpu->R[REG_NUM(i, 0)] = (u32)(res  & 0xFFFFFFFF);
+	//------ 
+	
 	cpu->R[REG_NUM(i, 0)] *= v;
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
+	//The MUL instruction is defined to leave the C flag unchanged in ARMv5 and above.
+	//In earlier versions of the architecture, the value of the C flag was UNPREDICTABLE
+	//after a MUL instruction.
 	
 	if (PROCNUM == 1)	// ARM4T 1S + mI, m = 3
 		return 4;
@@ -764,9 +774,9 @@ TEMPLATE static  u32 FASTCALL OP_LDR_SPREL(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_LDR_PCREL(const u32 i)
 {
-	u32 adr = (cpu->R[15]&0xFFFFFFFC) + ((cpu->instruction&0xFF)<<2);
+	u32 adr = (cpu->R[15]&0xFFFFFFFC) + ((i&0xFF)<<2);
 	
-	cpu->R[REG_NUM(cpu->instruction, 8)] = READ32(cpu->mem_if->data, adr);
+	cpu->R[REG_NUM(i, 8)] = READ32(cpu->mem_if->data, adr);
 			
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3, adr);
 }
@@ -777,14 +787,14 @@ TEMPLATE static  u32 FASTCALL OP_LDR_PCREL(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_ADJUST_P_SP(const u32 i)
 {
-	cpu->R[13] += ((cpu->instruction&0x7F)<<2);
+	cpu->R[13] += ((i&0x7F)<<2);
 	
 	return 1;
 }
 
 TEMPLATE static  u32 FASTCALL OP_ADJUST_M_SP(const u32 i)
 {
-	cpu->R[13] -= ((cpu->instruction&0x7F)<<2);
+	cpu->R[13] -= ((i&0x7F)<<2);
 	
 	return 1;
 }
@@ -965,7 +975,7 @@ TEMPLATE static  u32 FASTCALL OP_BKPT_THUMB(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_SWI_THUMB(const u32 i)
 {
-	u32 swinum = cpu->instruction & 0xFF;
+	u32 swinum = i & 0xFF;
 
 	//ideas-style debug prints (execute this SWI with the null terminated string address in R0)
 	if(swinum==0xFC) {
@@ -1065,7 +1075,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 {
 	// When using PC as operand with BX opcode, switch to ARM state and jump to (instruct_adr+4)
 	// Reference: http://nocash.emubase.de/gbatek.htm#thumb5hiregisteroperationsbranchexchange
-	if (REG_POS(cpu->instruction, 3) == 15)
+	if (REG_POS(i, 3) == 15)
 	{
 		 cpu->CPSR.bits.T = 0;
 		 cpu->R[15] &= 0xFFFFFFFC;
@@ -1073,7 +1083,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 	}
 	else
 	{
-		u32 Rm = cpu->R[REG_POS(cpu->instruction, 3)];
+		u32 Rm = cpu->R[REG_POS(i, 3)];
 
 		cpu->CPSR.bits.T = BIT0(Rm);
 		cpu->R[15] = (Rm & 0xFFFFFFFE);
@@ -1085,7 +1095,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_BLX_THUMB(const u32 i)
 {
-	u32 Rm = cpu->R[REG_POS(cpu->instruction, 3)];
+	u32 Rm = cpu->R[REG_POS(i, 3)];
 	
 	cpu->CPSR.bits.T = BIT0(Rm);
 	cpu->R[14] = cpu->next_instruction | 1;
