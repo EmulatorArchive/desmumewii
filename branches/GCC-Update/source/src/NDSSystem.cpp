@@ -1420,6 +1420,8 @@ static void execHardware_hstart_vcount()
 
 static void execHardware_hstart()
 {
+	//--DCN: VCount seems to be which line we're on (?)
+	// I guess the DS hardware works like this? On a per-line basis?
 	nds.VCount++;
 
 	if(nds.VCount==263)
@@ -1731,6 +1733,51 @@ void NDS_exec(s32 nb)
 		for(;;)
 		{
 			nds.cpuloopIterationCount++;
+			//--DCN: START
+			/* This is where it all seems to start.
+			 It then checks: enabled && nds_timer >= timestamp
+			 in dispcnt. If the parameter of dispcnt is 
+			 ESI_DISPCNT_HStart, it will execute 
+			 execHardware_hstart. THIS increments the VCount.
+			 The VCount seems to be the particular "line" that
+			 we're on. Not 100% sure, but VCount is passed into 
+			 GPU_RenderLine for both the top and bottom screens.
+			 GPU_RenderLine is only called if VCount is under 192.
+			  The line drawing is done "at hblank time on a whim".
+			  GPU_RenderLine has a check when "l" (line?) == 0
+			  If it does, there is some additional setup.
+			  There are some additonal checks to see if the screens
+			  are completely white or black. It then set up the 
+			  "windows", and finally passes that line into 
+			  GPU_RenderLine_layer. 
+			   This function sets the "fade in/out colors" for
+			   each line by passing the actual colors into some
+			   giant lookup tables. (example: setFinalColor3d)
+			   It renders each "layer", I believe, in turn 
+			   based on priority (of what I'm not sure)
+			   But if there is no background, it won't render
+			   objects nor 3D. Then it renders the sprites if 
+			   sprites are enabled.
+			    The functions used for setting the fade in/out
+				colors are of course, passed by line for each layer
+				Example: setFinalColor3d
+				 _master_setFinal3dColor is called and as far as I can
+				 tell it only does the first 4 instances, only using 
+				 the blend function. Not sure what the "WINDOW" 
+				 variable is for. Turn this off and ALL of the 
+				 fading (SM64DS has a good example at the start when
+				 you hit the "adventure" button) will not exist.
+
+			 //
+			 What we could do:
+			 - Wait until the end of hblank time to render EVERYTHING
+			   in hardware, this makes sure that all the info is "in"
+			     - Then draw everything with hardware textures
+				 - Combine said textures via multitexturing (4)
+				 - Use a light on the two quads (that represent DS
+				   screens) to simulate the "brightness" filter.
+			 
+			*/
 			sequencer.execHardware();
 
 			//break out once per frame
@@ -1742,7 +1789,7 @@ void NDS_exec(s32 nb)
 
 			//find next work unit:
 			u64 next = sequencer.findNext();
-			next = min(next,nds_timer+kMaxWork); //lets set an upper limit for now
+			next = min(next,nds_timer+kMaxWork); //let's set an upper limit for now
 
 			//printf("%d\n",(next-nds_timer));
 
