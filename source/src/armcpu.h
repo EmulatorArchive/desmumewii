@@ -236,7 +236,7 @@ static INLINE void setIF(int PROCNUM, u32 flag)
 			NDS_ARM7.waitIRQ = FALSE;
 	}
 }
-
+/*
 static INLINE void NDS_makeARM9Int(u32 num)
 {
 	setIF(0, (1<<num));
@@ -259,5 +259,10 @@ static INLINE void NDS_makeInt(u8 proc_ID,u32 num)
 			break ;
 	}
 }
+//*/
 
+static INLINE void NDS_makeIrq(int PROCNUM, u32 num)
+{
+	setIF(PROCNUM, 1<<num);
+}
 #endif

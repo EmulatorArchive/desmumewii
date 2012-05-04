@@ -44,7 +44,7 @@
 #include "firmware.h"
 
 #include "path.h"
-#include "log.h"
+
 
 PathInfo path;
 
@@ -155,7 +155,6 @@ struct armcpu_ctrl_iface **arm7_ctrl_iface) {
 #else
 int NDS_Init( void) {
 #endif
-	Log_Init();
 	nds.idleFrameCounter = 0;
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
@@ -200,7 +199,6 @@ int NDS_Init( void) {
 }
 
 void NDS_DeInit(void) {
-	Log_DeInit();
 	if(MMU.CART_ROM != MMU.UNUSED_RAM)
 		NDS_FreeROM();
 
@@ -364,113 +362,7 @@ void GameInfo::populate()
 		memset(ROMserial+19, '\0', 1);
 	}
 }
-#ifdef WIN32
 
-static std::vector<char> buffer;
-static std::vector<char> v;
-
-static void loadrom(std::string fname) {
-
-	FILE* inf = fopen(fname.c_str(),"rb");
-	if(!inf) return;
-
-	fseek(inf,0,SEEK_END);
-	int size = ftell(inf);
-	fseek(inf,0,SEEK_SET);
-
-	gameInfo.resize(size);
-	fread(gameInfo.romdata,1,size,inf);
-	
-	fclose(inf);
-}
-
-int NDS_LoadROM(const char *filename, const char *logicalFilename)
-{
-	int					type = ROM_NDS;
-	u32					mask;
-	char				buf[MAX_PATH];
-
-	if (filename == NULL)
-		return -1;
-	
-    path.init(logicalFilename);
-
-	if ( path.isdsgba(path.path)) {
-		type = ROM_DSGBA;
-		loadrom(path.path);
-	}
-	else if ( !strcasecmp(path.extension().c_str(), "nds")) {
-		loadrom(path.path); //n.b. this does nothing if the file can't be found (i.e. if it was an extracted tempfile)...
-		//...but since the data was extracted to gameInfo then it is ok
-		type = ROM_NDS;
-	}
-	//ds.gba in archives, it's already been loaded into memory at this point
-	else if (path.isdsgba(std::string(logicalFilename))) {
-		type = ROM_DSGBA;
-	}
-
-	if(type == ROM_DSGBA)
-	{
-		std::vector<char> v(gameInfo.romdata + DSGBA_LOADER_SIZE, gameInfo.romdata + gameInfo.romsize);
-		gameInfo.loadData(&v[0],gameInfo.romsize - DSGBA_LOADER_SIZE);
-	}
-
-	//check that size is at least the size of the header
-	if (gameInfo.romsize < 352) {
-		return -1;
-	}
-
-	//zero 25-dec-08 - this used to yield a mask which was 2x large
-	//mask = size; 
-	mask = gameInfo.romsize-1; 
-	mask |= (mask >>1);
-	mask |= (mask >>2);
-	mask |= (mask >>4);
-	mask |= (mask >>8);
-	mask |= (mask >>16);
-
-	//decrypt if necessary..
-	//but this is untested and suspected to fail on big endian, so lets not support this on big endian
-
-#ifndef WORDS_BIGENDIAN
-	bool okRom = DecryptSecureArea((u8*)gameInfo.romdata,gameInfo.romsize);
-
-	if(!okRom) {
-		printf("Specified file is not a valid rom\n");
-		return -1;
-	}
-#endif
-
-	cheatsSearchClose();
-	FCEUI_StopMovie();
-
-	MMU_unsetRom();
-	NDS_SetROM((u8*)gameInfo.romdata, mask);
-	NDS_Reset();
-
-	memset(buf, 0, MAX_PATH);
-
-	path.getpathnoext(path.BATTERY, buf);
-	
-	strcat(buf, ".dsv");							// DeSmuME memory card	:)
-
-	MMU_new.backupDevice.load_rom(buf);
-
-	memset(buf, 0, MAX_PATH);
-
-	path.getpathnoext(path.CHEATS, buf);
-	
-	strcat(buf, ".dct");							// DeSmuME cheat		:)
-	cheatsInit(buf);
-
-	gameInfo.populate();
-	gameInfo.crc = crc32(0,(u8*)gameInfo.romdata,gameInfo.romsize);
-	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
-	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
-
-	return 1;
-}
-#else
 int NDS_LoadROM(const char *filename, const char *logicalFilename)
 {
 	if (filename == NULL)
@@ -597,7 +489,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 
 	return ret;
 }
-#endif
+
 void NDS_FreeROM(void)
 {
 	if ((u8*)MMU.CART_ROM == (u8*)gameInfo.romdata)
@@ -814,7 +706,7 @@ void NDS_ToggleCardEject()
 	if(!nds.cardEjected)
 	{
 		//staff of kings will test this (it also uses the arm9 0xB8 poll)
-		NDS_makeInt(1, 20);
+		NDS_makeIrq(ARMCPU_ARM7, IRQ_BIT_GC_IREQ_MC);
 	}
 	nds.cardEjected ^= TRUE;
 }
@@ -1042,8 +934,7 @@ template<int procnum, int num> struct TSequenceItem_Timer : public TSequenceItem
 				MMU.timer[procnum][i] = MMU.timerReload[procnum][i];
 				if(T1ReadWord(regs, 0x102 + i*4) & 0x40) 
 				{
-					if(procnum==0) NDS_makeARM9Int(3 + i);
-					else NDS_makeARM7Int(3 + i);
+					NDS_makeIrq(procnum, IRQ_BIT_TIMER_0 + i);
 				}
 			}
 			else
@@ -1316,21 +1207,11 @@ void Sequencer::init()
 
 static void execHardware_hblank()
 {
-	//turn on hblank status bit
-	T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 2);
-	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 2);
-
-	//fire hblank interrupts if necessary
-	NDS_ARM9HBlankInt();
-	NDS_ARM7HBlankInt();
-
-	//emulation housekeeping. for some reason we always do this at hblank,
-	//even though it sounds more reasonable to do it at hstart
-	SPU_Emulate_core();
-//	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
-//	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
-
-	//this logic was formerly at hblank time. it was moved to the beginning of the scanline on a whim
+	//this logic keeps moving around.
+	//now, we try and give the game as much time as possible to finish doing its work for the scanline,
+	//by drawing scanline N at the end of drawing time (but before subsequent interrupt or hdma-driven events happen)
+	//don't try to do this at the end of the scanline, because some games (sonic classics) may use hblank IRQ to set
+	//scroll regs for the next scanline
 	if(nds.VCount<192)
 	{
 		//so, we have chosen to do the line drawing at hblank time.
@@ -1349,6 +1230,36 @@ static void execHardware_hblank()
 		//(values copied by this hdma should not be used until the next scanline)
 		triggerDma(EDMAMode_HBlank);
 	}
+
+	if(nds.VCount==262)
+	{
+		//we need to trigger one last hblank dma since 
+		//a. we're sort of lagged behind by one scanline
+		//b. i think that 193 hblanks actually fire (one for the hblank in scanline 262)
+		//this is demonstrated by NSMB splot-parallaxing clouds
+		//for some reason the game will setup two hdma scroll register buffers
+		//to be run consecutively, and unless we do this, the second buffer will be offset by one scanline
+		//causing a glitch in the 0th scanline
+		//triggerDma(EDMAMode_HBlank);
+
+		//BUT! this was removed in order to make glitches in megaman zero collection (mmz 4 1st level) work.
+		//and, it seems that it is no longer necessary in nsmb. perhaps something else fixed it
+	}
+
+
+	//turn on hblank status bit
+	T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 2);
+	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 2);
+
+	//fire hblank interrupts if necessary
+	if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10) NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_HBLANK);
+	if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10) NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_HBLANK);
+
+	//emulation housekeeping. for some reason we always do this at hblank,
+	//even though it sounds more reasonable to do it at hstart
+	SPU_Emulate_core();
+//	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
+//	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
 }
 
 static void execHardware_hstart_vblankEnd()
@@ -1399,7 +1310,7 @@ static void execHardware_hstart_vcount()
 		//arm9 vmatch
 		T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 4);
 		if(T1ReadWord(MMU.ARM9_REG, 4) & 32) {
-			NDS_makeARM9Int(2);
+			NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_VMATCH);
 		}
 	}
 	else
@@ -1412,7 +1323,7 @@ static void execHardware_hstart_vcount()
 		//arm7 vmatch
 		T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 4);
 		if(T1ReadWord(MMU.ARM7_REG, 4) & 32)
-			NDS_makeARM7Int(2);
+			NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_VMATCH);
 	}
 	else
 		T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) & 0xFFFB);
@@ -1710,8 +1621,6 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 template<bool FORCE>
 void NDS_exec(s32 nb)
 {
-	//TODO - singlestep is broken
-
 	LagFrameFlag=1;
 
 	sequencer.nds_vblankEnded = false;
@@ -2445,7 +2354,7 @@ static void NDS_applyFinalInput()
 		if (!LidClosed)
 		{
 		//	SPU_Pause(FALSE);
-			NDS_makeARM7Int(22);
+			NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_ARM7_FOLD);
 
 		}
 		//else

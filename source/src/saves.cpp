@@ -21,9 +21,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-//--DCN: Force it to include the zlib compression library
 #define HAVE_LIBZ
-
 
 #ifdef HAVE_LIBZ
 #include <zlib.h>
@@ -53,7 +51,7 @@
 
 #include "path.h"
 
-#ifdef _MSC_VER
+#ifdef _WINDOWS
 #include "windows/main.h"
 #endif
 
@@ -108,7 +106,6 @@ SFORMAT SF_ARM7[]={
 	{ "7int", 4, 1, &NDS_ARM7.intVector },
 	{ "7LDT", 1, 1, &NDS_ARM7.LDTBit },
 	{ "7Wai", 4, 1, &NDS_ARM7.waitIRQ },
-	//{ "7wIR", 4, 1, &NDS_ARM7.wIRQ, },
 	{ "7wir", 4, 1, &NDS_ARM7.wirq, },
 	{ 0 }
 };
@@ -145,7 +142,6 @@ SFORMAT SF_ARM9[]={
 	{ "9int", 4, 1, &NDS_ARM9.intVector},
 	{ "9LDT", 1, 1, &NDS_ARM9.LDTBit},
 	{ "9Wai", 4, 1, &NDS_ARM9.waitIRQ},
-	//{ "9wIR", 4, 1, &NDS_ARM9.wIRQ},
 	{ "9wir", 4, 1, &NDS_ARM9.wirq},
 	{ 0 }
 };
@@ -252,14 +248,6 @@ SFORMAT SF_MMU[]={
 	
 	{ 0 }
 };
-
-#ifdef _MOVIETIME_
-SFORMAT SF_MOVIE[]={
-	{ "FRAC", 4, 1, &currFrameCounter},
-	{ "LAGC", 4, 1, &TotalLagFrames},
-	{ 0 }
-};
-#endif
 
 static void mmu_savestate(EMUFILE* os)
 {
@@ -578,25 +566,23 @@ void clear_savestates()
     savestates[i].exists = FALSE;
 }
 
-/* Scan for existing savestates and update struct */
+// Scan for existing savestates and update struct
 void scan_savestates()
 {
   struct stat sbuf;
   char filename[MAX_PATH+1];
-  u8 i;
 
   clear_savestates();
 
-  for( i = 1; i <= NB_STATES; i++ )
-    {
-    path.getpathnoext(path.STATES, filename);
-	  
-	  if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
-      sprintf(filename+strlen(filename), ".ds%d", i);
-      if( stat(filename,&sbuf) == -1 ) continue;
-      savestates[i-1].exists = TRUE;
-      strncpy(savestates[i-1].date, format_time(sbuf.st_mtime),40);
-	  savestates[i-1].date[40-1] = '\0';
+  for(int i = 0; i < NB_STATES; i++ ){
+	path.getpathnoext(path.STATES, filename);
+	
+	if (strlen(filename) + strlen(".dst") + strlen("-2147483648") /* = biggest string for i */ >MAX_PATH) return ;
+	sprintf(filename+strlen(filename), ".ds%d", i);
+	if( stat(filename,&sbuf) == -1 ) continue;
+	savestates[i].exists = TRUE;
+	strncpy(savestates[i].date, format_time(sbuf.st_mtime),40);
+	savestates[i].date[40-1] = '\0';
     }
 
   return ;
@@ -865,21 +851,17 @@ static int SubWrite(EMUFILE* os, const SFORMAT *sf)
 			// no need to ever loop one at a time if not flipping byte order
 			os->fwrite((char *)sf->v,size*count);
 		#else
-			//--DCN 
-			//There IS no 'sz'! Never was. I'm commenting it out
-			/*
-			if(sz == 1) {
+			if(size == 1) {
 				//special case: write a huge byte array
-				os->fwrite((char *)sf->v,1,count);
+				os->fwrite((char *)sf->v,count);
 			} else {
-			//*/
 				for(int i=0;i<count;i++) {
 					FlipByteOrder((u8*)sf->v + i*size, size);
 					os->fwrite((char*)sf->v + i*size,size);
 					//Now restore the original byte order.
 					FlipByteOrder((u8*)sf->v + i*size, size);
 				}
-			//}
+			}
 		#endif
 		}
 		sf++;
@@ -945,9 +927,6 @@ static void writechunks(EMUFILE* os);
 
 bool savestate_save(EMUFILE* outstream, int compressionLevel)
 {
-	//--DCN: This is from "zlib" in the windows folder, which is
-	// odd because up top it checks if we DO have "HAVE_LIBZ"
-	// Z_NO_COMPRESSION is equal to 0
 	#ifndef HAVE_LIBZ
 	compressionLevel = Z_NO_COMPRESSION;
 	#endif
@@ -1010,7 +989,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 bool savestate_save (const char *file_name)
 {
 	EMUFILE_MEMORY ms;
-	int elems_written;
+	size_t elems_written;
 #ifdef HAVE_LIBZ
 	if(!savestate_save(&ms, Z_DEFAULT_COMPRESSION))
 #else
@@ -1020,9 +999,9 @@ bool savestate_save (const char *file_name)
 	FILE* file = fopen(file_name,"wb");
 	if(file)
 	{
-		elems_written = (int)fwrite(ms.buf(), 1, ms.size(), file);
+		elems_written = fwrite(ms.buf(), 1, ms.size(), file);
 		fclose(file);
-		return (elems_written == ms.size());
+		return (elems_written == (size_t)(ms.size()));
 	} else return false;
 }
 
@@ -1042,11 +1021,6 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
 	savestate_WriteChunk(os,91,gfx3d_savestate);
-#ifdef _MOVIETIME_
-	savestate_WriteChunk(os,100,SF_MOVIE);
-
-	savestate_WriteChunk(os,101,mov_savestate);
-#endif	
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,0xFFFFFFFF,(SFORMAT*)0);
@@ -1075,14 +1049,12 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			case 7: if(!gpu_loadstate(is,size)) ret=false; break;
 			case 8: if(!spu_loadstate(is,size)) ret=false; break;
 			case 81: if(!mic_loadstate(is,size)) ret=false; break;
-#ifdef _MOVIETIME_
-			case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
-#endif
+			// No movies
+			//case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
 			case 91: if(!gfx3d_loadstate(is,size)) ret=false; break;
-#ifdef _MOVIETIME_
-			case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
-			case 101: if(!mov_loadstate(is, size)) ret=false; break;
-#endif			
+			// No movies
+			//case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
+			//case 101: if(!mov_loadstate(is, size)) ret=false; break;
 			case 110: if(!ReadStateChunk(is,SF_WIFI,size)) ret=false; break;
 			case 120: if(!ReadStateChunk(is,SF_RTC,size)) ret=false; break;
 			default:
@@ -1191,10 +1163,6 @@ bool savestate_load(EMUFILE* is)
 	if(!x && !SAV_silent_fail_flag)
 	{
 		printf("Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked");
-#ifdef _MSC_VER
-		//HACK! we really need a better way to handle this kind of feedback
-		MessageBox(0,"Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked",0,0);
-#endif
 		return false;
 	}
 
@@ -1223,11 +1191,6 @@ int rewindinterval = 4;
 
 void rewindsave () {
 
-#ifdef _MOVIETIME_
-	if(currFrameCounter % rewindinterval)
-		return;
-#endif
-
 	//printf("rewindsave"); printf("%d%s", currFrameCounter, "\n");
 
 	
@@ -1252,10 +1215,6 @@ void rewindsave () {
 
 void dorewind()
 {
-#ifdef _MOVIETIME_
-	if(currFrameCounter % rewindinterval)
-		return;
-#endif
 	//printf("rewind\n");
 
 	nds.debugConsole = FALSE;

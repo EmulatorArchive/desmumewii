@@ -232,7 +232,7 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 
 	if(armcpu->coproc[15]) free(armcpu->coproc[15]);
 	
-   for(int i = 0; i < 15; ++i)
+	for(int i = 0; i < 15; ++i)
 	{
 		armcpu->R[i] = 0;
 		armcpu->coproc[i] = NULL;
