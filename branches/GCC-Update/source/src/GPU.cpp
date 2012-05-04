@@ -37,12 +37,12 @@
 #include "readwrite.h"
 #include "log.h"
 
-//#undef FORCEINLINE
-//#define FORCEINLINE
-//#define SSE2_NOINTRIN
-
-//compilation speed hack (cuts time exactly in half by cutting out permutations)
-//#define DISABLE_MOSAIC
+#ifdef FASTBUILD
+	#undef FORCEINLINE
+	#define FORCEINLINE
+	//compilation speed hack (cuts time exactly in half by cutting out permutations)
+	#define DISABLE_MOSAIC
+#endif
 
 extern BOOL click;
 NDS_Screen MainScreen;
@@ -336,15 +336,22 @@ void GPU_setMasterBrightness (GPU *gpu, u16 val)
 	}
  	gpu->MasterBrightFactor = (val & 0x1F);
 	gpu->MasterBrightMode	= (val>>14);
-	//printf("MASTER BRIGHTNESS %d to %d at %d\n",gpu->core,gpu->MasterBrightFactor,nds.VCount);
-
 }
 
 void SetupFinalPixelBlitter (GPU *gpu)
 {
-	u32 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
-	u32 blendMode  = (gpu->BLDCNT >> 6)&3;
+	u8 windowUsed = (gpu->WIN0_ENABLED | gpu->WIN1_ENABLED | gpu->WINOBJ_ENABLED);
+	u8 blendMode  = (gpu->BLDCNT >> 6)&3;
 	u32 winUsedBlend = (windowUsed<<2) + blendMode;
+
+	/*
+	printf("-----------------------------\n");
+	printf("windowUsed   : %d\n", windowUsed);
+	printf("Blend mode   : %d\n", blendMode);
+	printf("winUsedBlend : %d\n", winUsedBlend);
+	// This all ends up coming down to the blend mode
+	// windowUsed is always zero.
+	//*/
 
 	gpu->setFinalColorSpr_funcNum = winUsedBlend;
 	gpu->setFinalColorBck_funcNum = winUsedBlend;
@@ -582,6 +589,12 @@ FORCEINLINE void GPU::renderline_checkWindows(u16 x, bool &draw, bool &effect) c
 template<BlendFunc FUNC, bool WINDOW>
 FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 {
+	//--DCN: AHA! This will only control fading for 3D!!!!
+	//return;
+	// So here's what we do. Instead of all this rubbish, 
+	// we just "lighten" or "darken" the texture of the rendered scene
+	// That should do it! We ALSO won't have to do this line-by-line!
+
 	int passing, bg_under, q;// = dstX<<1;
 	u8* dst = currDst;
 	COLOR32 color;
@@ -801,6 +814,10 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 FORCEINLINE void GPU::setFinalColor3d(int l, int i16)
 {
+	//--DCN: This... this could be standing in our way...
+	// Since everything has to go through 'post-processing'
+	// that makes getting pure 3D an impossibility.
+	// What if we were to bypass this?
 	(this->*Final3dColor_lut[setFinalColor3d_funcNum])(l,i16);
 }
 
@@ -905,12 +922,12 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 
 	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
 	u8 num = gpu->currBgNum;
-	u32 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
-	u32 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
-	u32 lg     = gpu->BGSize[num][0];
-	u32 ht     = gpu->BGSize[num][1];
-	u32 wmask  = (lg-1);
-	u32 hmask  = (ht-1);
+	u16 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
+	u16 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	u16 lg     = gpu->BGSize[num][0];
+	u16 ht     = gpu->BGSize[num][1];
+	u16 wmask  = (lg-1);
+	u16 hmask  = (ht-1);
 	YBG &= hmask;
 
 	//TODO - handle wrapping / out of bounds correctly from rot_scale_op?
@@ -940,21 +957,23 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 	struct _BGxCNT *bgCnt = &(gpu->dispx_st)->dispx_BGxCNT[num].bits;
 	struct _DISPCNT *dispCnt = &(gpu->dispx_st)->dispx_DISPCNT.bits;
 	TILEENTRY tileentry;
-	u32 lg     = gpu->BGSize[num][0];
-	u32 ht     = gpu->BGSize[num][1];
-	u32 wmask  = (lg-1);
-	u32 hmask  = (ht-1);
-	u32 tmp    = ((YBG & hmask) >> 3);
 	u32 map;
-	u8 *pal, *line;
 	u32 tile;
-	u32 xoff;
-	u32 yoff;
 	u32 x      = 0;
 	u32 xfin;
 	u32 mapinfo;
+	u8 *pal, *line;	
+	u16 lg     = gpu->BGSize[num][0];
+	u16 ht     = gpu->BGSize[num][1];
+	u16 wmask  = (lg-1);
+	u16 hmask  = (ht-1);
+	u16 tmp    = ((YBG & hmask) >> 3);
+	u16 xoff;
+	u16 yoff;
+	u16 color;	
 	u32 tmp_map = gpu->BG_map_ram[num] + (tmp&31) * 64;
-	u16 color;
+
+
 	s8 line_dir = 1;
 	
 	if(tmp>31) 

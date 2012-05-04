@@ -19,8 +19,6 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-//#define NEW_IRQ 1
-
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -37,7 +35,6 @@
 #include "render3D.h"
 #include "gfx3d.h"
 #include "rtc.h"
-//#include "GPU_osd.h"
 #include "mc.h"
 #include "addons.h"
 #include "mic.h"
@@ -442,13 +439,6 @@ static inline u8* MMU_vram_physical(const int page)
 }
 
 //todo - templateize
-//note: it doesnt seem right to me to map LCDC whenever a bank is allocated to BG/OBJ but thats how it is
-//(in FF4, when entering a town from worldmap, the subscreen tiles are via LCDC while mapped to sub BG)
-//UPDATED: i had to take them out in order to fix tetris DS music mode.
-//since then, other issues fixed FF4's problems, so they are staying out for now
-//as further, almost definitive proof that these should remain unmapped,
-//making them mapped permit's spiderman2's legal screens / intro FMV to render garbage
-//on top of the studio logo if you interrupt it by pressing enter. 
 static inline void MMU_VRAMmapRefreshBank(const int bank)
 {
 	int block = bank;
@@ -475,7 +465,6 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //ABG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::ABG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_ABG+ofs*8);
 				break;
 			case 2: //AOBJ
@@ -483,7 +472,6 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				switch(ofs) {
 				case 0:
 				case 1:
-					//MMU_vram_lcdc(bank);
 					MMU_vram_arm9(bank,VRAM_PAGE_AOBJ+ofs*8);
 					break;
 				default:
@@ -511,7 +499,6 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //ABG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::ABG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_ABG+ofs*8);
 				break;
 			case 2: //arm7
@@ -533,7 +520,6 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				MMU.texInfo.textureSlotAddr[ofs] = MMU_vram_physical(vram_bank_info[bank].page_addr);
 				break;
 			case 4: //BGB or BOBJ
-				//MMU_vram_lcdc(bank);
 				if(bank == VRAM_BANK_C)  {
 					vramConfiguration.banks[bank].purpose = VramConfiguration::BBG;
 					MMU_vram_arm9(bank,VRAM_PAGE_BBG); //BBG
@@ -557,11 +543,9 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //ABG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::ABG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_ABG);
 				break;
 			case 2: //AOBJ
-				//MMU_vram_lcdc(bank);
 				vramConfiguration.banks[bank].purpose = VramConfiguration::AOBJ;
 				MMU_vram_arm9(bank,VRAM_PAGE_AOBJ);
 				break;
@@ -598,13 +582,11 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //ABG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::ABG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_ABG+pageofs);
 				MMU_vram_arm9(bank,VRAM_PAGE_ABG+pageofs+2); //unexpected mirroring (required by spyro eternal night)
 				break;
 			case 2: //AOBJ
 				vramConfiguration.banks[bank].purpose = VramConfiguration::AOBJ;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_AOBJ+pageofs);
 				MMU_vram_arm9(bank,VRAM_PAGE_AOBJ+pageofs+2); //unexpected mirroring - I have no proof, but it is inferred from the ABG above
 				break;
@@ -648,7 +630,6 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //BBG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::BBG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_BBG);
 				MMU_vram_arm9(bank,VRAM_PAGE_BBG + 4); //unexpected mirroring
 				break;
@@ -674,13 +655,11 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 1: //BBG
 				vramConfiguration.banks[bank].purpose = VramConfiguration::BBG;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_BBG+2);
 				MMU_vram_arm9(bank,VRAM_PAGE_BBG+3); //unexpected mirroring
 				break;
 			case 2: //BOBJ
 				vramConfiguration.banks[bank].purpose = VramConfiguration::BOBJ;
-				//MMU_vram_lcdc(bank);
 				MMU_vram_arm9(bank,VRAM_PAGE_BOBJ);
 				break;
 			case 3: //B OBJ extended palette
@@ -1168,18 +1147,18 @@ static void execdiv() {
 
 	switch(cnt&3)
 	{
-	case 0:
+	case 0:	// 32/32
 		num = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
 		MMU.divCycles = nds_timer + 36;
 		break;
-	case 1:
+	case 1:	// 64/32
 	case 3: //gbatek says this is same as mode 1
 		num = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) (s32) T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
 		MMU.divCycles = nds_timer + 68;
 		break;
-	case 2:
+	case 2:	// 64/64
 	default:
 		num = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x290);
 		den = (s64) T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x298);
@@ -1218,6 +1197,8 @@ static void execdiv() {
 	NDS_Reschedule();
 }
 
+// TODO: 
+// NAND flash support (used in Made in Ore/WarioWare D.I.Y.)
 template<int PROCNUM>
 void FASTCALL MMU_writeToGCControl(u32 val)
 {
@@ -1254,10 +1235,11 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 		}
 		break;
 	case CardMode_KEY2:
+		INFO("Cartridge: KEY2 mode unsupported.\n");
 		break;
 	}
 
-    switch(card.command[0])
+	switch(card.command[0])
 	{
 		// Dummy
 		case 0x9F:
@@ -1334,7 +1316,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			{
 				card.address = 0;
 				card.transfer_count = 0;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 			}
 			break;
 
@@ -1347,7 +1329,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			case 0x40:
 				card.address = 0;
 				card.transfer_count = 0;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			case 0x42:  // ALL_SEND_CID
@@ -1359,7 +1341,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			case 0x69:  // SD_APP_OP_COND
 				card.address = 0;
 				card.transfer_count = 6;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			// SET_BLOCKLEN
@@ -1367,14 +1349,14 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 				card.address = 0;
 				card.transfer_count = 6;
 				card.blocklen = card.command[6] | (card.command[5] << 8) | (card.command[4] << 16) | (card.command[3] << 24);
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 
 			// READ_SINGLE_BLOCK
 			case 0x51:
 				card.address = card.command[6] | (card.command[5] << 8) | (card.command[4] << 16) | (card.command[3] << 24);
 				card.transfer_count = (card.blocklen + 3) >> 2;
-				NDS_makeInt(PROCNUM, 20);
+				NDS_makeIrq(PROCNUM, 20);
 				break;
 			}
 			break;
@@ -1546,11 +1528,11 @@ u32 MMU_readFromGC()
 
 	// transfer is done
 	T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, 
-		T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+	T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
-		NDS_makeInt(PROCNUM, 19);
+		NDS_makeIrq(PROCNUM, IRQ_BIT_GC_TRANSFER_COMPLETE);
 
 	return val;
 }
@@ -1624,7 +1606,7 @@ void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val)
 #define profile_memory_access(X,Y,Z)
 
 //does some validation on the game's choice of IF value, correcting it if necessary
-void validateIF_arm9()
+static void validateIF_arm9()
 {
 	//according to gbatek, these flags are forced on until the condition is removed.
 	//no proof of this though...
@@ -1997,19 +1979,10 @@ start:
 				if(gxFIFO.size<=127)
 					triggered = TRUE;
 				break;
-				
-			// TO BE IMPLEMENTED:
-			case EDMAMode_VBlank:
-			case EDMAMode_HBlank:
-			case EDMAMode_HStart:
-			case EDMAMode_MemDisplay:
-			case EDMAMode_Card:
-			case EDMAMode_GBASlot:
-			case EDMAMode7_Wifi:
-			case EDMAMode7_GBASlot:
 			default:
 				break;
 		}
+
 		if(triggered)
 		{
 			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
@@ -2151,8 +2124,7 @@ void DmaController::doStop()
 	running = FALSE;
 	if(!repeatMode) enable = FALSE;
 	if(irq) {
-		if(procnum==0) NDS_makeARM9Int(8+chan);
-		else NDS_makeARM7Int(8+chan);
+		NDS_makeIrq(procnum,IRQ_BIT_DMA_0 + chan);
 	}
 }
 
@@ -2212,7 +2184,8 @@ static INLINE void write_auxspicnt(const int proc, const int size, const int adr
 //================================================= MMU write 08
 void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 {
-	mmu_log_debug_ARM9(adr, "(write08) %0x%X", val);
+
+	mmu_log_debug_ARM9(adr, "(write08) 0x%02X", val);
 
 	if(adr < 0x02000000)
 	{
@@ -2324,7 +2297,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 				break ; 	 
 			case REG_DISPB_WININ+1: 	 
 				GPU_setWININ1(SubScreen.gpu,val) ; 	 
-				break ; 	 
+				break ; 
 			case REG_DISPB_WINOUT: 	 
 				GPU_setWINOUT(SubScreen.gpu,val) ; 	 
 				break ; 	 
@@ -2374,8 +2347,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 				write_auxspicnt(9,8,1,val);
 				return;
 
-
-			case 0x4000247:	
+			case REG_WRAMCNT:	
 				/* Update WRAMSTAT at the ARM7 side */
 				T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x241, val);
 				break;
@@ -2428,7 +2400,8 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 //================================================= MMU ARM9 write 16
 void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 {
-	mmu_log_debug_ARM9(adr, "(write16) %0x%X", val);
+
+	mmu_log_debug_ARM9(adr, "(write16) 0x%04X", val);
 
 	if (adr < 0x02000000)
 	{
@@ -2499,34 +2472,36 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			}
 
 			// Alpha test reference value - Parameters:1
-			case 0x04000340:
+			case eng_3D_ALPHA_TEST_REF:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x340>>1] = val;
 				gfx3d_glAlphaFunc(val);
 				return;
 			}
+
 			// Clear background color setup - Parameters:2
-			case 0x04000350:
+			case eng_3D_CLEAR_COLOR:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x350>>1] = val;
 				gfx3d_glClearColor(val);
 				return;
 			}
+
 			// Clear background depth setup - Parameters:2
-			case 0x04000354:
+			case eng_3D_CLEAR_DEPTH:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x354>>1] = val;
 				gfx3d_glClearDepth(val);
 				return;
 			}
 			// Fog Color - Parameters:4b
-			case 0x04000358:
+			case eng_3D_FOG_COLOR:
 			{
 				((u16 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x358>>1] = val;
 				gfx3d_glFogColor(val);
 				return;
 			}
-			case 0x0400035C:
+			case eng_3D_FOG_OFFSET:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x35C>>1] = val;
 				gfx3d_glFogOffset(val);
@@ -2554,14 +2529,14 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPA_MASTERBRIGHT:
 				GPU_setMasterBrightness (MainScreen.gpu, val);
 				break;
-				/*
+			/*
 			case REG_DISPA_MOSAIC: 	 
 				GPU_setMOSAIC(MainScreen.gpu,val) ; 	 
 				break ; 	 
 			case REG_DISPB_MOSAIC: 	 
 				GPU_setMOSAIC(SubScreen.gpu,val) ; 	 
 				break ;
-				*/
+			*/
 			case REG_DISPA_BG0HOFS:
 				GPU_setBGxHOFS(0, MainScreen.gpu, val);
 				break;
@@ -2896,11 +2871,6 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 		return;
 	}
 
-	/*if(adr>=0x05000000 && adr<0x06000000)
-	{
-		int zzz=9;
-	}*/
-
 
 	bool unmapped;
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped);
@@ -2913,7 +2883,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 //================================================= MMU ARM9 write 32
 void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 {
-	mmu_log_debug_ARM9(adr, "(write32) %0x%X", val);
+	mmu_log_debug_ARM9(adr, "(write32) 0x%08X", val);
 
 	if(adr<0x02000000)
 	{
@@ -3005,11 +2975,15 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[(adr & 0xFFF) >> 2] = val;
 				gfx3d_sendCommand(adr, val);
 				return;
+
 			default:
 				break;
 		}
 
-		if(MMU_new.is_dma(adr)) { MMU_new.write_dma(ARMCPU_ARM9,32,adr,val); return; }
+		if(MMU_new.is_dma(adr)) { 
+			MMU_new.write_dma(ARMCPU_ARM9,32,adr,val);
+			return;
+		}
 
 		switch(adr)
 		{
@@ -3042,21 +3016,21 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				return;
 
 			// Alpha test reference value - Parameters:1
-			case 0x04000340:
+			case eng_3D_ALPHA_TEST_REF:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x340>>2] = val;
 				gfx3d_glAlphaFunc(val);
 				return;
 			}
 			// Clear background color setup - Parameters:2
-			case 0x04000350:
+			case eng_3D_CLEAR_COLOR:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x350>>2] = val;
 				gfx3d_glClearColor(val);
 				return;
 			}
 			// Clear background depth setup - Parameters:2
-			case 0x04000354:
+			case eng_3D_CLEAR_DEPTH:
 			{
 				((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][0x40]))[0x354>>2] = val;
 				gfx3d_glClearDepth(val);
@@ -3290,10 +3264,6 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 		T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
 		return;
 	}
-	/*if(adr>=0x05000000 && adr<0x06200000)
-	{
-		int zzz=9;
-	}*/
 
 	bool unmapped;
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped);
@@ -3306,7 +3276,7 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 //================================================= MMU ARM9 read 08
 u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 {
-	mmu_log_debug_ARM9(adr, "(read08) %0x%X", MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF]]);
+	mmu_log_debug_ARM9(adr, "(read08) 0x%02X", MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF]]);
 
 	if(adr<0x02000000)
 		return T1ReadByte(MMU.ARM9_ITCM, adr&0x7FFF);
@@ -3319,7 +3289,7 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 	if (adr >> 24 == 4)
 	{	//Address is an IO register
 
-		if(MMU_new.is_dma(adr)) return MMU_new.read_dma(ARMCPU_ARM9,8,adr); 
+		if(MMU_new.is_dma(adr)) return MMU_new.read_dma(ARMCPU_ARM9,8,adr);
 
 		switch(adr)
 		{
@@ -3338,7 +3308,8 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 //================================================= MMU ARM9 read 16
 u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 {    
-	mmu_log_debug_ARM9(adr, "(read16) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20) & 0xFF]));
+
+	mmu_log_debug_ARM9(adr, "(read16) 0x%04X", T1ReadWord_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr >> 20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr >> 20]));
 
 	if(adr<0x02000000)
 		return T1ReadWord_guaranteedAligned(MMU.ARM9_ITCM, adr & 0x7FFE);	
@@ -3367,10 +3338,6 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 				return 0;
 				//almost worthless for now
 				//return (gfx3d_GetNumVertex());
-			//case 0x04000630:
-			//case 0x04000632:
-			//case 0x04000634:
-			//	return gfx3d_glGetVecRes((adr & 0xF) >> 1);
 			// ============================================= 3D end
 			case REG_IME :
 				return (u16)MMU.reg_IME[ARMCPU_ARM9];
@@ -3419,7 +3386,8 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 //================================================= MMU ARM9 read 32
 u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 {
-	mmu_log_debug_ARM9(adr, "(read32) %0x%X", T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20)]));
+
+	mmu_log_debug_ARM9(adr, "(read32) 0x%08X", T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr >> 20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20]));
 
 	if(adr<0x02000000) 
 		return T1ReadLong_guaranteedAligned(MMU.ARM9_ITCM, adr&0x7FFC);
@@ -3436,50 +3404,50 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 
 		switch(adr)
 		{
-			case 0x04000640:
-			case 0x04000644:
-			case 0x04000648:
-			case 0x0400064C:
-			case 0x04000650:
-			case 0x04000654:
-			case 0x04000658:
-			case 0x0400065C:
-			case 0x04000660:
-			case 0x04000664:
-			case 0x04000668:
-			case 0x0400066C:
-			case 0x04000670:
-			case 0x04000674:
-			case 0x04000678:
-			case 0x0400067C:
+			case eng_3D_CLIPMTX_RESULT:
+			case eng_3D_CLIPMTX_RESULT+4:
+			case eng_3D_CLIPMTX_RESULT+8:
+			case eng_3D_CLIPMTX_RESULT+12:
+			case eng_3D_CLIPMTX_RESULT+16:
+			case eng_3D_CLIPMTX_RESULT+20:
+			case eng_3D_CLIPMTX_RESULT+24:
+			case eng_3D_CLIPMTX_RESULT+28:
+			case eng_3D_CLIPMTX_RESULT+32:
+			case eng_3D_CLIPMTX_RESULT+36:
+			case eng_3D_CLIPMTX_RESULT+40:
+			case eng_3D_CLIPMTX_RESULT+44:
+			case eng_3D_CLIPMTX_RESULT+48:
+			case eng_3D_CLIPMTX_RESULT+52:
+			case eng_3D_CLIPMTX_RESULT+56:
+			case eng_3D_CLIPMTX_RESULT+60:
 			{
 				//LOG("4000640h..67Fh - CLIPMTX_RESULT - Read Current Clip Coordinates Matrix (R)");
 				return gfx3d_GetClipMatrix ((adr-0x04000640)/4);
 			}
-			case 0x04000680:
-			case 0x04000684:
-			case 0x04000688:
-			case 0x0400068C:
-			case 0x04000690:
-			case 0x04000694:
-			case 0x04000698:
-			case 0x0400069C:
-			case 0x040006A0:
+			case eng_3D_VECMTX_RESULT:
+			case eng_3D_VECMTX_RESULT+4:
+			case eng_3D_VECMTX_RESULT+8:
+			case eng_3D_VECMTX_RESULT+12:
+			case eng_3D_VECMTX_RESULT+16:
+			case eng_3D_VECMTX_RESULT+20:
+			case eng_3D_VECMTX_RESULT+24:
+			case eng_3D_VECMTX_RESULT+28:
+			case eng_3D_VECMTX_RESULT+32:
 			{
 				//LOG("4000680h..6A3h - VECMTX_RESULT - Read Current Directional Vector Matrix (R)");
 				return gfx3d_GetDirectionalMatrix ((adr-0x04000680)/4);
 			}
 
-			case 0x4000604:
+			case eng_3D_RAM_COUNT:
 			{
 				return (gfx3d_GetNumPolys()) | ((gfx3d_GetNumVertex()) << 16);
 				//LOG ("read32 - RAM_COUNT -> 0x%X", ((u32 *)(MMU.MMU_MEM[ARMCPU_ARM9][(adr>>20)&0xFF]))[(adr&MMU.MMU_MASK[ARMCPU_ARM9][(adr>>20)&0xFF])>>2]);
 			}
 
-			case 0x04000620:
-			case 0x04000624:
-			case 0x04000628:
-			case 0x0400062C:
+			case eng_3D_POS_RESULT:
+			case eng_3D_POS_RESULT+4:
+			case eng_3D_POS_RESULT+8:
+			case eng_3D_POS_RESULT+12:
 			{
 				return gfx3d_glGetPosRes((adr & 0xF) >> 2);
 			}
@@ -3504,18 +3472,8 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 					u32 val = T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM9][0x40], (adr + 2) & 0xFFF);
 					return MMU.timer[ARMCPU_ARM9][(adr&0xF)>>2] | (val<<16);
 				}	
-			/*
-			case 0x04000640 :	// TODO (clear): again, ??? 
-				LOG("read proj\r\n");
-			return 0;
-			case 0x04000680 :
-				LOG("read roat\r\n");
-			return 0;
-			case 0x04000620 :
-				LOG("point res\r\n");
-			return 0;
-			*/
-            case REG_GCDATAIN:
+
+			case REG_GCDATAIN:
 				return MMU_readFromGC<ARMCPU_ARM9>();
 		}
 		return T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][0x40], adr & MMU.MMU_MASK[ARMCPU_ARM9][(adr >> 20)]);
@@ -3534,7 +3492,9 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 //================================================= MMU ARM7 write 08
 void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 {
-	mmu_log_debug_ARM7(adr, "(write08) %0x%X", val);
+
+	mmu_log_debug_ARM7(adr, "(write08) 0x%02X", val);
+
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
@@ -3575,16 +3535,16 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 
 		switch(adr)
 		{
-		case REG_RTC:
-			rtcWrite(val);
-			return;
+			case REG_RTC:
+				rtcWrite(val);
+				return;
 
-		case REG_AUXSPICNT:
-			write_auxspicnt(9,8,0,val);
-			return;
-		case REG_AUXSPICNT+1:
-			write_auxspicnt(9,8,1,val);
-			return;
+			case REG_AUXSPICNT:
+				write_auxspicnt(9,8,0,val);
+				return;
+			case REG_AUXSPICNT+1:
+				write_auxspicnt(9,8,1,val);
+				return;
 		}
 	}
 
@@ -3599,7 +3559,8 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 //================================================= MMU ARM7 write 16
 void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 {
-	mmu_log_debug_ARM7(adr, "(write16) %0x%X", val);
+
+	mmu_log_debug_ARM7(adr, "(write16) 0x%04X", val);
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
@@ -3702,12 +3663,15 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 								}
 								else
 								{
+									//(let's start with emulating a DS lite, since it is the more complex case)
 									if(MMU.powerMan_CntReg & 0x80)
 									{
+										//read
 										val = MMU.powerMan_Reg[MMU.powerMan_CntReg & 0x3];
 									}
 									else
 									{
+										//write
 										MMU.powerMan_Reg[MMU.powerMan_CntReg & 0x3] = (u8)val;
 									}
 
@@ -3753,10 +3717,10 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 								case 0x20 :
 									val = 0;
 									break;
-								case 0x30 :
+								case 0x30 : //Z1
 									val = 0;
 									break;
-								case 0x40 :
+								case 0x40 : //Z2
 									val = 0;
 									break;
 								case 0x50 :
@@ -3859,11 +3823,11 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 				return;
 				
             case REG_IPCSYNC :
-					MMU_IPCSync(ARMCPU_ARM7, val);
+				MMU_IPCSync(ARMCPU_ARM7, val);
 				return;
 
 			case REG_IPCFIFOCNT :
-					IPC_FIFOcnt(ARMCPU_ARM7, val);
+				IPC_FIFOcnt(ARMCPU_ARM7, val);
 				return;
             case REG_TM0CNTL :
             case REG_TM1CNTL :
@@ -3897,7 +3861,8 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 //================================================= MMU ARM7 write 32
 void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 {
-	mmu_log_debug_ARM7(adr, "(write32) %0x%X", val);
+	mmu_log_debug_ARM7(adr, "(write32) 0x%08X", val);
+
 
 	if ( (adr >= 0x08000000) && (adr < 0x0A010000) )
 	{
@@ -4014,7 +3979,9 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 //================================================= MMU ARM7 read 08
 u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read08) %0x%X", MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]]);
+
+	mmu_log_debug_ARM7(adr, "(read08) 0x%02X", MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]]);
+
 
 	// wifi mac access 
 	if ((adr>=0x04800000)&&(adr<0x05000000))
@@ -4047,7 +4014,9 @@ u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 //================================================= MMU ARM7 read 16
 u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read16) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]));
+
+	mmu_log_debug_ARM7(adr, "(read16) 0x%04X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]));
+
 
 	//wifi mac access
 	if ((adr>=0x04800000)&&(adr<0x05000000))
@@ -4114,7 +4083,9 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 //================================================= MMU ARM7 read 32
 u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 {
-	mmu_log_debug_ARM7(adr, "(read32) %0x%X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]));
+
+	mmu_log_debug_ARM7(adr, "(read32) 0x%08X", T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]));
+
 
 	//wifi mac access
 	if ((adr>=0x04800000)&&(adr<0x05000000))
