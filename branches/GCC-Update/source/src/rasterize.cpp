@@ -821,6 +821,7 @@ public:
 	//This function can handle any convex N-gon up to octagons
 	//verts must be clockwise.
 	//I didnt reference anything for this algorithm but it seems like I've seen it somewhere before.
+	//Maybe it is like crow's algorithm
 	template<bool SLI>
 	void shape_engine(int type, bool backwards)
 	{

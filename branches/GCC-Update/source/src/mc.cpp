@@ -105,7 +105,7 @@ void mc_init(memory_chip_t *mc, int type)
 	mc->writeable_buffer = FALSE;
 	mc->type = type;
 	mc->autodetectsize = 0;
-				   
+
 	switch(mc->type)
 	{
 		case MC_TYPE_EEPROM1:
@@ -187,34 +187,34 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 					}
 					break;
 			}
-		   
+
 		}
 	}
 	else if(mc->com == FW_CMD_READSTATUS)
 	{
-			return (mc->write_enable ? 0x02 : 0x00);
+		return (mc->write_enable ? 0x02 : 0x00);
 	}
-	else    /* finally, check if it's a new command */
+	else	// finally, check if it's a new command
 	{
 		switch(data)
 		{
-			case 0: break;  /* nothing */
+			case 0: break;	// nothing
 		   
-			case FW_CMD_READ:    /* read command */
+			case FW_CMD_READ:	// read command
 				mc->addr = 0;
 				mc->addr_shift = 3;
 				mc->com = FW_CMD_READ;
 				break;
-				   
-			case FW_CMD_WRITEENABLE:     /* enable writing */
+				
+			case FW_CMD_WRITEENABLE:     // enable writing
 				if(mc->writeable_buffer) { mc->write_enable = TRUE; }
 				break;
-				   
-			case FW_CMD_WRITEDISABLE:    /* disable writing */
+				
+			case FW_CMD_WRITEDISABLE:    // disable writing
 				mc->write_enable = FALSE;
 				break;
-				   
-			case FW_CMD_PAGEWRITE:       /* write command */
+				
+			case FW_CMD_PAGEWRITE:       // write command
 				if(mc->write_enable)
 				{
 					mc->addr = 0;
@@ -223,24 +223,24 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 				}
 				else { data = 0; }
 				break;
-		   
-			case FW_CMD_READSTATUS:  /* status register command */
+			
+			case FW_CMD_READSTATUS:  //status register command
 				mc->com = FW_CMD_READSTATUS;
 				break;
-				   
+				
 			default:
 				printf("Unhandled FW command: %02X\n", data);
 				break;
 		}
 	}
-   
+	
 	return data;
-}      
-
+}
 
 bool BackupDevice::save_state(EMUFILE* os)
 {
 	u32 version = 1;
+	//v0
 	write32le(version,os);
 	write32le(write_enable,os);
 	write32le(com,os);
@@ -249,6 +249,7 @@ bool BackupDevice::save_state(EMUFILE* os)
 	write32le((u32)state,os);
 	writebuffer(data,os);
 	writebuffer(data_autodetect,os);
+	//v1
 	write32le(addr,os);
 	return true;
 }
@@ -446,55 +447,55 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 		//there is no current command. receive one
 		switch(val)
 		{
-				case 0: break; //??
+			case 0: break; //??
 
-				case 8:
-						val = 0xAA;
-						break;
-			   
-				case BM_CMD_WRITEDISABLE:
-						write_enable = FALSE;
-						break;
-											   
-				case BM_CMD_READSTATUS:
-						com = BM_CMD_READSTATUS;
-						break;
+			case 8:
+				val = 0xAA;
+				break;
 
-				case BM_CMD_WRITEENABLE:
-						write_enable = TRUE;
-						break;
+			case BM_CMD_WRITEDISABLE:
+				write_enable = FALSE;
+				break;
 
-				case BM_CMD_WRITELOW:
-				case BM_CMD_READLOW:
-						//printf("XLO: %08X\n",addr);
-						com = val;
-						addr_counter = 0;
-						addr = 0;
-						break;
+			case BM_CMD_READSTATUS:
+				com = BM_CMD_READSTATUS;
+				break;
 
-				case BM_CMD_WRITEHIGH:
-				case BM_CMD_READHIGH:
-						//printf("XHI: %08X\n",addr);
-						if(val == BM_CMD_WRITEHIGH) val = BM_CMD_WRITELOW;
-						if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
-						com = val;
-						addr_counter = 0;
-						addr = 0;
-						if(addr_size==1) {
-								//"write command that's only available on ST M95040-W that I know of"
-								//this makes sense, since this device would only have a 256 bytes address space with writelow
-								//and writehigh would allow access to the upper 256 bytes
-								//but it was detected in pokemon diamond also during the main save process
-								addr = 0x1;
-						}
-						break;
+			case BM_CMD_WRITEENABLE:
+				write_enable = TRUE;
+				break;
 
-				default:
-						printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
-						break;
+			case BM_CMD_WRITELOW:
+			case BM_CMD_READLOW:
+				//printf("XLO: %08X\n",addr);
+				com = val;
+				addr_counter = 0;
+				addr = 0;
+				break;
+
+			case BM_CMD_WRITEHIGH:
+			case BM_CMD_READHIGH:
+				//printf("XHI: %08X\n",addr);
+				if(val == BM_CMD_WRITEHIGH) val = BM_CMD_WRITELOW;
+				if(val == BM_CMD_READHIGH) val = BM_CMD_READLOW;
+				com = val;
+				addr_counter = 0;
+				addr = 0;
+				if(addr_size==1) {
+					//"write command that's only available on ST M95040-W that I know of"
+					//this makes sense, since this device would only have a 256 bytes address space with writelow
+					//and writehigh would allow access to the upper 256 bytes
+					//but it was detected in pokemon diamond also during the main save process
+					addr = 0x1;
+				}
+				break;
+
+			default:
+				printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
+				break;
 		}
 	}
-        return val;
+	return val;
 }
 
 //guarantees that the data buffer has room enough for the specified number of bytes
@@ -567,14 +568,14 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 {
 	const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
 	const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
-	u8      *src = (u8 *)in_buf;
-	u8      *dst = (u8 *)out_buf;
+	u8	*src = (u8 *)in_buf;
+	u8	*dst = (u8 *)out_buf;
 	u32 src_pos = 0;
 	u32 dst_pos = 0;
-	u8      cc = 0;
-	u32     size_unpacked = 0;
-	u32     size_packed = 0;
-	u32     compressMethod = 0;
+	u8	cc = 0;
+	u32	size_unpacked = 0;
+	u32	size_packed = 0;
+	u32	compressMethod = 0;
 
 	if (fsize < 0x50) return (1);
 
@@ -590,19 +591,19 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 
 	compressMethod = *((u32*)(src+0x44));
 
-	if (compressMethod == 0)                                // unpacked
+	if (compressMethod == 0)	// unpacked
 	{
 		size_unpacked = *((u32*)(src+0x48));
 		src_pos = 0x4C;
 		for (u32 i = 0; i < size_unpacked; i++)
 		{
-				dst[dst_pos++] = src[src_pos++];
+			dst[dst_pos++] = src[src_pos++];
 		}
 		size = dst_pos;
 		return (0);
 	}
 
-	if (compressMethod == 1)                                // packed (method 1)
+	if (compressMethod == 1)	// packed (method 1)
 	{
 		size_packed = *((u32*)(src+0x48));
 		size_unpacked = *((u32*)(src+0x4C));
@@ -611,14 +612,14 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 		while (true)
 		{
 			cc = src[src_pos++];
-		   
+			
 			if (cc == 0)
 			{
 				size = dst_pos;
 				return (0);
 			}
 
-			if (cc == 0x80)
+			else if (cc == 0x80)
 			{
 				u16 tsize = *((u16*)(src+src_pos+1));
 				for (int t = 0; t < tsize; t++)
@@ -627,7 +628,7 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 				continue;
 			}
 
-			if (cc > 0x80)          // repeat
+			else if (cc > 0x80)		// repeat
 			{
 				cc -= 0x80;
 				for (int t = 0; t < cc; t++)
@@ -645,12 +646,11 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 	return (200);
 }
 
-
 static u32 no_gba_savTrim(void *buf, u32 size)
 {
 	u32 rows = size / 16;
 	u32 pos = (size - 16);
-	u8      *src = (u8*)buf;
+	u8 *src = (u8*)buf;
 
 	for (unsigned int i = 0; i < rows; i++, pos -= 16)
 	{
@@ -681,9 +681,9 @@ static u32 no_gba_fillLeft(u32 size)
 
 bool BackupDevice::load_no_gba(const char *fname)
 {
-	FILE    *fsrc = fopen(fname, "rb");
-	u8              *in_buf = NULL;
-	u8              *out_buf = NULL;
+	FILE	*fsrc = fopen(fname, "rb");
+	u8		*in_buf = NULL;
+	u8		*out_buf = NULL;
 
 	if (fsrc)
 	{
@@ -698,13 +698,9 @@ bool BackupDevice::load_no_gba(const char *fname)
 		if (fread(in_buf, 1, fsize, fsrc) == fsize)
 		{
 			out_buf = new u8 [8 * 1024 * 1024 / 8];
-			for (int jj = 0; jj < 8 * 1024 * 1024 / 8; jj++)
-			{
-				out_buf[jj] = 0xFF;
-			}
-
 			u32 size = 0;
 
+			memset(out_buf, 0xFF, 8 * 1024 * 1024 / 8);
 			if (no_gba_unpackSAV(in_buf, fsize, out_buf, size) == 0)
 			{
 				//printf("New size %i byte(s)\n", size);
@@ -715,7 +711,7 @@ bool BackupDevice::load_no_gba(const char *fname)
 				raw_applyUserSettings(size);
 				data.resize(size);
 				for (u32 tt = 0; tt < size; tt++)
-						data[tt] = out_buf[tt];
+					data[tt] = out_buf[tt];
 
 				//dump back out as a dsv, just to keep things sane
 				flush();
@@ -723,11 +719,13 @@ bool BackupDevice::load_no_gba(const char *fname)
 
 				if (in_buf) delete [] in_buf;
 				if (out_buf) delete [] out_buf;
+				fclose(fsrc);
 				return true;
 			}
 			if (out_buf) delete [] out_buf;
 		}
 		if (in_buf) delete [] in_buf;
+		fclose(fsrc);
 	}
 
 	return false;
@@ -759,6 +757,7 @@ bool BackupDevice::save_no_gba(const char* fname)
 
 void BackupDevice::loadfile()
 {
+
 	if(filename.length() ==0) return; //No sense crashing if no filename supplied
 
 	EMUFILE_FILE* inf = new EMUFILE_FILE(filename.c_str(),"rb");
@@ -767,7 +766,7 @@ void BackupDevice::loadfile()
 		delete inf;
 		//no dsv found; we need to try auto-importing a file with .sav extension
 		printf("DeSmuME .dsv save file not found. Trying to load an old raw .sav file.\n");
-	   
+		
 		//change extension to sav
 		char tmp[MAX_PATH];
 		strcpy(tmp,filename.c_str());
@@ -850,7 +849,6 @@ bool BackupDevice::save_raw(const char* filename)
 	return true;
 }
 
-
 u32 BackupDevice::pad_up_size(u32 startSize)
 {
 	u32 size = startSize;
@@ -867,24 +865,25 @@ u32 BackupDevice::pad_up_size(u32 startSize)
 
 void BackupDevice::lazy_flush()
 {
-        if(flushPending || lazyFlushPending)
-        {
-                lazyFlushPending = flushPending = false;
-                flush();
-        }
+	if(flushPending || lazyFlushPending)
+	{
+		lazyFlushPending = flushPending = false;
+		flush();
+	}
 }
 
 void BackupDevice::flush()
 {
+
 	EMUFILE* outf = new EMUFILE_FILE(filename.c_str(),"wb");
 	if(!outf->fail())
 	{
 		if(data.size()>0)
 			outf->fwrite(&data[0],data.size());
-
+		
 		//write the footer. we use a footer so that we can maximize the chance of the
 		//save file being recognized as a raw save file by other emulators etc.
-
+		
 		//first, pad up to the next largest known save size.
 		u32 size = data.size();
 		u32 padSize = pad_up_size(size);
@@ -936,7 +935,7 @@ bool BackupDevice::load_raw(const char* filename)
 	fseek(inf, 0, SEEK_END);
 	u32 size = (u32)ftell(inf);
 	fseek(inf, 0, SEEK_SET);
-   
+
 	raw_applyUserSettings(size);
 
 	data.resize(size);
@@ -956,12 +955,12 @@ bool BackupDevice::load_duc(const char* filename)
 	char id[16];
 	FILE* file = fopen(filename, "rb");
 	if(file == NULL)
-	  return false;
+		return false;
 
 	fseek(file, 0, SEEK_END);
 	size = (u32)ftell(file) - 500;
 	fseek(file, 0, SEEK_SET);
-
+	
 	// Make sure we really have the right file
 	fread((void *)id, sizeof(char), 16, file);
 
@@ -973,18 +972,18 @@ bool BackupDevice::load_duc(const char* filename)
 	}
 	// Skip the rest of the header since we don't need it
 	fseek(file, 500, SEEK_SET);
-
+	
 	raw_applyUserSettings(size);
-
+	
 	ensure((u32)size);
-
+	
 	fread(&data[0],1,size,file);
 	fclose(file);
-
+	
 	//choose
-
+	
 	flush();
-
+	
 	return true;
 
 }

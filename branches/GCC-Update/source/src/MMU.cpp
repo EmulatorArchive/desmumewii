@@ -95,7 +95,8 @@ u32 _MMU_MAIN_MEM_MASK32 = 0x3FFFFF & ~3;
 void mmu_log_debug_ARM9(u32 adr, const char *fmt, ...)
 {
 	if (adr < 0x4000000) return;
-	if (adr > 0x4100014) return;
+//	if (adr > 0x4100014) return;
+
 	if (adr >= 0x4000000 && adr <= 0x400006E) return;		// Display Engine A
 	if (adr >= 0x40000B0 && adr <= 0x4000134) return;		// DMA, Timers and Keypad
 	if (adr >= 0x4000180 && adr <= 0x40001BC) return;		// IPC/ROM
@@ -122,7 +123,8 @@ void mmu_log_debug_ARM7(u32 adr, const char *fmt, ...)
 	if (adr < 0x4000004) return;
 	if (adr > 0x4808FFF) return;
 #if 1
-	if (adr >= 0x4000004 && adr <= 0x40001C4) return;		// ARM7 I/O Map
+	if (adr >= 0x4000004 && adr < 0x4000180) return;		// ARM7 I/O Map
+	if (adr >= 0x4000180 && adr <= 0x40001C4) return;		// IPC/ROM
 	if (adr >= 0x4000204 && adr <= 0x400030C) return;		// Memory and IRQ Control
 	if (adr >= 0x4000400 && adr <= 0x400051E) return;		// Sound Registers
 	if (adr >= 0x4100000 && adr <= 0x4100014) return;		// IPC/ROM
@@ -217,8 +219,8 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 5X*/	DUP16(0x000007FF),
 		/* 6X*/	DUP16(0x00FFFFFF),
 		/* 7X*/	DUP16(0x000007FF),
-		/* 8X*/	DUP16(ROM_MASK),
-		/* 9X*/	DUP16(ROM_MASK),
+		/* 8X*/	DUP16(0x00000003),
+		/* 9X*/	DUP16(0x00000003),
 		/* AX*/	DUP16(0x0000FFFF),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
@@ -238,8 +240,8 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 5X*/	DUP16(0x00000003),
 		/* 6X*/	DUP16(0x00FFFFFF),
 		/* 7X*/	DUP16(0x00000003),
-		/* 8X*/	DUP16(ROM_MASK),
-		/* 9X*/	DUP16(ROM_MASK),
+		/* 8X*/	DUP16(0x00000003),
+		/* 9X*/	DUP16(0x00000003),
 		/* AX*/	DUP16(0x0000FFFF),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
@@ -735,8 +737,22 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 	T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x240 + block, VRAMBankCnt);
 
 	//refresh all bank settings
-	for(int i=0;i<VRAM_BANKS;i++)
-		MMU_VRAMmapRefreshBank(i);
+	//these are enumerated so that we can tune the order they get applied
+	//in order to emulate prioritization rules for memory regions
+	//with multiple banks mapped.
+	//We're probably still not mapping things 100% correctly, but this helped us get closer:
+	//goblet of fire "care of magical creatures" maps I and D to BOBJ (the I is an accident)
+	//and requires A to override it.
+	//This may create other bugs....
+	MMU_VRAMmapRefreshBank(VRAM_BANK_I);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_H);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_G);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_F);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_E);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_D);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_C);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_B);
+	MMU_VRAMmapRefreshBank(VRAM_BANK_A);
 
 	//printf(vramConfiguration.describe().c_str());
 	//printf("vram remapped at vcount=%d\n",nds.VCount);
@@ -945,7 +961,9 @@ void MMU_Init()
 		MMU_struct::MMU_MEM[1][i] = MMU.CART_ROM;
     }
 
-	MMU.DTCMRegion = 0x027C0000;
+	//MMU.DTCMRegion = 0x027C0000;
+	//even though apps may change dtcm immediately upon startup, this is the correct hardware starting value:
+	MMU.DTCMRegion = 0x08000000;
 	MMU.ITCMRegion = 0x00000000;
 	
 	IPC_FIFOinit(ARMCPU_ARM9);
@@ -1089,11 +1107,10 @@ void MMU_Reset()
 
 void MMU_setRom(u8 * rom, u32 mask)
 {
-	unsigned int i;
 	MMU.CART_ROM = rom;
 	MMU.CART_ROM_MASK = mask;
 	
-	for(i = 0x80; i<0xA0; ++i)
+	for(u32 i = 0x80; i<0xA0; ++i)
 	{
 		MMU_struct::MMU_MEM[0][i] = rom;
 		MMU_struct::MMU_MEM[1][i] = rom;
@@ -1105,10 +1122,9 @@ void MMU_setRom(u8 * rom, u32 mask)
 
 void MMU_unsetRom()
 {
-	unsigned int i;
 	MMU.CART_ROM=MMU.UNUSED_RAM;
 	
-	for(i = 0x80; i<0xA0; ++i)
+	for(u32 i = 0x80; i<0xA0; ++i)
 	{
 		MMU_struct::MMU_MEM[0][i] = MMU.UNUSED_RAM;
 		MMU_struct::MMU_MEM[1][i] = MMU.UNUSED_RAM;
@@ -1117,7 +1133,6 @@ void MMU_unsetRom()
 	}
 	rom_mask = ROM_MASK;
 }
-char txt[80];	
 
 static void execsqrt() {
 	u32 ret;
@@ -1202,7 +1217,8 @@ static void execdiv() {
 template<int PROCNUM>
 void FASTCALL MMU_writeToGCControl(u32 val)
 {
-	nds_dscard& card = MMU.dscard[PROCNUM];
+	const int TEST_PROCNUM = PROCNUM;
+	nds_dscard& card = MMU.dscard[TEST_PROCNUM];
 
 	if(!(val & 0x80000000))
 	{
@@ -1210,11 +1226,11 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 		card.transfer_count = 0;
 
 		val &= 0x7F7FFFFF;
-		T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+		T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 		return;
 	}
 
-	memcpy(&card.command[0], &MMU.MMU_MEM[PROCNUM][0x40][0x1A8], 8);
+	memcpy(&card.command[0], &MMU.MMU_MEM[TEST_PROCNUM][0x40][0x1A8], 8);
 
 	switch (card.mode)
 	{
@@ -1230,7 +1246,7 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 			card.transfer_count = 0;
 
 			val &= 0x7F7FFFFF;
-			T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+			T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 			return;
 		}
 		break;
@@ -1380,12 +1396,12 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 	if(card.transfer_count == 0)
 	{
 		val &= 0x7F7FFFFF;
-		T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+		T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 		return;
 	}
 	
     val |= 0x00800000;
-    T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val);
+    T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, val);
 						
 	// Launch DMA if start flag was set to "DS Cart"
 	//printf("triggering card dma\n");
@@ -1397,7 +1413,9 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 template<int PROCNUM>
 u32 MMU_readFromGC()
 {
-	nds_dscard& card = MMU.dscard[PROCNUM];
+	const int TEST_PROCNUM = PROCNUM;
+
+	nds_dscard& card = MMU.dscard[TEST_PROCNUM];
 	u32 val = 0;
 
 	if(card.transfer_count == 0)
@@ -1435,7 +1453,7 @@ u32 MMU_readFromGC()
 				if((card.command[0] == 0xB7) && (card.address < 0x8000))
 				{
 					INFO("Read below 0x8000 (0x%04X) from: ARM%s %08X\n",
-						card.address, (PROCNUM ? "7":"9"), (PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
+						card.address, (PROCNUM ? "7":"9"), (TEST_PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
 
 					card.address = (0x8000 + (card.address&0x1FF));
 				}
@@ -1515,7 +1533,7 @@ u32 MMU_readFromGC()
 			INFO("READ CARD command: %02X%02X%02X%02X%02X%02X%02X%02X\t", 
 					card.command[0], card.command[1], card.command[2], card.command[3],
 					card.command[4], card.command[5], card.command[6], card.command[7]);
-			INFO("FROM: %08X\n", (PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
+			INFO("FROM: %08X\n", (TEST_PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
 			break;
 
 	}
@@ -1527,12 +1545,12 @@ u32 MMU_readFromGC()
 		return val;	// return data
 
 	// transfer is done
-	T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, 
-	T1ReadLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
+	T1WriteLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4, 
+	T1ReadLong(MMU.MMU_MEM[TEST_PROCNUM][0x40], 0x1A4) & 0x7F7FFFFF);
 
 	// if needed, throw irq for the end of transfer
 	if(MMU.AUX_SPI_CNT & 0x4000)
-		NDS_makeIrq(PROCNUM, IRQ_BIT_GC_TRANSFER_COMPLETE);
+		NDS_makeIrq(TEST_PROCNUM, IRQ_BIT_GC_TRANSFER_COMPLETE);
 
 	return val;
 }
@@ -1947,17 +1965,16 @@ void DmaController::exec()
 				//if(!paused) printf("gxfifo dma ended with %d remaining\n",wordcount); //only print this once
 				if(wordcount>0) {
 					doPause();
-					goto start;
+					break;
 				}
-				else doStop();
-				break;
 			default:
 				doStop();
+				return;
 		}
 	}
-	else if(enable)
+	
+	if(enable)
 	{
-start:
 		//analyze startmode (this only gets latched when a dma begins)
 		if(procnum==ARMCPU_ARM9) startmode = (EDMAMode)_startmode;
 		else {
@@ -2007,9 +2024,14 @@ void DmaController::doCopy()
 	//generate a copy count depending on various copy mode's behavior
 	u32 todo = wordcount;
 	if(todo == 0) todo = 0x200000; //according to gbatek.. //TODO - this should not work this way for arm7 according to gbatek
-	if(startmode == EDMAMode_MemDisplay) todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
+	if(startmode == EDMAMode_MemDisplay){
+		todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
+	
+		//apparently this dma turns off after it finishes a frame
+		if(nds.VCount==191) enable = 0;
+	}
 	if(startmode == EDMAMode_Card) todo *= 0x80;
-	if(startmode == EDMAMode_GXFifo) todo = std::min(wordcount,(u32)112);
+	if(startmode == EDMAMode_GXFifo) todo = std::min(todo,(u32)112);
 
 	//determine how we're going to copy
 	bool bogarted = false;
@@ -2069,7 +2091,10 @@ void DmaController::doCopy()
 
 	//reschedule an event for the end of this dma, and figure out how much it cost us
 	doSchedule();
-	nextEvent += todo/4; //TODO - surely this is a gross simplification
+
+	// zeromus, check it
+	if (wordcount > todo)
+		nextEvent += todo/4; //TODO - surely this is a gross simplification
 	//apparently moon has very, very tight timing (i didnt spy it using waitbyloop swi...)
 	//so lets bump this down a bit for now,
 	//(i think this code is in nintendo libraries)

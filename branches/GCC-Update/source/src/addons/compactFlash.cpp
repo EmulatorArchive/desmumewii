@@ -303,10 +303,8 @@ static BOOL cflash_build_fat()
 	int i,j,k,l,
 	clust,numClusters,
 	clusterNum2,rootCluster;
-	int fileLevel;
 
 	numFiles  = 0;
-	fileLevel = -1;
 	maxLevel  = -1;
 
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));

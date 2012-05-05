@@ -228,25 +228,40 @@ TEMPLATE static  u32 FASTCALL OP_ADD_REG(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_ADD_IMM3(const u32 i)
 {
-	u32 a = cpu->R[REG_NUM(i, 3)];
+	u32 imm3 = REG_NUM(i, 6);
+	u32 Rn = cpu->R[REG_NUM(i, 3)];
 
-	cpu->R[REG_NUM(i, 0)] = a + REG_NUM(i, 6);
+	if (imm3 == 0)	// mov 2
+	{
+		cpu->R[REG_NUM(i, 0)] = Rn;
+
+		cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
+		cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
+		cpu->CPSR.bits.C = 0;
+		cpu->CPSR.bits.V = 0;
+		return 1;
+	}
+
+	cpu->R[REG_NUM(i, 0)] = Rn + imm3;
 	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
 	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(a, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(a, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.V = SIGNED_OVERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
 
 	return 1;
 }
 
 TEMPLATE static  u32 FASTCALL OP_ADD_IMM8(const u32 i)
 {
-	u32 tmp = cpu->R[REG_NUM(i, 8)] + (i & 0xFF);
-	cpu->CPSR.bits.N = BIT31(tmp);
-	cpu->CPSR.bits.Z = tmp == 0;
-	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
-	cpu->CPSR.bits.V = SIGNED_OVERFLOW(cpu->R[REG_NUM(i, 8)], (i & 0xFF), tmp);
+	u32 imm8 = (i & 0xFF);
+	u32 Rd = cpu->R[REG_NUM(i, 8)];
+	u32 tmp = Rd + imm8;
+
 	cpu->R[REG_NUM(i, 8)] = tmp;
+	cpu->CPSR.bits.N = BIT31(tmp);
+	cpu->CPSR.bits.Z = (tmp == 0);
+	cpu->CPSR.bits.C = UNSIGNED_OVERFLOW(Rd, imm8, tmp);
+	cpu->CPSR.bits.V = SIGNED_OVERFLOW(Rd, imm8, tmp);
 
 	return 1;
 }
@@ -300,12 +315,15 @@ TEMPLATE static  u32 FASTCALL OP_SUB_REG(const u32 i)
 
 TEMPLATE static  u32 FASTCALL OP_SUB_IMM3(const u32 i)
 {
-	u32 a = cpu->R[REG_NUM(i, 3)];
-	cpu->R[REG_NUM(i, 0)] = a - REG_NUM(i, 6);
-	cpu->CPSR.bits.N = BIT31(cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.Z = cpu->R[REG_NUM(i, 0)] == 0;
-	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(a, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
-	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(a, REG_NUM(i, 6), cpu->R[REG_NUM(i, 0)]);
+	u32 imm3 = REG_NUM(i, 6);
+	u32 Rn = cpu->R[REG_NUM(i, 3)];
+	u32 tmp = Rn - imm3;
+
+	cpu->R[REG_NUM(i, 0)] = tmp;
+	cpu->CPSR.bits.N = BIT31(tmp);
+	cpu->CPSR.bits.Z = (tmp == 0);
+	cpu->CPSR.bits.C = !UNSIGNED_UNDERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
+	cpu->CPSR.bits.V = SIGNED_UNDERFLOW(Rn, imm3, cpu->R[REG_NUM(i, 0)]);
 
 	return 1;
 }

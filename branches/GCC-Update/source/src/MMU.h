@@ -592,12 +592,6 @@ FORCEINLINE void* MMU_gpu_map(u32 vram_addr)
 	return MMU.ARM9_LCD + (vram_page<<14) + ofs;
 }
 
-
-enum MMU_ACCESS_TYPE
-{
-	MMU_AT_CODE, MMU_AT_DATA, MMU_AT_GPU, MMU_AT_DMA
-};
-
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u8 _MMU_read08(u32 addr);
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u16 _MMU_read16(u32 addr);
 template<int PROCNUM, MMU_ACCESS_TYPE AT> u32 _MMU_read32(u32 addr);
@@ -638,11 +632,9 @@ inline void SetupMMU(BOOL debugConsole) {
 	_MMU_MAIN_MEM_MASK32 = _MMU_MAIN_MEM_MASK & ~3;
 }
 
-//TODO: at one point some of the early access code included this. consider re-adding it
-  //ARM7 private memory
-  //if ( (adr & 0x0f800000) == 0x03800000) {
-    //T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr >> 20) & 0xFF],
-      //         adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr >> 20) & 0xFF]); 
+//ALERT!!!!!!!!!!!!!!
+//the following inline functions don't do the 0x0FFFFFFF mask.
+//this may result in some unexpected behavior
 
 FORCEINLINE u8 _MMU_read08(const int PROCNUM, const MMU_ACCESS_TYPE AT, const u32 addr)
 {
@@ -732,6 +724,12 @@ FORCEINLINE u32 _MMU_read32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const u
 
 		if(addr<0x02000000) 
 			return T1ReadLong_guaranteedAligned(MMU.ARM9_ITCM, addr&0x7FFC);
+
+		//what happens when we execute from DTCM? nocash makes it look like we get 0xFFFFFFFF but I can't seem to verify it
+		//historically, desmume would fall through to its old memory map struct
+		//which would return unused memory (0)
+		//it seems the hardware returns 0 or something benign because in actuality 0xFFFFFFFF is an undefined opcode
+		//and we know our handling for that is solid
 
 		goto dunno;
 	}
@@ -869,21 +867,21 @@ FORCEINLINE void _MMU_write32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const
 }
 
 
-#ifdef MMU_ENABLE_ACL
-	void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val);
-	void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val);
-	void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val);
-	u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access);
-	u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access);
-	u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access);
-#else
-	#define MMU_write8_acl(proc, adr, val)  _MMU_write08<proc>(adr, val)
-	#define MMU_write16_acl(proc, adr, val) _MMU_write16<proc>(adr, val)
-	#define MMU_write32_acl(proc, adr, val) _MMU_write32<proc>(adr, val)
-	#define MMU_read8_acl(proc,adr,access)  _MMU_read08<proc>(adr)
-	#define MMU_read16_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read16<proc,MMU_AT_CODE>(adr):_MMU_read16<proc,MMU_AT_DATA>(adr))
-	#define MMU_read32_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read32<proc,MMU_AT_CODE>(adr):_MMU_read32<proc,MMU_AT_DATA>(adr))
-#endif
+//#ifdef MMU_ENABLE_ACL
+//	void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val);
+//	void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val);
+//	void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val);
+//	u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access);
+//	u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access);
+//	u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access);
+//#else
+//	#define MMU_write8_acl(proc, adr, val)  _MMU_write08<proc>(adr, val)
+//	#define MMU_write16_acl(proc, adr, val) _MMU_write16<proc>(adr, val)
+//	#define MMU_write32_acl(proc, adr, val) _MMU_write32<proc>(adr, val)
+//	#define MMU_read8_acl(proc,adr,access)  _MMU_read08<proc>(adr)
+//	#define MMU_read16_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read16<proc,MMU_AT_CODE>(adr):_MMU_read16<proc,MMU_AT_DATA>(adr))
+//	#define MMU_read32_acl(proc,adr,access) ((access==CP15_ACCESS_EXECUTE)?_MMU_read32<proc,MMU_AT_CODE>(adr):_MMU_read32<proc,MMU_AT_DATA>(adr))
+//#endif
 
 // Use this macros for reading/writing, so the GDB stub isn't broken
 #ifdef GDB_STUB

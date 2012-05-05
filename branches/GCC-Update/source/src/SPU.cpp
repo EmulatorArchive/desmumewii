@@ -250,13 +250,15 @@ void SPU_Reset(void)
 	int i;
 
 	SPU_core->reset();
-	if(SPU_user) SPU_user->reset();
 
-	if(SNDCore && SPU_user) {
-		SNDCore->DeInit();
-		SNDCore->Init(SPU_user->bufsize*2);
-		SNDCore->SetVolume(volume);
-		//todo - check success?
+	if(SPU_user) {
+		if(SNDCore)
+		{
+			SNDCore->DeInit();
+			SNDCore->Init(SPU_user->bufsize*2);
+			SNDCore->SetVolume(volume);
+		}
+		SPU_user->reset();
 	}
 
 	// Reset Registers
@@ -368,6 +370,8 @@ void SPU_struct::KeyOn(int channel)
 	default: break;
 	}
 
+	thischan.double_totlength_shifted = (double)(thischan.totlength << format_shift[thischan.format]);
+
 	if(thischan.format != 3)
 	{
 		if(thischan.double_totlength_shifted == 0)
@@ -376,8 +380,6 @@ void SPU_struct::KeyOn(int channel)
 			thischan.status = CHANSTAT_STOPPED;
 		}
 	}
-	
-	thischan.double_totlength_shifted = (double)(thischan.totlength << format_shift[thischan.format]);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -620,7 +622,7 @@ template<SPUInterpolationMode INTERPOLATE_MODE> static FORCEINLINE void FetchADP
 	    	chan->pcm16b_last = chan->pcm16b;
 	    	chan->pcm16b = MinMax(chan->pcm16b+diff, -0x8000, 0x7FFF);
 
-			if(i == (u32)(chan->loopstart<<3)) {
+			if(i == ((u32)(chan->loopstart)<<3)) {
 				if(chan->loop_index != K_ADPCM_LOOPING_RECOVERY_INDEX) printf("over-snagging\n");
 				chan->loop_pcm16b = chan->pcm16b;
 				chan->loop_index = chan->index;

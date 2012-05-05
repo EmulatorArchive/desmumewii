@@ -100,7 +100,7 @@ static inline u8 toBCD(u8 x)
 static void rtcRecv()
 {
 	//INFO("RTC Read command 0x%02X\n", (rtc.cmd >> 1));
-	memset(rtc.data, 0, sizeof(rtc.data));
+	memset(&rtc.data[0], 0, sizeof(rtc.data));
 	switch (rtc.cmd >> 1)
 	{
 		case 0:				// status register 1
@@ -207,8 +207,9 @@ static void rtcSend()
 
 void rtcInit() 
 {
-	memset(&rtc, 0, sizeof(_RTC));
-	memcpy(rtc.cmdBitsSize,kDefaultCmdBitsSize,8);
+	memset(&rtc, 0, sizeof(rtc));
+	memcpy(&rtc.cmdBitsSize[0],kDefaultCmdBitsSize,8);
+
 	rtc.regStatus1 |= 0x02;
 }
 
@@ -306,13 +307,13 @@ void rtcWrite(u16 val)
 			if( (rtc._prevSCK) && (!rtc._SCK) )
 			{
 				rtc._REG = val;
-				if(rtc.data[rtc.bitsCount >> 3] >> (rtc.bitsCount & 0x07) & 0x01) 
+				if((rtc.data[(rtc.bitsCount >> 3)] >> (rtc.bitsCount & 0x07)) & 0x01) 
 					rtc._REG |= 0x01;
 				else
 					rtc._REG &= ~0x01;
 
 				rtc.bitsCount++;
-				if (rtc.bitsCount == rtc.cmdBitsSize[rtc.cmd >> 1])
+				if (rtc.bitsCount == rtc.cmdBitsSize[rtc.cmd >> 1] || (!(val & 0x04)))
 					rtc.cmdStat = 0;
 			}
 		break;
