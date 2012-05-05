@@ -500,8 +500,7 @@ BOOL armcpu_irqException(armcpu_t *armcpu)
 	return TRUE;
 }
 
-BOOL
-armcpu_flagIrq( armcpu_t *armcpu) {
+BOOL armcpu_flagIrq( armcpu_t *armcpu) {
   if(armcpu->CPSR.bits.I) return FALSE;
 
   armcpu->waitIRQ = 0;
@@ -525,7 +524,7 @@ u32 armcpu_exec()
 	//this assert is annoying. but sometimes it is handy.
 	//assert(ARMPROC.instruct_adr!=0x00000000);
 
-#ifdef GDB_STUB
+#if 0 //#ifdef GDB_STUB
 	if (ARMPROC.stalled) {
 		return STALLED_CYCLE_COUNT;
 	}
@@ -572,9 +571,9 @@ u32 armcpu_exec()
 			/* call the external post execute function */
 			ARMPROC.post_ex_fn(ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 0);
 		}
-#else
-		cFetch = armcpu_prefetch<PROCNUM>();
+
 #endif
+		cFetch = armcpu_prefetch<PROCNUM>();
 		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 	}
 
@@ -600,9 +599,9 @@ u32 armcpu_exec()
 		/* call the external post execute function */
 		ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 1);
 	}
-#else
-	cFetch = armcpu_prefetch<PROCNUM>();
+
 #endif
+	cFetch = armcpu_prefetch<PROCNUM>();
 	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 }
 
