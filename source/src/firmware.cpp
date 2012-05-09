@@ -756,7 +756,7 @@ int NDS_CreateDummyFirmware( struct NDS_fw_config_data *user_settings)
 	MMU.fw.data[0x8 + 3] = 'P';
 
 	// DS type
-	if ( user_settings->ds_type == NDS_FW_DS_TYPE_LITE)
+	if ( user_settings->ds_type == NDS_CONSOLE_TYPE_LITE)
 		MMU.fw.data[0x1d] = 0x20;
 	else
 		MMU.fw.data[0x1d] = 0xff;
@@ -839,7 +839,7 @@ void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config) {
 	int str_length;
 
 	memset( fw_config, 0, sizeof( struct NDS_fw_config_data));
-	fw_config->ds_type = NDS_FW_DS_TYPE_FAT;
+	fw_config->ds_type = NDS_CONSOLE_TYPE_FAT;
 
 	fw_config->fav_colour = 7;
 

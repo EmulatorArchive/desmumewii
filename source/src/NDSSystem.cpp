@@ -107,7 +107,6 @@ void Free_VMem()
 };
 
 /* Cart Rom from File */
-u8* MMU_CART_ROM(u32 position); // extern'd
 u8* MMU_CART_ROM(u32 position)
 {
 	if (!vmf) exit(0); // ahhhhhh
@@ -220,6 +219,7 @@ BOOL NDS_SetROM(u8 * rom, u32 mask)
 
 NDS_header * NDS_getROMHeader(void)
 {
+	if(MMU.CART_ROM == MMU.UNUSED_RAM) return NULL;
 	NDS_header * header = new NDS_header;
 
 	memcpy(header->gameTile, MMU.CART_ROM, 12);
@@ -331,13 +331,15 @@ void GameInfo::populate()
 	delete _header;
 
 	if (
-		// ??? in all Homebrews game title have is 2E0000EA
-		//(
+		//Option 1. - look for this instruction in the game title
+		//(did this ever work?)
 		//(header->gameTile[0] == 0x2E) && 
 		//(header->gameTile[1] == 0x00) && 
 		//(header->gameTile[2] == 0x00) && 
 		//(header->gameTile[3] == 0xEA)
 		//) &&
+		//option 2. - look for gamecode #### (default for ndstool)
+		//or an invalid gamecode
 		(
 			((header.gameCode[0] == 0x23) && 
 			(header.gameCode[1] == 0x23) && 
@@ -484,8 +486,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	gameInfo.populate();
 	//gameInfo.crc = crc32(0,data,size);
 	gameInfo.crc = 0; // Not calculating as we are using VM.  If there's really a need I can figure out something
-	INFO("\nROM crc: %08X\n\n", gameInfo.crc);
-	INFO("\nROM serial: %s\n", gameInfo.ROMserial);
+	INFO("\nROM crc: %08X\n", gameInfo.crc);
+	INFO("ROM serial: %s\n", gameInfo.ROMserial);
 
 	return ret;
 }
@@ -589,7 +591,7 @@ int NDS_WritePNG(const char *fname)
 
 	if(!(pp=fopen(fname, "wb")))
 	{
-		return 0;
+		goto PNGerr;
 	}
 	{
 		static uint8 header[8]={137,80,78,71,13,10,26,10};
@@ -1159,7 +1161,9 @@ static void initSchedule()
 // ARM7_CLOCK   = 33.51 mhz
 //				= 33513982 cycles per second
 // 				= 33.513982 cycles per microsecond
-const u64 kWifiCycles = 34*2;
+#ifdef EXPERIMENTAL_WIFI_COMM
+const u64 kWifiCycles = 67;//34*2;
+#endif
 //(this isn't very precise. I don't think it needs to be)
 
 void Sequencer::init()
@@ -1631,7 +1635,6 @@ void NDS_exec(s32 nb)
 
 	if(nds.sleeping)
 	{
-		gpu_UpdateRender();
 		if((MMU.reg_IE[1] & MMU.reg_IF[1]) & (1<<22))
 		{
 			nds.sleeping = FALSE;

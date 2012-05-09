@@ -123,7 +123,7 @@ void load_default_config(const u16 kbCfg[])
 }
 
 /* Set mouse coordinates */
-void set_mouse_coord(signed long x,signed long y)
+static void set_mouse_coord(signed long x,signed long y)
 {
   if(x<0) x = 0; else if(x>255) x = 255;
   if(y<0) y = 0; else if(y>192) y = 192;

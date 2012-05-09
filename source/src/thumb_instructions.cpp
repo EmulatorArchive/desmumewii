@@ -1016,26 +1016,26 @@ TEMPLATE static  u32 FASTCALL OP_SWI_THUMB(const u32 i)
 		|| (cpu->intVector == 0xFFFF0000 && PROCNUM==1);
 
 	if(cpu->swi_tab && !bypassBuiltinSWI) {
-		 //zero 25-dec-2008 - in arm, we were masking to 0x1F. 
-		 //this is probably safer since an invalid opcode could crash the emu
-		 //zero 30-jun-2009 - but they say that the ideas 0xFF should crash the device...
-		 //u32 swinum = cpu->instruction & 0xFF;
+		//zero 25-dec-2008 - in arm, we were masking to 0x1F. 
+		//this is probably safer since an invalid opcode could crash the emu
+		//zero 30-jun-2009 - but they say that the ideas 0xFF should crash the device...
+		//u32 swinum = cpu->instruction & 0xFF;
 		swinum &= 0x1F;
 		//printf("%d ARM SWI %d\n",PROCNUM,swinum);
-	   return cpu->swi_tab[swinum]() + 3;  
+		return cpu->swi_tab[swinum]() + 3;  
 	}
 	else {
-	   /* we use an irq thats not in the irq tab, as
-	   it was replaced due to a changed intVector */
-	   Status_Reg tmp = cpu->CPSR;
-	   armcpu_switchMode(cpu, SVC);		  /* enter svc mode */
-	   cpu->R[14] = cpu->next_instruction;		  /* jump to swi Vector */
-	   cpu->SPSR = tmp;					/* save old CPSR as new SPSR */
-	   cpu->CPSR.bits.T = 0;				/* handle as ARM32 code */
-	   cpu->CPSR.bits.I = 1;
-	   cpu->R[15] = cpu->intVector + 0x08;
-	   cpu->next_instruction = cpu->R[15];
-	   return 3;
+		/* we use an irq thats not in the irq tab, as
+		it was replaced due to a changed intVector */
+		Status_Reg tmp = cpu->CPSR;
+		armcpu_switchMode(cpu, SVC);		  /* enter svc mode */
+		cpu->R[14] = cpu->next_instruction;		  /* jump to swi Vector */
+		cpu->SPSR = tmp;					/* save old CPSR as new SPSR */
+		cpu->CPSR.bits.T = 0;				/* handle as ARM32 code */
+		cpu->CPSR.bits.I = 1;
+		cpu->R[15] = cpu->intVector + 0x08;
+		cpu->next_instruction = cpu->R[15];
+		return 3;
 	}
 }
 

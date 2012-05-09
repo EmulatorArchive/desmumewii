@@ -157,6 +157,14 @@ enum ENSATA_HANDSHAKE
 	ENSATA_HANDSHAKE_complete = 4,
 };
 
+enum NDS_CONSOLE_TYPE
+{
+	NDS_CONSOLE_TYPE_FAT,
+	NDS_CONSOLE_TYPE_LITE,
+	NDS_CONSOLE_TYPE_IQUE,
+	NDS_CONSOLE_TYPE_DSI
+};
+
 struct NDSSystem
 {
 	s32 wifiCycle;
@@ -223,19 +231,11 @@ struct NDS_fw_touchscreen_cal {
   u8 screen_y;
 };
 
-/** /brief The type of DS
- */
-enum nds_fw_ds_type {
-  NDS_FW_DS_TYPE_FAT,
-  NDS_FW_DS_TYPE_LITE,
-  NDS_FW_DS_TYPE_iQue
-};
-
 #define MAX_FW_NICKNAME_LENGTH 10
 #define MAX_FW_MESSAGE_LENGTH 26
 
 struct NDS_fw_config_data {
-  enum nds_fw_ds_type ds_type;
+  NDS_CONSOLE_TYPE ds_type;
 
   u8 fav_colour;
   u8 birth_month;
@@ -249,8 +249,8 @@ struct NDS_fw_config_data {
 
   u8 language;
 
-  /* touchscreen calibration */
-  struct NDS_fw_touchscreen_cal touch_cal[2];
+  // touchscreen calibration
+  NDS_fw_touchscreen_cal touch_cal[2];
 };
 
 extern NDSSystem nds;
@@ -295,12 +295,12 @@ struct GameInfo
 	char ROMfullName[7][0x100];
 	void populate();
 	char* romdata;
-	int romsize;
+	u32 romsize;
 };
 
 typedef struct TSCalInfo
 {
-	struct adc
+	struct
 	{
 		u16 x1, x2;
 		u16 y1, y2;
@@ -308,7 +308,7 @@ typedef struct TSCalInfo
 		u16 height;
 	} adc;
 
-	struct scr
+	struct
 	{
 		u8 x1, x2;
 		u8 y1, y2;
@@ -440,8 +440,6 @@ void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
 
-
-
 extern struct TCommonSettings {
 	TCommonSettings() 
 		: GFX3D_HighResolutionInterpolateColor(true)
@@ -469,6 +467,7 @@ extern struct TCommonSettings {
 		strcpy(Firmware, "firmware.bin");
 		NDS_FillDefaultFirmwareConfigData(&InternalFirmConf);
 
+		// WIFI mode: adhoc = 0, infrastructure = 1
 		wifi.mode = 0;
 		wifi.infraBridgeAdapter = 0;
 
@@ -567,4 +566,3 @@ void ClearAutoHold(void);
 
 #endif
 
- 	  	 
