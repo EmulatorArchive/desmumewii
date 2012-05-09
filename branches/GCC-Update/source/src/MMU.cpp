@@ -2561,7 +2561,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPB_MOSAIC: 	 
 				GPU_setMOSAIC(SubScreen.gpu,val) ; 	 
 				break ;
-			*/
+			
 			case REG_DISPA_BG0HOFS:
 				GPU_setBGxHOFS(0, MainScreen.gpu, val);
 				break;
@@ -2586,6 +2586,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPA_BG3VOFS:
 				GPU_setBGxVOFS(3, MainScreen.gpu, val);
 				break;
+			//*/
 
 			case REG_DISPA_WIN0H: 	 
 				GPU_setWIN0_H (MainScreen.gpu,val) ; 	 
@@ -2618,6 +2619,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				GPU_setWINOUT16(MainScreen.gpu, val) ; 	 
 				break ; 	 
 
+			/*	
 			case REG_DISPB_BG0HOFS:
 				GPU_setBGxHOFS(0, SubScreen.gpu, val);
 				break;
@@ -2642,6 +2644,8 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			case REG_DISPB_BG3VOFS:
 				GPU_setBGxVOFS(3, SubScreen.gpu, val);
 				break;
+			//*/
+
 			case REG_DISPB_WININ: 	 
 				GPU_setWININ(SubScreen.gpu, val) ; 	 
 				break ; 	 

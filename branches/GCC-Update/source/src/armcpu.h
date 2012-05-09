@@ -172,7 +172,7 @@ struct armcpu_t
 	armcp_t *coproc[16];
 
 	u32 intVector;
-	u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5
+	u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5 (earlier)
 	BOOL waitIRQ;
 	BOOL wirq;
 

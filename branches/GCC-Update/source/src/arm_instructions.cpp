@@ -299,8 +299,7 @@ TEMPLATE static u32 FASTCALL  OP_UND(const u32 i)
 	return a;
 
 #define OP_ANDS(a, b) \
-	if(REG_POS(i,12)==15) \
-	{ \
+	if(REG_POS(i,12)==15){ \
 		Status_Reg SPSR; \
 		cpu->R[15] = cpu->R[REG_POS(i,16)] & shift_op; \
 		SPSR = cpu->SPSR; \
@@ -3622,6 +3621,13 @@ TEMPLATE static u32 FASTCALL  OP_LDR_M_IMM_OFF(const u32 i)
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3,adr);
 }
 
+TEMPLATE static u32 FASTCALL  OP_LDREX(const u32 i)
+{
+	u32 adr = cpu->R[REG_POS(i,16)];
+	cpu->R[REG_POS(i,12)] = ROR(READ32(cpu->mem_if->data, adr), 8*(adr&3));
+	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_READ>(3,adr);
+}
+
 TEMPLATE static u32 FASTCALL  OP_LDR_P_LSL_IMM_OFF(const u32 i)
 {
 	u32 adr;
@@ -4713,6 +4719,15 @@ TEMPLATE static u32 FASTCALL  OP_STR_M_IMM_OFF(const u32 i)
 	u32 adr = cpu->R[REG_POS(i,16)] - IMM_OFF_12;
 	WRITE32(cpu->mem_if->data, adr, cpu->R[REG_POS(i,12)]);
 	
+	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_WRITE>(2,adr);
+}
+
+TEMPLATE static u32 FASTCALL  OP_STREX(const u32 i)
+{
+	u32 adr = cpu->R[REG_POS(i,16)];
+	WRITE32(cpu->mem_if->data, adr, cpu->R[REG_POS(i,0)]);
+	cpu->R[REG_POS(i,12)] = 0;
+
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_WRITE>(2,adr);
 }
 

@@ -325,7 +325,7 @@ BOOL armcp15_moveCP2ARM(armcp15_t *armcp15, u32 * R, u8 CRn, u8 CRm, u8 opcode1,
 				{
 					case 2:
 						*R = armcp15->DaccessPerm;
-					    return TRUE;
+						return TRUE;
 					case 3:
 						*R = armcp15->IaccessPerm;
 						return TRUE;
@@ -388,14 +388,14 @@ BOOL armcp15_moveCP2ARM(armcp15_t *armcp15, u32 * R, u8 CRn, u8 CRm, u8 opcode1,
 					case 1:
 						switch(opcode2)
 						{
-						case 0:
-							*R = armcp15->DTCMRegion;
-							return TRUE;
-						case 1:
-							*R = armcp15->ITCMRegion;
-							return TRUE;
-						default:
-							return FALSE;
+							case 0:
+								*R = armcp15->DTCMRegion;
+								return TRUE;
+							case 1:
+								*R = armcp15->ITCMRegion;
+								return TRUE;
+							default:
+								return FALSE;
 					}
 				}
 			}

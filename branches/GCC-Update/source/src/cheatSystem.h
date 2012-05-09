@@ -27,7 +27,7 @@
 #define MAX_CHEAT_LIST			100
 #define	MAX_XX_CODE				255
 
-typedef struct
+struct CHEATS_LIST
 {
 	u8		type;				// 0 - internal cheat system
 								// 1 - Action Replay
@@ -37,8 +37,7 @@ typedef struct
 	char	description[75];
 	int		num;
 	u8		size;
-
-} CHEATS_LIST;
+};
 
 class CHEATS
 {

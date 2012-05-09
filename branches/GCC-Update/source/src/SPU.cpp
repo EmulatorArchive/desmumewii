@@ -125,7 +125,7 @@ int SPU_ChangeSoundCore(int coreid, int buffersize)
 {
 	int i;
 
-	delete SPU_user; SPU_user = 0;
+	delete SPU_user; SPU_user = NULL;
 
 	// Make sure the old core is freed
 	if (SNDCore)

@@ -35,7 +35,6 @@
 //#include "GPU_osd.h"
 #include "NDSSystem.h"
 #include "readwrite.h"
-#include "log.h"
 
 #ifdef FASTBUILD
 	#undef FORCEINLINE
@@ -163,7 +162,6 @@ static void GPU_InitFadeColors()
 		}
 	}
 
-	//--DCN: This could be about 60 times faster.
 	for(int eva=0;eva<=16;eva++){
 		for(int evb=0;evb<=16;evb++){
 			for(int c0=0;c0<=31;c0++){ 
@@ -173,19 +171,7 @@ static void GPU_InitFadeColors()
 				}
 			}
 		}
-	}		
-	//Old:
-	
-	/*for(int c0=0;c0<=31;c0++) 
-		for(int c1=0;c1<=31;c1++) 
-			for(int eva=0;eva<=16;eva++)
-				for(int evb=0;evb<=16;evb++)
-				{
-					int blend = ((c0 * eva) + (c1 * evb) ) / 16;
-					int final = std::min<int>(31,blend);
-					gpuBlendTable555[eva][evb][c0][c1] = final;
-				}*/
-
+	}
 }
 
 static CACHE_ALIGN GPU GPU_main, GPU_sub;
@@ -595,10 +581,8 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 	// we just "lighten" or "darken" the texture of the rendered scene
 	// That should do it! We ALSO won't have to do this line-by-line!
 
-	int passing, bg_under, q;// = dstX<<1;
 	u8* dst = currDst;
 	COLOR32 color;
-	COLOR c2, cfinal;
 	u16 final;
 
 	this->currBgNum = 0;
@@ -612,16 +596,18 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 
 	for(int k = 256; k--;)
 	{
-		q = ((k + hofs) & 0x1FF);
+		int q = ((k + hofs) & 0x1FF);
 
 		if((q < 0) || (q > 255) || !colorLine[(q<<2)])
 			continue;
 
-		passing = k<<1;
+		int passing = k<<1;
 
 		color.val = (*(u32 *)&_3dColorLine[k<<2]);
 
-		bool windowEffect = blend1; // Desmume r3416
+		bool windowEffect = blend1; //bomberman land touch dialogbox will fail without setting to blend1
+	
+		//TODO - should we do an alpha==0 -> bail out entirely check here?
 
 		if(WINDOW)
 		{
@@ -632,18 +618,19 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 			if(!windowDraw) return;
 		}
 
-		bg_under = bgPixels[k];
+		int bg_under = bgPixels[k];
 		if(blend2[bg_under])
 		{
 			++color.bits.a;
 			if(color.bits.a < 32)
 			{
 				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
+				COLOR c2, cfinal;
 				c2.val = T2ReadWord(dst, passing);
-
-				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * (32 - color.bits.a))) >> 6;
-				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * (32 - color.bits.a))) >> 6;
-				cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * (32 - color.bits.a))) >> 6;
+				u8 invAlpha = (32 - color.bits.a);
+				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * invAlpha)) >> 6;
+				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * invAlpha)) >> 6;
+				cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * invAlpha)) >> 6;
 
 				final = cfinal.val;
 			}
@@ -848,7 +835,7 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 		if(opaque){
 			setFinalColorBG<BACKDROP,FUNCNUM>(color,x);
 		}
-	      return;
+		return;
 	}
 
 	if(!opaque)
@@ -886,7 +873,6 @@ static void mosaicSpriteLinePixel(GPU * gpu, int x, u16 l, u8 * dst, u8 * dst_al
 
 	GPU::MosaicColor::Obj objColor;
 	objColor.color = T1ReadWord(dst,x<<1);
-	Log_fprintf("%s %d\n", __FUNCTION__, objColor.color);
 	objColor.alpha = dst_alpha[x];
 	objColor.opaque = opaque;
 
@@ -990,9 +976,6 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 		yoff = ((YBG&7)<<2);
 		xfin = 8 - (xoff&7);
 
-		u16 tilePalette = 0;
-		u8 currLine = 0;
-
 		for(x = 0; x < LG; xfin = std::min<u16>(x+8, LG))
 		{
 			tmp = ((xoff&wmask)>>3);
@@ -1000,7 +983,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 			if(tmp>31) mapinfo += 32*32*2;
 			tileentry.val = T1ReadWord(MMU_gpu_map(mapinfo), 0);
 
-			tilePalette = (tileentry.bits.Palette << 4);
+			u16 tilePalette = (tileentry.bits.Palette << 4);
 
 			line = (u8*)MMU_gpu_map(tile + (tileentry.bits.TileNum * 0x20) + ((tileentry.bits.VFlip) ? (7*4)-yoff : yoff));
 			
@@ -1010,7 +993,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 
 				for(; x < xfin; --line) 
 				{	
-					currLine = *line;
+					u8 currLine = *line;
 
 					if(!(xoff&1))
 					{
@@ -1031,7 +1014,7 @@ template<bool MOSAIC> INLINE void renderline_textBG(GPU * gpu, u16 XBG, u16 YBG,
 				
 				for(; x < xfin; ++line) 
 				{
-					currLine = *line;
+					u8 currLine = *line;
 
 					if(!(xoff&1))
 					{
@@ -1709,8 +1692,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 						color = T1ReadWord (src, offset<<1);
 						
-						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, color);
-
 						if((color&0x8000) && (prioTab[sprX]>=prio))
 						{
 							T2WriteWord(dst, (sprX<<1), color);
@@ -1758,8 +1739,6 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 							offset = ((auxX>>1)&0x3) + (((auxX>>1)&0xFFFC)<<3) + ((auxY>>3)*sprSize.x)*4 + ((auxY&0x7)*4);
 						
 						color = src[offset];
-						
-						Log_fprintf("%s %d %d\n", __FUNCTION__, __LINE__, color);
 
 						// Get 4bits value from the readed 8bits
 						if (auxX&1)	color >>= 4;
@@ -1783,7 +1762,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 				continue;
 			}
 		}
-		else
+		else //NOT rotozoomed
 		{
 	
 			if (!compute_sprite_vars(spriteInfo, l, sprSize, sprX, sprY, x, y, lg, xdir))
@@ -1822,9 +1801,9 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 				continue;
 			}
 			
-			u16* pal;	
+			u16* pal;
 			
-			if(spriteInfo->Depth)                   /* 256 colors */
+			if(spriteInfo->Depth) //256 colors
 			{
 				if(MODE == SPRITE_2D)
 					src = (u8 *)MMU_gpu_map(gpu->sprMem + ((spriteInfo->TileIndex)<<5) + ((y>>3)<<10) + ((y&0x7)*8));
@@ -2064,9 +2043,13 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	gpu->currBgNum = 5;
 
 	switch(gpu->setFinalColorBck_funcNum) {
-		case 0: case 1: //for backdrops, (even with window enabled) none and blend are both the same: just copy the color
+		//for backdrops, (even with window enabled) none and blend are both the same: just copy the color
+		case 0:
+		case 1:
 			memset_u16_le<256>(gpu->currDst,backdrop_color); 
 			break;
+
+		//for backdrops, fade in and fade out can be applied if it's a 1st target screen
 		case 2:
 			//for non-windowed fade, we can just fade the color and fill
 			memset_u16_le<256>(gpu->currDst,gpu->currentFadeInColors[backdrop_color]);
@@ -2076,7 +2059,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 			memset_u16_le<256>(gpu->currDst,gpu->currentFadeOutColors[backdrop_color]);
 			break;
 
-		//windowed fades need special treatment
+		//windowed cases apparently need special treatment? why? can we not render the backdrop? how would that even work?
 		case 4: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,4>(backdrop_color,x,1); break;
 		case 5: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,5>(backdrop_color,x,1); break;
 		case 6: for(int x=0;x<256;x++) gpu->___setFinalColorBck<false,true,6>(backdrop_color,x,1); break;
@@ -2193,15 +2176,15 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 {
 	//this macro takes advantage of the fact that there are only two possible values for capx
-	#define CAPCOPY(SRC,DST) \
+	#define CAPCOPY(SRC,DST,SETALPHABIT) \
 	switch(gpu->dispCapCnt.capx) { \
 		case DISPCAPCNT::_128: \
-			for (int i = 128; i--;)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
+			for (int i = 0; i < 128; i++)  \
+				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 		case DISPCAPCNT::_256: \
-			for (int i = 256; i--;)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (1<<15)); \
+			for (int i = 0; i < 256; i++)  \
+				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 			default: assert(false); \
 		}
@@ -2261,7 +2244,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 									//INFO("Capture screen (BG + OBJ + 3D)\n");
 
 									u8 *src = (u8*)(gpu->tempScanline);
-									CAPCOPY(src,cap_dst);
+									CAPCOPY(src,cap_dst,true);
 								}
 							break;
 							case 1:			// Capture 3D
@@ -2269,7 +2252,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 									//INFO("Capture 3D\n");
 									u16* colorLine;
 									gfx3d_GetLineData15bpp(l, &colorLine);
-									CAPCOPY(((u8*)colorLine),cap_dst);
+									CAPCOPY(((u8*)colorLine),cap_dst,false);
 								}
 							break;
 						}
@@ -2282,12 +2265,12 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 						{
 							case 0:	
 								//Capture VRAM
-								CAPCOPY(cap_src,cap_dst);
+								CAPCOPY(cap_src,cap_dst,true);
 								break;
 							case 1:
 								//capture dispfifo
 								//(not yet tested)
-								for(int i=128; i--;)
+								for(int i=0; i < 128; i++)
 									T1WriteLong(cap_dst, i << 2, DISP_FIFOrecv());
 								break;
 						}
@@ -2317,7 +2300,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 						{
 							//fifo - tested by splinter cell chaos theory thermal view
 							srcB = fifoLine;
-							for (int i=128; i--;)
+							for (int i=0; i < 128; i++)
 								T1WriteLong((u8*)srcB, i << 2, DISP_FIFOrecv());
 						}
 
@@ -2782,49 +2765,6 @@ template<bool MOSAIC> void GPU::modeRender(int layer)
 		default:
 			break;
 	}
-}
-
-void gpu_UpdateRender()
-{
-	/*int x = 0, y = 0;
-	u16 *src = (u16*)GPU_screen;
-	u16	*dst = (u16*)GPU_screen;
-
-	switch (gpu_angle)
-	{
-		case 0:
-			memcpy(dst, src, 256*192*4);
-			break;
-
-		case 90:
-			for(y = 0; y < 384; y++)
-			{
-				for(x = 0; x < 256; x++)
-				{
-					dst[(383 - y) + (x * 384)] = src[x + (y * 256)];
-				}
-			}
-			break;
-		case 180:
-			for(y = 0; y < 384; y++)
-			{
-				for(x = 0; x < 256; x++)
-				{
-					dst[(255 - x) + ((383 - y) * 256)] = src[x + (y * 256)];
-				}
-			}
-			break;
-		case 270:
-			for(y = 0; y < 384; y++)
-			{
-				for(x = 0; x < 256; x++)
-				{
-					dst[y + ((255 - x) * 384)] = src[x + (y * 256)];
-				}
-			}
-		default:
-			break;
-	}*/
 }
 
 void gpu_SetRotateScreen(u16 angle)

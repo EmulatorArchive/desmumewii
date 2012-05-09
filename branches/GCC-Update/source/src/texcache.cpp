@@ -539,9 +539,9 @@ public:
 						}
 
 						u32 currBlock	= map[d];
-						u16 pal1	= LE_TO_LOCAL_16(slot1[d]);
+						u16 pal1		= LE_TO_LOCAL_16(slot1[d]);
 						u16 pal1offset	= (pal1 & 0x3FFF)<<1;
-						u8  mode	= pal1>>14;
+						u8  mode		= pal1>>14;
 						u32 tmp_col[4];
 						
 						tmp_col[0]=RGB16TO32(PAL4X4(pal1offset),255);
@@ -588,7 +588,7 @@ public:
 									(((INTx5(green2) + INTx3(green1)) >>6) <<  5) |
 									(((INTx5(blue2)  + INTx3(blue1))  >>6) << 10);
 
-								tmp_col[2] = RGB16TO32(tmp1,255);
+								tmp_col[2] = RGB16TO32(tmp1, 255);
 								tmp_col[3] = RGB16TO32(tmp2, 255);
 								break;
 							}

@@ -230,11 +230,10 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
     armcpu->irq_flag = 0;
 #endif
 
-	if(armcpu->coproc[15]) free(armcpu->coproc[15]);
-	
-	for(int i = 0; i < 15; ++i)
+	for(int i = 0; i < 16; ++i)
 	{
 		armcpu->R[i] = 0;
+		if(armcpu->coproc[i]) free(armcpu->coproc[i]);
 		armcpu->coproc[i] = NULL;
 	}
 	
@@ -249,20 +248,22 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	
 	armcpu->SPSR_svc.val = armcpu->SPSR_abt.val = armcpu->SPSR_und.val = armcpu->SPSR_irq.val = armcpu->SPSR_fiq.val = 0;
 
-#ifdef GDB_STUB
-    armcpu->instruct_adr = adr;
-	armcpu->R[15] = adr + 8;
-#else
-	armcpu->R[15] = adr;
-#endif
+//#ifdef GDB_STUB
+//    armcpu->instruct_adr = adr;
+//	armcpu->R[15] = adr + 8;
+//#else
+	//armcpu->R[15] = adr;
+//#endif
 
 	armcpu->next_instruction = adr;
 	
-	armcpu->coproc[15] = (armcp_t*)armcp15_new(armcpu);
+	// only ARM9 have co-processor
+	if (armcpu->proc_ID==0)
+		armcpu->coproc[15] = (armcp_t*)armcp15_new(armcpu);
 
-#ifndef GDB_STUB
+//#ifndef GDB_STUB
 	armcpu_prefetch(armcpu);
-#endif
+//#endif
 }
 
 u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
@@ -474,18 +475,13 @@ BOOL armcpu_irqException(armcpu_t *armcpu)
 
 	if(armcpu->CPSR.bits.I) return FALSE;
 
-#ifdef GDB_STUB
-	armcpu->irq_flag = 0;
-#endif
       
 	tmp = armcpu->CPSR;
 	armcpu_switchMode(armcpu, IRQ);
 
-#ifdef GDB_STUB
-	armcpu->R[14] = armcpu->next_instruction + 4;
-#else
+
 	armcpu->R[14] = armcpu->instruct_adr + 4;
-#endif
+
 	armcpu->SPSR = tmp;
 	armcpu->CPSR.bits.T = 0;
 	armcpu->CPSR.bits.I = 1;
