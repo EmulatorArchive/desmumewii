@@ -166,8 +166,7 @@ MMU_struct_timing MMU_timing;
 u8 * MMU_struct::MMU_MEM[2][256] = {
 	//arm9
 	{
-		/* 0X*/	DUP16(MMU.ARM9_ITCM), 
-		/* 1X*/	//DUP16(MMU.ARM9_ITCM)
+		/* 0X*/	DUP16(MMU.ARM9_ITCM),
 		/* 1X*/	DUP16(MMU.UNUSED_RAM), 
 		/* 2X*/	DUP16(MMU.MAIN_MEM),
 		/* 3X*/	DUP16(MMU.SWIRAM),
@@ -177,7 +176,7 @@ u8 * MMU_struct::MMU_MEM[2][256] = {
 		/* 7X*/	DUP16(MMU.ARM9_OAM),
 		/* 8X*/	DUP16(NULL),
 		/* 9X*/	DUP16(NULL),
-		/* AX*/	DUP16(MMU.CART_RAM),
+		/* AX*/	DUP16(MMU.UNUSED_RAM),
 		/* BX*/	DUP16(MMU.UNUSED_RAM),
 		/* CX*/	DUP16(MMU.UNUSED_RAM),
 		/* DX*/	DUP16(MMU.UNUSED_RAM),
@@ -198,7 +197,7 @@ u8 * MMU_struct::MMU_MEM[2][256] = {
 		/* 7X*/	DUP16(MMU.UNUSED_RAM),
 		/* 8X*/	DUP16(NULL),
 		/* 9X*/	DUP16(NULL),
-		/* AX*/	DUP16(MMU.CART_RAM),
+		/* AX*/	DUP16(MMU.UNUSED_RAM),
 		/* BX*/	DUP16(MMU.UNUSED_RAM),
 		/* CX*/	DUP16(MMU.UNUSED_RAM),
 		/* DX*/	DUP16(MMU.UNUSED_RAM),
@@ -210,8 +209,7 @@ u8 * MMU_struct::MMU_MEM[2][256] = {
 u32 MMU_struct::MMU_MASK[2][256] = {
 	//arm9
 	{
-		/* 0X*/	DUP16(0x00007FFF), 
-		/* 1X*/	//DUP16(0x00007FFF)
+		/* 0X*/	DUP16(0x00007FFF),
 		/* 1X*/	DUP16(0x00000003),
 		/* 2X*/	DUP16(0x003FFFFF),
 		/* 3X*/	DUP16(0x00007FFF),
@@ -221,7 +219,7 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 7X*/	DUP16(0x000007FF),
 		/* 8X*/	DUP16(0x00000003),
 		/* 9X*/	DUP16(0x00000003),
-		/* AX*/	DUP16(0x0000FFFF),
+		/* AX*/	DUP16(0x00000003),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
 		/* DX*/	DUP16(0x00000003),
@@ -242,7 +240,7 @@ u32 MMU_struct::MMU_MASK[2][256] = {
 		/* 7X*/	DUP16(0x00000003),
 		/* 8X*/	DUP16(0x00000003),
 		/* 9X*/	DUP16(0x00000003),
-		/* AX*/	DUP16(0x0000FFFF),
+		/* AX*/	DUP16(0x00000003),
 		/* BX*/	DUP16(0x00000003),
 		/* CX*/	DUP16(0x00000003),
 		/* DX*/	DUP16(0x00000003),

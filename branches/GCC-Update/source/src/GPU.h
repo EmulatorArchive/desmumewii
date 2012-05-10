@@ -38,33 +38,33 @@ void gpu_savestate(EMUFILE* os);
 bool gpu_loadstate(EMUFILE* is, int size);
 
 /*******************************************************************************
-    this structure is for display control,
+    This structure is for display control,
     it holds flags for general display
 *******************************************************************************/
 
 #ifdef WORDS_BIGENDIAN
 struct _DISPCNT
 {
-/* 7*/  u8 ForceBlank:1;      // A+B:
-/* 6*/  u8 OBJ_BMP_mapping:1; // A+B: 0=2D (128KB), 1=1D (128..256KB)
-/* 5*/  u8 OBJ_BMP_2D_dim:1;  // A+B: 0=128x512,    1=256x256 pixels
-/* 4*/  u8 OBJ_Tile_mapping:1;// A+B: 0=2D (32KB),  1=1D (32..256KB)
-/* 3*/  u8 BG0_3D:1;          // A  : 0=2D,         1=3D
-/* 0*/  u8 BG_Mode:3;         // A+B:
-/*15*/  u8 WinOBJ_Enable:1;   // A+B: 0=disable, 1=Enable
-/*14*/  u8 Win1_Enable:1;     // A+B: 0=disable, 1=Enable
-/*13*/  u8 Win0_Enable:1;     // A+B: 0=disable, 1=Enable
-/*12*/  u8 OBJ_Enable:1;      // A+B: 0=disable, 1=Enable
-/*11*/  u8 BG3_Enable:1;      // A+B: 0=disable, 1=Enable
-/*10*/  u8 BG2_Enable:1;      // A+B: 0=disable, 1=Enable
-/* 9*/  u8 BG1_Enable:1;      // A+B: 0=disable, 1=Enable
-/* 8*/  u8 BG0_Enable:1;        // A+B: 0=disable, 1=Enable
+/* 7*/  u8 ForceBlank:1;            // A+B: // 7-15 same as GBA
+/* 6*/  u8 OBJ_BMP_mapping:1;       // A+B: 0=2D (128KB), 1=1D (128..256KB)
+/* 5*/  u8 OBJ_BMP_2D_dim:1;        // A+B: 0=128x512,    1=256x256 pixels
+/* 4*/  u8 OBJ_Tile_mapping:1;      // A+B: 0=2D (32KB),  1=1D (32..256KB)
+/* 3*/  u8 BG0_3D:1;                // A  : 0=2D,         1=3D
+/* 0*/  u8 BG_Mode:3;               // A+B:
+/*15*/  u8 WinOBJ_Enable:1;         // A+B: 0=disable, 1=Enable
+/*14*/  u8 Win1_Enable:1;           // A+B: 0=disable, 1=Enable
+/*13*/  u8 Win0_Enable:1;           // A+B: 0=disable, 1=Enable
+/*12*/  u8 OBJ_Enable:1;            // A+B: 0=disable, 1=Enable
+/*11*/  u8 BG3_Enable:1;            // A+B: 0=disable, 1=Enable
+/*10*/  u8 BG2_Enable:1;            // A+B: 0=disable, 1=Enable
+/* 9*/  u8 BG1_Enable:1;            // A+B: 0=disable, 1=Enable
+/* 8*/  u8 BG0_Enable:1;            // A+B: 0=disable, 1=Enable
 /*23*/  u8 OBJ_HBlank_process:1;    // A+B: OBJ processed during HBlank (GBA bit5)
-/*22*/  u8 OBJ_BMP_1D_Bound:1;      // A  :
-/*20*/  u8 OBJ_Tile_1D_Bound:2;     // A+B:
+/*22*/  u8 OBJ_BMP_1D_Bound:1;      // A  : Bitmap OBJ 1D-Boundary (see Bit5-6)
+/*20*/  u8 OBJ_Tile_1D_Bound:2;     // A+B: Tile OBJ 1D-Boundary   (see Bit4)
 /*18*/  u8 VRAM_Block:2;            // A  : VRAM block (0..3=A..D)
 
-/*16*/  u8 DisplayMode:2;     // A+B: coreA(0..3) coreB(0..1) GBA(Green Swap)
+/*16*/  u8 DisplayMode:2;           // A+B: coreA(0..3) coreB(0..1) GBA(Green Swap)
                                     // 0=off (white screen)
                                     // 1=on (normal BG & OBJ layers)
                                     // 2=VRAM display (coreA only)
@@ -78,32 +78,32 @@ struct _DISPCNT
 #else
 struct _DISPCNT
 {
-/* 0*/  u8 BG_Mode:3;         // A+B:
-/* 3*/  u8 BG0_3D:1;          // A  : 0=2D,         1=3D
-/* 4*/  u8 OBJ_Tile_mapping:1;     // A+B: 0=2D (32KB),  1=1D (32..256KB)
-/* 5*/  u8 OBJ_BMP_2D_dim:1;  // A+B: 0=128x512,    1=256x256 pixels
-/* 6*/  u8 OBJ_BMP_mapping:1; // A+B: 0=2D (128KB), 1=1D (128..256KB)
+/* 0*/  u8 BG_Mode:3;               // A+B:
+/* 3*/  u8 BG0_3D:1;                // A  : 0=2D,         1=3D
+/* 4*/  u8 OBJ_Tile_mapping:1;      // A+B: 0=2D (32KB),  1=1D (32..256KB)
+/* 5*/  u8 OBJ_BMP_2D_dim:1;        // A+B: 0=128x512,    1=256x256 pixels
+/* 6*/  u8 OBJ_BMP_mapping:1;       // A+B: 0=2D (128KB), 1=1D (128..256KB)
 
                                     // 7-15 same as GBA
-/* 7*/  u8 ForceBlank:1;      // A+B:
-/* 8*/  u8 BG0_Enable:1;        // A+B: 0=disable, 1=Enable
-/* 9*/  u8 BG1_Enable:1;      // A+B: 0=disable, 1=Enable
-/*10*/  u8 BG2_Enable:1;      // A+B: 0=disable, 1=Enable
-/*11*/  u8 BG3_Enable:1;      // A+B: 0=disable, 1=Enable
-/*12*/  u8 OBJ_Enable:1;      // A+B: 0=disable, 1=Enable
-/*13*/  u8 Win0_Enable:1;     // A+B: 0=disable, 1=Enable
-/*14*/  u8 Win1_Enable:1;     // A+B: 0=disable, 1=Enable
-/*15*/  u8 WinOBJ_Enable:1;   // A+B: 0=disable, 1=Enable
+/* 7*/  u8 ForceBlank:1;            // A+B:
+/* 8*/  u8 BG0_Enable:1;            // A+B: 0=disable, 1=Enable
+/* 9*/  u8 BG1_Enable:1;            // A+B: 0=disable, 1=Enable
+/*10*/  u8 BG2_Enable:1;            // A+B: 0=disable, 1=Enable
+/*11*/  u8 BG3_Enable:1;            // A+B: 0=disable, 1=Enable
+/*12*/  u8 OBJ_Enable:1;            // A+B: 0=disable, 1=Enable
+/*13*/  u8 Win0_Enable:1;           // A+B: 0=disable, 1=Enable
+/*14*/  u8 Win1_Enable:1;           // A+B: 0=disable, 1=Enable
+/*15*/  u8 WinOBJ_Enable:1;         // A+B: 0=disable, 1=Enable
 
-/*16*/  u8 DisplayMode:2;     // A+B: coreA(0..3) coreB(0..1) GBA(Green Swap)
-                                    // 0=off (white screen)
-                                    // 1=on (normal BG & OBJ layers)
-                                    // 2=VRAM display (coreA only)
-                                    // 3=RAM display (coreA only, DMA transfers)
+/*16*/  u8 DisplayMode:2;           // A+B: coreA(0..3) coreB(0..1) GBA(Green Swap)
+                                          // 0=off (white screen)
+                                          // 1=on (normal BG & OBJ layers)
+                                          // 2=VRAM display (coreA only)
+                                          // 3=RAM display (coreA only, DMA transfers)
 
 /*18*/  u8 VRAM_Block:2;            // A  : VRAM block (0..3=A..D)
-/*20*/  u8 OBJ_Tile_1D_Bound:2;     // A+B:
-/*22*/  u8 OBJ_BMP_1D_Bound:1;      // A  :
+/*20*/  u8 OBJ_Tile_1D_Bound:2;     // A+B: Tile OBJ 1D-Boundary   (see Bit4)
+/*22*/  u8 OBJ_BMP_1D_Bound:1;      // A  : Bitmap OBJ 1D-Boundary (see Bit5-6)
 /*23*/  u8 OBJ_HBlank_process:1;    // A+B: OBJ processed during HBlank (GBA bit5)
 /*24*/  u8 CharacBase_Block:3;      // A  : Character Base (64K step)
 /*27*/  u8 ScreenBase_Block:3;      // A  : Screen Base (64K step)
