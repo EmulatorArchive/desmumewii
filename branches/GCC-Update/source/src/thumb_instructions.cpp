@@ -633,7 +633,7 @@ TEMPLATE static  u32 FASTCALL OP_MUL_REG(const u32 i)
 	//In earlier versions of the architecture, the value of the C flag was UNPREDICTABLE
 	//after a MUL instruction.
 	
-	if (PROCNUM == 1)	// ARM4T 1S + mI, m = 3
+	if (!cpu->LDTBit)	// ARM4T 1S + mI, m = 3
 		return 4;
 
 	MUL_Mxx_END_THUMB(1);
@@ -905,7 +905,7 @@ TEMPLATE static  u32 FASTCALL OP_POP_PC(const u32 i)
 
 	u32 v = READ32(cpu->mem_if->data, adr);
 	c += MMU_memAccessCycles<PROCNUM,32,MMU_AD_READ>(adr);
-	if(PROCNUM==0)
+	if(cpu->LDTBit)
 		cpu->CPSR.bits.T = BIT0(v);
 
 	cpu->R[15] = v & 0xFFFFFFFE;
@@ -1033,6 +1033,7 @@ TEMPLATE static  u32 FASTCALL OP_SWI_THUMB(const u32 i)
 		cpu->SPSR = tmp;					/* save old CPSR as new SPSR */
 		cpu->CPSR.bits.T = 0;				/* handle as ARM32 code */
 		cpu->CPSR.bits.I = 1;
+		cpu->changeCPSR();
 		cpu->R[15] = cpu->intVector + 0x08;
 		cpu->next_instruction = cpu->R[15];
 		return 3;
@@ -1100,6 +1101,7 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 {
 	// When using PC as operand with BX opcode, switch to ARM state and jump to (instruct_adr+4)
 	// Reference: http://nocash.emubase.de/gbatek.htm#thumb5hiregisteroperationsbranchexchange
+#if 0
 	if (REG_POS(i, 3) == 15)
 	{
 		 cpu->CPSR.bits.T = 0;
@@ -1114,7 +1116,23 @@ TEMPLATE static  u32 FASTCALL OP_BX_THUMB(const u32 i)
 		cpu->R[15] = (Rm & 0xFFFFFFFE);
 		cpu->next_instruction = cpu->R[15];
 	}
-	
+#else
+	u32 Rm = cpu->R[REG_POS(i, 3)];
+	//----- ARM_REF:
+	//----- Register 15 can be specified for <Rm>. If this is done, R15 is read as normal for Thumb code,
+	//----- that is, it is the address of the BX instruction itself plus 4. If the BX instruction is at a
+	//----- word-aligned address, this results in a branch to the next word, executing in ARM state.
+	//----- However, if the BX instruction is not at a word-aligned address, this means that the results of
+	//----- the instruction are UNPREDICTABLE (because the value read for R15 has bits[1:0]==0b10).
+	if (Rm == 15)
+	{
+		//printf("THUMB%c: BX using PC as operand\n", PROCNUM?'7':'9');
+		//emu_halt();
+	}
+	cpu->CPSR.bits.T = BIT0(Rm);
+	cpu->R[15] = (Rm & (0xFFFFFFFC|(1<<cpu->CPSR.bits.T)));
+	cpu->next_instruction = cpu->R[15];
+#endif
 	return 3;
 }
 

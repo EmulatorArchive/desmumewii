@@ -123,7 +123,7 @@ static DIR_ENT *extraDirEntries[SECPERFAT*256];
 static int numFiles,maxLevel,numRootFiles;
 static int *dirEntriesInCluster, clusterNum, firstDirEntCluster,
   lastDirEntCluster, lastFileDataCluster;
-static char *sRomPath;
+static const char *sRomPath = "sd:/DS/SAVES/";
 static int activeDirEnt=-1;
 static u32 bufferStart;
 static u32 fileStartLBA,fileEndLBA;
@@ -302,8 +302,6 @@ static bool cflash_build_fat( void) {
 
 	numFiles  = 0;
 	maxLevel  = -1;
-	
-	sRomPath = "sd:/DS/SAVES/";
 	
 	files = (DIR_ENT *) malloc(MAXFILES*sizeof(DIR_ENT));
 	if (files == NULL)

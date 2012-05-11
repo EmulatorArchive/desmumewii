@@ -484,7 +484,8 @@ static void cp15_savestate(EMUFILE* os)
 	write32le(0,os);
 
 	cp15_saveone((armcp15_t *)NDS_ARM9.coproc[15],os);
-	cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
+	//ARM7 does not have coprocessor
+	//cp15_saveone((armcp15_t *)NDS_ARM7.coproc[15],os);
 }
 
 static bool cp15_loadone(armcp15_t *cp15, EMUFILE* is)
@@ -540,7 +541,16 @@ static bool cp15_loadstate(EMUFILE* is, int size)
 	if(version != 0) return false;
 
 	if(!cp15_loadone((armcp15_t *)NDS_ARM9.coproc[15],is)) return false;
-	if(!cp15_loadone((armcp15_t *)NDS_ARM7.coproc[15],is)) return false;
+	
+	if(version == 0)
+	{
+		//ARM7 does not have coprocessor
+		u8 *tmp_buf = new u8 [sizeof(armcp15_t)];
+		if (!tmp_buf) return false;
+		if(!cp15_loadone((armcp15_t *)tmp_buf,is)) return false;
+		delete [] tmp_buf;
+		tmp_buf = NULL;
+	}
 
 	return true;
 }
@@ -645,64 +655,6 @@ void loadstate_slot(int num)
    }
 }
 
-u8 sram_read (u32 address) {
-	address = address - SRAM_ADDRESS;
-
-	if ( address > SRAM_SIZE )
-		return 0;
-
-	return MMU.CART_RAM[address];
-
-}
-
-void sram_write (u32 address, u8 value) {
-
-	address = address - SRAM_ADDRESS;
-
-	if ( address < SRAM_SIZE )
-		MMU.CART_RAM[address] = value;
-
-}
-
-int sram_load (const char *file_name) {
-
-	FILE *file;
-	size_t elems_read;
-
-	file = fopen ( file_name, "rb" );
-	if( file == NULL )
-		return 0;
-
-	elems_read = fread ( MMU.CART_RAM, SRAM_SIZE, 1, file );
-
-	fclose ( file );
-
-//	osd->setLineColor(255, 255, 255);
-//	osd->addLine("Loaded SRAM");
-
-	return 1;
-
-}
-
-int sram_save (const char *file_name) {
-
-	FILE *file;
-	size_t elems_written;
-
-	file = fopen ( file_name, "wb" );
-	if( file == NULL )
-		return 0;
-
-	elems_written = fwrite ( MMU.CART_RAM, SRAM_SIZE, 1, file );
-
-	fclose ( file );
-
-//	osd->setLineColor(255, 255, 255);
-//	osd->addLine("Saved SRAM");
-
-	return 1;
-
-}
 
 // note: guessSF is so we don't have to do a linear search through the SFORMAT array every time
 // in the (most common) case that we already know where the next entry is.

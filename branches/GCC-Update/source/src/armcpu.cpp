@@ -144,20 +144,17 @@ remove_post_exec_fn( void *instance) {
 #ifdef GDB_STUB
 static u32 read_cpu_reg( void *instance, u32 reg_num) {
 	armcpu_t *armcpu = (armcpu_t *)instance;
-	u32 reg_value = 0;
-	
+
 	if ( reg_num <= 14) {
-		reg_value = armcpu->R[reg_num];
+		return armcpu->R[reg_num];
 	}
 	else if ( reg_num == 15) {
-		reg_value = armcpu->next_instruction;
+		return armcpu->instruct_adr;
 	}
 	else if ( reg_num == 16) {
 		//CPSR
-		reg_value = armcpu->CPSR.val;
+		return armcpu->CPSR.val;
 	}
-	
-	return reg_value;
 }
 
 static void
@@ -221,14 +218,14 @@ void armcpu_t::changeCPSR()
 
 void armcpu_init(armcpu_t *armcpu, u32 adr)
 {
-	armcpu->LDTBit = (armcpu->proc_ID==0); //Si ARM9 utiliser le syte v5 pour le load
+	armcpu->LDTBit = (armcpu->proc_ID==0); //arm9 is ARMv5 style. this should be renamed, or more likely, all references to this should poll a function to return an architecture level enum
 	armcpu->intVector = 0xFFFF0000 * (armcpu->proc_ID==0);
 	armcpu->waitIRQ = FALSE;
 	armcpu->wirq = FALSE;
 
-#ifdef GDB_STUB
-    armcpu->irq_flag = 0;
-#endif
+//#ifdef GDB_STUB
+//    armcpu->irq_flag = 0;
+//#endif
 
 	for(int i = 0; i < 16; ++i)
 	{
@@ -567,7 +564,7 @@ u32 armcpu_exec()
 			/* call the external post execute function */
 			ARMPROC.post_ex_fn(ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 0);
 		}
-
+		ARMPROC.mem_if->prefetch32( ARMPROC.mem_if->data, ARMPROC.next_instruction);
 #endif
 		cFetch = armcpu_prefetch<PROCNUM>();
 		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
@@ -595,7 +592,7 @@ u32 armcpu_exec()
 		/* call the external post execute function */
 		ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 1);
 	}
-
+	ARMPROC.mem_if->prefetch32( ARMPROC.mem_if->data, ARMPROC.next_instruction);
 #endif
 	cFetch = armcpu_prefetch<PROCNUM>();
 	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);

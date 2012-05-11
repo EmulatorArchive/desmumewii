@@ -29,10 +29,6 @@
 #include <time.h>
 #include <string.h>
 #include "saves.h"
-#ifdef WIN32
-#include "windows/main.h"
-#endif
-#include "movie.h"
 
 typedef struct
 {

@@ -20,33 +20,31 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
-#include <sdcard/wiisd_io.h>
-#include <ogc/disc_io.h>
-#include <fat.h>
-#include <wiiuse/wpad.h>
-#include <sys/dir.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fat.h>
+#include <ogcsys.h>
+#include <sdcard/wiisd_io.h>
+#include <ogc/disc_io.h>
+#include <sys/time.h>
+#include <wiiuse/wpad.h>
+#include <sys/dir.h>
+#include <ogc/lwp_watchdog.h>
+#include <dopmii/FileSystem.h>
 #include "MMU.h"
 #include "NDSSystem.h"
 #include "cflash.h"
-#include "debug.h"
 #include "sndogc.h"
 #include "ctrlssdl.h"
 #include "GPU.h"
 #include "render3D.h"
-//#include "gdbstub.h"
 #include "FrontEnd.h"
 #include "version.h"
 #include "log_console.h"
 #include "GXRender.h"
 #include "rasterize.h"
 #include "filebrowser.h"
-#include <ogcsys.h>
-#include <sys/time.h>
-#include <ogc/lwp_watchdog.h>
-#include <dopmii/FileSystem.h>
+
 
 #include "gekko_utils/usb2storage.h"
 #include "gekko_utils/mload.h"

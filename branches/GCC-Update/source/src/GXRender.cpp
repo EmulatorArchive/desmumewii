@@ -19,19 +19,10 @@
 */
 
 #include <queue>
-#include <gctypes.h>
-#include <gccore.h>
-
-#include "types.h"
-#include "debug.h"
 #include "GXRender.h"
-#include "MMU.h"
-#include "bits.h"
-#include "matrix.h"
-#include "NDSSystem.h"
 #include "GXTexManager.h"
+#include "NDSSystem.h"
 #include "gfx3d.h"
-#include "shaders.h"
 #include "texcache.h"
 
 // ------------------- EXTERNAL VARIABLES ------------------
@@ -684,10 +675,10 @@ static void Set3DVideoSettings(){
 	// Load in an identity matrix to be our position matrix
 	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
-
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
 	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
 
+	//See: GX_SetTevAlphaOp  and GX_SetTevColorOp
 	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
 
 	GX_InvVtxCache();

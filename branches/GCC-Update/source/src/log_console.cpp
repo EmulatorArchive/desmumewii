@@ -65,26 +65,26 @@ static int __out_write(struct _reent *r, int fd, const char *ptr, size_t len) {
 }
  
 const devoptab_t dot_out = {
-"stdout", // device name
-0, // size of file structure
-NULL, // device open
-NULL, // device close
-__out_write,// device write
-NULL, // device read
-NULL, // device seek
-NULL, // device fstat
-NULL, // device stat
-NULL, // device link
-NULL, // device unlink
-NULL, // device chdir
-NULL, // device rename
-NULL, // device mkdir
-0, // dirStateSize
-NULL, // device diropen_r
-NULL, // device dirreset_r
-NULL, // device dirnext_r
-NULL, // device dirclose_r
-NULL // device statvfs_r
+	"stdout",    // device name
+	0,           // size of file structure
+	NULL,        // device open
+	NULL,        // device close
+	__out_write, // device write
+	NULL,        // device read
+	NULL,        // device seek
+	NULL,        // device fstat
+	NULL,        // device stat
+	NULL,        // device link
+	NULL,        // device unlink
+	NULL,        // device chdir
+	NULL,        // device rename
+	NULL,        // device mkdir
+	0,           // dirStateSize
+	NULL,        // device diropen_r
+	NULL,        // device dirreset_r
+	NULL,        // device dirnext_r
+	NULL,        // device dirclose_r
+	NULL         // device statvfs_r
 };
  
 void log_console_init(GXRModeObj *vmode, u16 logsize, u16 x, u16 y, u16 w, u16 h)
@@ -179,10 +179,9 @@ void log_console_enable_video(bool enable) {
 		return;
 
 	struct _reent *r = _REENT;
-	u16 l; 
 
 	for (u16 i = 0; i < log_size; ++i) {
-		l = (log_next + 1 + i) % log_size;
+		u16 l = (log_next + 1 + i) % log_size;
 		if (log[l]) {
 			dot_video->write_r(r, 0, log[l], strlen(log[l]));
 			free(log[l]);

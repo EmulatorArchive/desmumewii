@@ -18,8 +18,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-//Need to convert INFO's into gecko printf()s
-
 #include "firmware.h"
 #include "NDSSystem.h"
 
@@ -333,7 +331,7 @@ bool CFIRMWARE::load()
 	u32 size = 0;
 	u8	*data = NULL;
 	u16 shift1 = 0, shift2 = 0, shift3 = 0, shift4 = 0;
-	u32 part1addr = 0, part2addr = 0, part3addr = 0, part4addr = 0, part5addr = 0;
+	u32 part1addr = 0, part2addr = 0;
 	u32 part1ram = 0, part2ram = 0;
 	
 	u32	src = 0;
@@ -398,9 +396,9 @@ bool CFIRMWARE::load()
 	part1ram = (0x02800000 - (header.part1_ram_boot9_addr << (2+shift2)));
 	part2addr = (header.part2_rom_boot7_addr << (2+shift3));
 	part2ram = (0x03810000 - (header.part2_ram_boot7_addr << (2+shift4)));
-	part3addr = (header.part3_rom_gui9_addr << 3);
-	part4addr = (header.part4_rom_wifi7_addr << 3);
-	part5addr = (header.part5_data_gfx_addr << 3);
+	//part3addr = (header.part3_rom_gui9_addr << 3);
+	//part4addr = (header.part4_rom_wifi7_addr << 3);
+	//part5addr = (header.part5_data_gfx_addr << 3);
 
 	ARM9bootAddr = part1ram;
 	ARM7bootAddr = part2ram;
@@ -861,7 +859,7 @@ void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config) {
 	// default to English
 	fw_config->language = 1;
 
-	// default touchscreen calibration 
+	// default touchscreen calibration
 	fw_config->touch_cal[0].adc_x = 0x200;
 	fw_config->touch_cal[0].adc_y = 0x200;
 	fw_config->touch_cal[0].screen_x = 0x20 + 1; // calibration screen coords are 1-based,

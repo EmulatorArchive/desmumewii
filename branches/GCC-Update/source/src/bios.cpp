@@ -195,6 +195,8 @@ TEMPLATE static u32 bios_nop()
 
 TEMPLATE static u32 WaitByLoop()
 {
+	u32 elapsed;
+	
 	//printf("%lld waitbyloop\n",nds_timer);
 	//INFO("ARM%c: SWI 0x03 (WaitByLoop)\n", PROCNUM?'7':'9');
 	if (PROCNUM == ARMCPU_ARM9)
@@ -202,12 +204,14 @@ TEMPLATE static u32 WaitByLoop()
 		armcp15_t *cp = (armcp15_t*)(cpu->coproc[15]);
 
 		if (cp->ctrl & ((1<<16)|(1<<18)))		// DTCM or ITCM is on (cache)
-			return cpu->R[0] * 2;
+			elapsed = cpu->R[0] * 2;
 		else
-			return cpu->R[0] * 8;
+			elapsed = cpu->R[0] * 8;
 	}
-    
-	return cpu->R[0] * 4;
+	else
+		elapsed = cpu->R[0] * 4;
+	cpu->R[0] = 0;
+	return elapsed;
 }
 
 TEMPLATE static u32 wait4IRQ()
@@ -975,21 +979,44 @@ TEMPLATE static u32 setHaltCR()
 }
 
 TEMPLATE static u32 getSineTab()
-{ 
-     cpu->R[0] = getsinetbl[cpu->R[0]];
-     return 1;
+{
+	//ds returns garbage according to gbatek, but we must protect ourselves
+	if(cpu->R[0] >= ARRAY_SIZE(getsinetbl))
+	{
+		printf("Invalid SWI getSineTab: %08X\n",cpu->R[0]);
+		return 1;
+	}
+
+
+	cpu->R[0] = getsinetbl[cpu->R[0]];
+	return 1;
 }
 
 TEMPLATE static u32 getPitchTab()
 { 
-     cpu->R[0] = getpitchtbl[cpu->R[0]];
-     return 1;
+	//ds returns garbage according to gbatek, but we must protect ourselves
+	if(cpu->R[0] >= ARRAY_SIZE(getpitchtbl))
+	{
+		printf("Invalid SWI getPitchTab: %08X\n",cpu->R[0]);
+		return 1;
+	}
+
+	cpu->R[0] = getpitchtbl[cpu->R[0]];
+	return 1;
 }
 
 TEMPLATE static u32 getVolumeTab()
 { 
-     cpu->R[0] = getvoltbl[cpu->R[0]];
-     return 1;
+	//ds returns garbage according to gbatek, but we must protect ourselves
+	if(cpu->R[0] >= ARRAY_SIZE(getvoltbl))
+	{
+		printf("Invalid SWI getVolumeTab: %08X\n",cpu->R[0]);
+		return 1;
+	}
+
+
+    cpu->R[0] = getvoltbl[cpu->R[0]];
+    return 1;
 }
 
 
@@ -1027,7 +1054,7 @@ TEMPLATE static u32 getCRC16()
 	//and savefiles created with a bios will be invalid when loaded with non-bios (and vice-versa)
 
 	//u32 old = getCRC16_old<PROCNUM>(cpu->R[0],cpu->R[1],cpu->R[2]);
-
+	u16 currVal = 0;
 	u16 crc = (u16)cpu->R[0];
 	u32 datap = cpu->R[1];
 	u32 size = cpu->R[2]>>1;
@@ -1036,7 +1063,7 @@ TEMPLATE static u32 getCRC16()
 
 	for(u32 i = 0; i < size; i++)
 	{
-		u16 currVal = _MMU_read16<PROCNUM>(datap + i*2);
+		currVal = _MMU_read16<PROCNUM>(datap + i*2);
 
 		for(int j=0;j<4;j++)
 		{
@@ -1051,6 +1078,8 @@ TEMPLATE static u32 getCRC16()
 	}
 
 	cpu->R[0] = crc;
+	// R3 contains the last processed halfword 
+	cpu->R[3] = currVal;
 	return 1;
 }
 
