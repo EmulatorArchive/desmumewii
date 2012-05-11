@@ -951,11 +951,11 @@ template<int procnum, int chan> struct TSequenceItem_DMA : public TSequenceItem
 
 	FORCEINLINE bool isTriggered()
 	{
-		return (controller->check && nds_timer>= controller->nextEvent);
+		return (controller->dmaCheck && nds_timer>= controller->nextEvent);
 	}
 
 	FORCEINLINE bool isEnabled() { 
-		return controller->check?TRUE:FALSE;
+		return controller->dmaCheck?TRUE:FALSE;
 	}
 
 	FORCEINLINE u64 next()
@@ -1886,11 +1886,8 @@ void NDS_Reset()
 		_MMU_write32<ARMCPU_ARM9>(0xFFFF0294, 0xE25EF004);
 	}
 
-	if (firmware)
-	{
-		delete firmware;
-		firmware = NULL;
-	}
+	delete firmware;
+	
 	firmware = new CFIRMWARE();
 	fw_success = firmware->load();
 

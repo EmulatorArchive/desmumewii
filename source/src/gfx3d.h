@@ -193,7 +193,7 @@ struct POLY {
 //#define POLYLIST_SIZE 2048
 struct POLYLIST {
 	POLY list[POLYLIST_SIZE];
-	long count;
+	int count;
 };
 
 struct VERT {
@@ -248,7 +248,7 @@ struct VERT {
 //#define VERTLIST_SIZE 10000
 struct VERTLIST {
 	VERT list[VERTLIST_SIZE];
-	long count;
+	int count;
 };
 
 

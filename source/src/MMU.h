@@ -143,7 +143,7 @@ public:
 	u32 saddr, daddr;
 	
 	//indicates whether the dma needs to be checked for triggering
-	BOOL check;
+	BOOL dmaCheck;
 
 	//indicates whether the dma right now is logically running
 	//(though for now we copy all the data when it triggers)
@@ -177,7 +177,7 @@ public:
 		//if saddr isnt cleared then rings of fate will trigger copy protection
 		//by inspecting dma3 saddr when it boots
 		saddr(0), daddr(0),
-		check(FALSE),
+		dmaCheck(FALSE),
 		running(FALSE),
 		paused(FALSE),
 		triggered(FALSE),

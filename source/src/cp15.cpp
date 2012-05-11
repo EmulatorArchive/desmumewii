@@ -32,10 +32,12 @@ armcp15_t *armcp15_new(armcpu_t * c)
 	if(!armcp15) return NULL;
 	
 	armcp15->cpu = c;
-	armcp15->IDCode = 0x41049460;
+	//armcp15->IDCode = 0x41049460;
+	//0.9.8
+	armcp15->IDCode = 0x41059461;
 	armcp15->cacheType = 0x0F0D2112;
-	armcp15->TCMSize = 0x00140140;
-	armcp15->ctrl = 0x00000000;
+	armcp15->TCMSize = 0x00140180;
+	armcp15->ctrl = 0x00012078;
 	armcp15->DCConfig = 0x0;    
 	armcp15->ICConfig = 0x0;    
 	armcp15->writeBuffCtrl = 0x0;
@@ -57,7 +59,11 @@ armcp15_t *armcp15_new(armcpu_t * c)
 	armcp15->DTCMRegion = 0x0080000A;
 	armcp15->processID = 0;
 
-    /* preset calculated regionmasks */	
+	MMU.ARM9_RW_MODE = BIT7(armcp15->ctrl);
+	armcp15->cpu->intVector = 0xFFFF0000 * (BIT13(armcp15->ctrl));
+	armcp15->cpu->LDTBit = !BIT15(armcp15->ctrl); //TBit
+
+	/* preset calculated regionmasks */	
 	for (i=0;i<8;i++) {
 		armcp15->regionWriteMask_USR[i] = 0 ;
 		armcp15->regionWriteMask_SYS[i] = 0 ;

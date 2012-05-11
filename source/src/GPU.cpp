@@ -626,7 +626,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 			{
 				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
 				COLOR c2, cfinal;
-				c2.val = T2ReadWord(dst, passing);
+				c2.val = HostReadWord(dst, passing);
 				u8 invAlpha = (32 - color.bits.a);
 				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * invAlpha)) >> 6;
 				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * invAlpha)) >> 6;
@@ -650,7 +650,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 				}
 		}
 
-		T2WriteWord(dst, passing, (final | 0x8000));
+		HostWriteWord(dst, passing, (final | 0x8000));
 		bgPixels[k] = 0;
 	}
 }
@@ -684,7 +684,7 @@ FORCEINLINE FASTCALL bool GPU::_master_setFinalBGColor(u16 &color, const u32 x, 
 
 	//perform the special effect
 	switch(FUNC) {
-		case Blend: if(blend2[bg_under]) color = blend(color,T2ReadWord(currDst, x<<1)); break;
+		case Blend: if(blend2[bg_under]) color = blend(color,HostReadWord(currDst, x<<1)); break;
 		case Increase: color = currentFadeInColors[color]; break;
 		case Decrease: color = currentFadeOutColors[color]; break;
 		case None: break;
@@ -729,7 +729,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 
 	if(allowBlend)
 	{
-		u16 backColor = T2ReadWord(dst,x<<1);
+		u16 backColor = HostReadWord(dst,x<<1);
 		//this hasn't been tested: this blending occurs without regard to the color effect,
 		//but rather purely from the sprite's alpha
 		if(type == GPU_OBJ_MODE_Bitmap)
@@ -738,7 +738,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 			color = blend(color,backColor);
 	}
 
-	T2WriteWord(dst, x<<1, (color | 0x8000));
+	HostWriteWord(dst, x<<1, (color | 0x8000));
 	bgPixels[x] = 4;	
 }
 
@@ -793,7 +793,7 @@ FORCEINLINE void GPU::setFinalColorBG(u16 color, const u32 x)
 
 	if(BACKDROP || draw) //backdrop must always be drawn
 	{
-		T2WriteWord(currDst, x<<1, color | 0x8000);
+		HostWriteWord(currDst, x<<1, color | 0x8000);
 		if(!BACKDROP) bgPixels[x] = currBgNum; //Let's do this in the backdrop drawing loop, should be faster
 	}
 }
@@ -1347,7 +1347,7 @@ INLINE void render_sprite_BMP (GPU * gpu, u8 spriteNum, u16 l, u8 * dst, u16 * s
 		// alpha bit = invisible
 		if ((color&0x8000)&&(prio<=prioTab[sprX]))
 		{
-			T2WriteWord(dst, (sprX<<1), color);
+			HostWriteWord(dst, (sprX<<1), color);
 			dst_alpha[sprX] = alpha;
 			typeTab[sprX] = 3;
 			prioTab[sprX] = prio;
@@ -1371,7 +1371,7 @@ INLINE void render_sprite_256 (	GPU * gpu, u8 spriteNum, u16 l, u8 * dst, u8 * s
 		// palette entry = 0 means backdrop
 		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
 		{
-			T2WriteWord(dst, (sprX<<1), color);
+			HostWriteWord(dst, (sprX<<1), color);
 			dst_alpha[sprX] = 16;
 			typeTab[sprX] = (alpha ? 1 : 0);
 			prioTab[sprX] = prio;
@@ -1398,7 +1398,7 @@ INLINE void render_sprite_16 (	GPU * gpu, u16 l, u8 * dst, u8 * src, u16 * pal,
 		// palette entry = 0 means backdrop
 		if ((palette_entry>0)&&(prio<=prioTab[sprX]))
 		{
-			T2WriteWord(dst, (sprX<<1), color);
+			HostWriteWord(dst, (sprX<<1), color);
 			dst_alpha[sprX] = 16;
 			typeTab[sprX] = (alpha ? 1 : 0);
 			prioTab[sprX] = prio;
@@ -1651,7 +1651,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 						if (color && (prioTab[sprX]>=prio))
 						{ 
-							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, (color<<1))));
+							HostWriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(HostReadWord(pal, (color<<1))));
 							dst_alpha[sprX] = 16;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -1694,7 +1694,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 						
 						if((color&0x8000) && (prioTab[sprX]>=prio))
 						{
-							T2WriteWord(dst, (sprX<<1), color);
+							HostWriteWord(dst, (sprX<<1), color);
 							dst_alpha[sprX] = spriteInfo->PaletteIndex;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -1746,7 +1746,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 
 						if(color && (prioTab[sprX]>=prio))
 						{
-							T2WriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(T2ReadWord(pal, color << 1)));
+							HostWriteWord(dst, (sprX<<1), LE_TO_LOCAL_16(HostReadWord(pal, color << 1)));
 							dst_alpha[sprX] = 16;
 							typeTab[sprX] = spriteInfo->Mode;
 							prioTab[sprX] = prio;
@@ -2086,7 +2086,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 	{
 		//n.b. - this is clearing the sprite line buffer to the background color,
 		//but it has been changed to write u32 instead of u16 for a little speedup
-		for(int i = 0; i< 128; ++i) T2WriteLong(spr, i << 2, backdrop_color | (backdrop_color<<16));
+		for(int i = 0; i< 128; ++i) HostWriteTwoWords(spr, i << 2, backdrop_color | (backdrop_color<<16));
 		//zero 06-may-09: I properly supported window color effects for backdrop, but I am not sure
 		//how it interacts with this. I wish we knew why we needed this
 		
@@ -2167,7 +2167,7 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 			for (int i=0; i < item->nbPixelsX; i++)
 			{
 				i16=item->PixelsX[i];
-				gpu->setFinalColorSpr(T2ReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
+				gpu->setFinalColorSpr(HostReadWord(spr, (i16<<1)), sprAlpha[i16], sprType[i16], i16);
 			}
 		}
 	}
@@ -2180,11 +2180,11 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 	switch(gpu->dispCapCnt.capx) { \
 		case DISPCAPCNT::_128: \
 			for (int i = 0; i < 128; i++)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
+				HostWriteWord(DST, i << 1, HostReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 		case DISPCAPCNT::_256: \
 			for (int i = 0; i < 256; i++)  \
-				T2WriteWord(DST, i << 1, T2ReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
+				HostWriteWord(DST, i << 1, HostReadWord(SRC, i << 1) | (SETALPHABIT?(1<<15):0)); \
 			break; \
 			default: assert(false); \
 		}
@@ -2341,7 +2341,7 @@ template<bool SKIP> static void GPU_RenderLine_DispCapture(u16 l)
 							g = std::min((u16)31,g);
 							b = std::min((u16)31,b);
 
-							T2WriteWord(cap_dst, i << 1, a | (b << 10) | (g << 5) | r);
+							HostWriteWord(cap_dst, i << 1, a | (b << 10) | (g << 5) | r);
 						}
 					}
 				break;
@@ -2600,7 +2600,7 @@ void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip)
 				u8 * dst =  GPU_screen + (screen->offset + l) * 512;
 
 				for (int i=0; i<256; i++)
-					T2WriteWord(dst, i << 1, 0x7FFF);
+					HostWriteWord(dst, i << 1, 0x7FFF);
 			}
 			break;
 

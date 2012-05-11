@@ -503,8 +503,8 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 				break;
 			case 2: //arm7
 				vramConfiguration.banks[bank].purpose = VramConfiguration::ARM7;
-				if(bank == 2) T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240, T1ReadByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240) | 2);
-				if(bank == 3) T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240, T1ReadByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240) | 1);
+				if(bank == 2) T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240, T1ReadByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240) | 1);
+				if(bank == 3) T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240, T1ReadByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240) | 2);
 				switch(ofs) {
 				case 0:
 				case 1:
@@ -661,6 +661,7 @@ static inline void MMU_VRAMmapRefreshBank(const int bank)
 			case 2: //BOBJ
 				vramConfiguration.banks[bank].purpose = VramConfiguration::BOBJ;
 				MMU_vram_arm9(bank,VRAM_PAGE_BOBJ);
+				MMU_vram_arm9(bank,VRAM_PAGE_BOBJ+1); //FF3 end scene (lens flare sprite) needs this as it renders a sprite off the end of the 16KB and back around
 				break;
 			case 3: //B OBJ extended palette
 				vramConfiguration.banks[bank].purpose = VramConfiguration::BOBJEXTPAL;
@@ -1862,7 +1863,7 @@ bool DmaController::loadstate(EMUFILE* f)
 	read8le(&temp,f); sar = (EDMASourceUpdate)temp;
 	read8le(&temp,f); dar = (EDMADestinationUpdate)temp;
 	read32le(&saddr,f); read32le(&daddr,f);
-	read32le(&check,f); read32le(&running,f); read32le(&paused,f); read32le(&triggered,f); 
+	read32le(&dmaCheck,f); read32le(&running,f); read32le(&paused,f); read32le(&triggered,f); 
 	read64le(&nextEvent,f);
 
 	return true;
@@ -1879,7 +1880,7 @@ void DmaController::savestate(EMUFILE *f)
 	write8le(sar,f); 
 	write8le(dar,f); 
 	write32le(saddr,f); write32le(daddr,f);
-	write32le(check,f); write32le(running,f); write32le(paused,f); write32le(triggered,f); 
+	write32le(dmaCheck,f); write32le(running,f); write32le(paused,f); write32le(triggered,f); 
 	write64le(nextEvent,f);
 }
 
@@ -1952,7 +1953,7 @@ void DmaController::write32(const u32 val)
 
 void DmaController::exec()
 {
-	check = FALSE;
+	dmaCheck = FALSE;
 	
 	if(running)
 	{
@@ -2129,7 +2130,7 @@ void DmaController::tryTrigger(EDMAMode mode)
 
 void DmaController::doSchedule()
 {
-	check = TRUE;
+	dmaCheck = TRUE;
 	nextEvent = nds_timer;
 	NDS_RescheduleDMA();
 }
