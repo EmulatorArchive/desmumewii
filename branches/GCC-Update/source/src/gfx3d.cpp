@@ -686,7 +686,7 @@ static void SetVertex()
 		float16table[u16coord[2]]
 	};
 
-	ALIGN(16) float coordTransformed[4] = { coord[0], coord[1], coord[2], 1.f };
+	DS_ALIGN(16) float coordTransformed[4] = { coord[0], coord[1], coord[2], 1.f };
 
 	if (texCoordinateTransform == 3)
 	{
@@ -1461,7 +1461,7 @@ static void gfx3d_glNormal(u32 v){
 	guMtx44MultQuat(mtxCurrent[2], &normal, &normal);
 
 #else
-	ALIGN(16) float normal[4] = { normalTable[v&1023],
+	DS_ALIGN(16) float normal[4] = { normalTable[v&1023],
 								normalTable[(v>>10)&1023],
 								normalTable[(v>>20)&1023],
 								1};
