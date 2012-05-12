@@ -35,14 +35,10 @@
 #include "utils/decrypt/crc.h"
 #include "bios.h"
 #include "debug.h"
-#include "cheatSystem.h"
-#include "movie.h"
 #include "Disassembler.h"
 #include "readwrite.h"
-#include "debug.h"
 #include "GPU.h"
 #include "firmware.h"
-
 #include "path.h"
 
 
@@ -207,7 +203,12 @@ void NDS_DeInit(void) {
 	gpu3D->NDS_3D_Close();
 
 	WIFI_DeInit();
-//	cheatsSearchClose();
+	/*
+	if (cheats)
+		delete cheats;
+	if (cheatSearch)
+		delete cheatSearch;
+	//*/
 }
 
 BOOL NDS_SetROM(u8 * rom, u32 mask)
@@ -387,11 +388,11 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	/*
 	if(!strcasecmp(path.extension().c_str(), "zip"))		
 		type = ROM_NDS;
-	else if ( !strcasecmp(path.extension().c_str(), "nds"))
+	else if (!strcasecmp(path.extension().c_str(), "nds"))
 		type = ROM_NDS;
 	else 
 	//*/
-	if ( path.isdsgba(path.path))
+	if (path.isdsgba(path.path))
 		type = ROM_DSGBA;
 
 
@@ -457,8 +458,8 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	}
 #endif
 
-
-//	cheatsSearchClose();
+	//if (cheatSearch)
+	//	cheatSearch->close();
 	MMU_unsetRom();
 	NDS_SetROM(data, mask);
 	
@@ -481,7 +482,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	path.getpathnoext(path.CHEATS, buf);
 	
 	strcat(buf, ".dct");							// DeSmuME cheat		:)
-//	cheatsInit(buf);
+	//cheats->init(buf);
 
 	gameInfo.populate();
 	//gameInfo.crc = crc32(0,data,size);
@@ -1530,8 +1531,8 @@ FORCEINLINE void arm9log()
 		else
 			des_arm_instructions_set[INDEX(NDS_ARM9.instruction)](NDS_ARM9.instruct_adr, NDS_ARM9.instruction, dasmbuf);
 
-		printf("%05d %12lld 9:%08X %08X %-30s R00:%08X R01:%08X R02:%08X R03:%08X R04:%08X R05:%08X R06:%08X R07:%08X R08:%08X R09:%08X R10:%08X R11:%08X R12:%08X R13:%08X R14:%08X R15:%08X\n",
-			currFrameCounter, nds_timer, 
+		printf("%05d:%03d %12lld 9:%08X %08X %-30s R00:%08X R01:%08X R02:%08X R03:%08X R04:%08X R05:%08X R06:%08X R07:%08X R08:%08X R09:%08X R10:%08X R11:%08X R12:%08X R13:%08X R14:%08X R15:%08X\n",
+			currFrameCounter, nds.VCount, nds_timer, 
 			NDS_ARM9.instruct_adr,NDS_ARM9.instruction, dasmbuf, 
 			NDS_ARM9.R[0],  NDS_ARM9.R[1],  NDS_ARM9.R[2],  NDS_ARM9.R[3],  NDS_ARM9.R[4],  NDS_ARM9.R[5],  NDS_ARM9.R[6],  NDS_ARM9.R[7], 
 			NDS_ARM9.R[8],  NDS_ARM9.R[9],  NDS_ARM9.R[10],  NDS_ARM9.R[11],  NDS_ARM9.R[12],  NDS_ARM9.R[13],  NDS_ARM9.R[14],  NDS_ARM9.R[15]);  
@@ -1549,9 +1550,9 @@ FORCEINLINE void arm7log()
 			des_thumb_instructions_set[((NDS_ARM7.instruction)>>6)&1023](NDS_ARM7.instruct_adr, NDS_ARM7.instruction, dasmbuf);
 		else
 			des_arm_instructions_set[INDEX(NDS_ARM7.instruction)](NDS_ARM7.instruct_adr, NDS_ARM7.instruction, dasmbuf);
-		
-		printf("%05d %12lld 7:%08X %08X %-30s R00:%08X R01:%08X R02:%08X R03:%08X R04:%08X R05:%08X R06:%08X R07:%08X R08:%08X R09:%08X R10:%08X R11:%08X R12:%08X R13:%08X R14:%08X R15:%08X\n",
-			currFrameCounter, nds_timer, 
+	
+		printf("%05d:%03d %12lld 7:%08X %08X %-30s R00:%08X R01:%08X R02:%08X R03:%08X R04:%08X R05:%08X R06:%08X R07:%08X R08:%08X R09:%08X R10:%08X R11:%08X R12:%08X R13:%08X R14:%08X R15:%08X\n",
+			currFrameCounter, nds.VCount, nds_timer, 
 			NDS_ARM7.instruct_adr,NDS_ARM7.instruction, dasmbuf, 
 			NDS_ARM7.R[0],  NDS_ARM7.R[1],  NDS_ARM7.R[2],  NDS_ARM7.R[3],  NDS_ARM7.R[4],  NDS_ARM7.R[5],  NDS_ARM7.R[6],  NDS_ARM7.R[7], 
 			NDS_ARM7.R[8],  NDS_ARM7.R[9],  NDS_ARM7.R[10],  NDS_ARM7.R[11],  NDS_ARM7.R[12],  NDS_ARM7.R[13],  NDS_ARM7.R[14],  NDS_ARM7.R[15]);
@@ -1727,7 +1728,7 @@ void NDS_exec(s32 nb)
 #endif
 
 			//if we were waiting for an irq, don't wait too long:
-			//let's re-analyze it after this hardware event
+			//let's re-analyze it after this hardware event (this rolls back a big burst of irq waiting which may have been interrupted by a resynch)
 			if(NDS_ARM9.waitIRQ) nds_arm9_timer = nds_timer;
 			if(NDS_ARM7.waitIRQ) nds_arm7_timer = nds_timer;
 		}
@@ -1747,7 +1748,8 @@ void NDS_exec(s32 nb)
 		lagframecounter = 0;
 	}
 
-//	cheatsProcess();
+	//if (cheats)
+	//	cheats->process();
 }
 
 void execHardware_interrupts()
@@ -1848,7 +1850,6 @@ void NDS_Reset()
 		inf = fopen(CommonSettings.ARM9BIOS,"rb");
 	else
 		inf = NULL;
-	//memcpy(MMU.ARM9_BIOS + 0x20, gba_header_data_0x04, 156);
 
 	if(inf) 
 	{
@@ -2028,8 +2029,8 @@ void NDS_Reset()
 	std::string rompath = "fat:/" + path.RomName;
 	const u32 kCommandline = 0x027E0000;
 	//const u32 kCommandline = 0x027FFF84;
-	
-	// 
+
+	//
 	_MMU_write32<ARMCPU_ARM9>(0x02FFFE70, 0x5f617267);
 	_MMU_write32<ARMCPU_ARM9>(0x02FFFE74, kCommandline); //(commandline starts here)
 	_MMU_write32<ARMCPU_ARM9>(0x02FFFE78, rompath.size()+1);
@@ -2120,7 +2121,9 @@ void ClearAutoHold(void) {
 	}while(i >= 0);
 }
 
-
+//convert a 12.4 screen coordinate to an ADC value.
+//the desmume host system will track the screen coordinate, but the hardware should be receiving the raw ADC values.
+//so we'll need to use this to simulate the ADC values corresponding to the desired screen coords, based on the current TSC calibrations
 INLINE u16 NDS_getADCTouchPosX(u16 scrX)
 {
 	// this is a little iffy,
@@ -2129,13 +2132,13 @@ INLINE u16 NDS_getADCTouchPosX(u16 scrX)
 	// the actual system doesn't do this transformation.
 	int rv = (scrX - TSCal.scr.x1 + 1) * (TSCal.adc.x2 - TSCal.adc.x1) / (TSCal.scr.x2 - TSCal.scr.x1) + TSCal.adc.x1;
 	rv = min(0xFFF, max(0, rv));
-	return (u16)rv;
+	return (u16)(rv);
 }
 INLINE u16 NDS_getADCTouchPosY(u16 scrY)
 {
 	int rv = (scrY - TSCal.scr.y1 + 1) * (TSCal.adc.y2 - TSCal.adc.y1) / (TSCal.scr.y2 - TSCal.scr.y1) + TSCal.adc.y1;
 	rv = min(0xFFF, max(0, rv));
-	return (u16)rv;
+	return (u16)(rv);
 }
 
 static UserInput rawUserInput = {}; // requested input, generally what the user is physically pressing
@@ -2241,14 +2244,7 @@ void NDS_setTouchPos(u16 x, u16 y)
 	rawUserInput.touch.touchY = NDS_getADCTouchPosY(y);
 	rawUserInput.touch.isTouch = true;
 	
-#ifdef _MOVIETIME_
-	if(movieMode != MOVIEMODE_INACTIVE && movieMode != MOVIEMODE_FINISHED)
-	{
-		// just in case, since the movie only stores 8 bits per touch coord
-		rawUserInput.touch.touchX &= 0x0FF0;
-		rawUserInput.touch.touchY &= 0x0FF0;
-	}
-#endif
+
 
 #ifndef WIN32
 	// FIXME: this code should be deleted from here,
@@ -2353,12 +2349,8 @@ static void NDS_applyFinalInput()
 		LidClosed = (!LidClosed) & 0x01;
 		if (!LidClosed)
 		{
-		//	SPU_Pause(FALSE);
 			NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_ARM7_FOLD);
-
 		}
-		//else
-			//SPU_Pause(TRUE);
 
 		countLid = 30;
 	}
@@ -2430,14 +2422,14 @@ void emu_halt() {
 	execute = false;
 }
 
-
-INLINE void NDS_swapScreen(void)
+/*
+void NDS_swapScreen(void)
 {
 	u16 tmp = MainScreen.offset;
 	MainScreen.offset = SubScreen.offset;
 	SubScreen.offset = tmp;
 }
-
+//*/
 
 //these templates needed to be instantiated manually
 template void NDS_exec<FALSE>(s32 nb);

@@ -1554,70 +1554,6 @@ u32 MMU_readFromGC()
 	return val;
 }
 
-
-#ifdef MMU_ENABLE_ACL
-
-INLINE void check_access(u32 adr, u32 access) {
-	/* every other mode: sys */
-	access |= 1;
-	if ((NDS_ARM9.CPSR.val & 0x1F) == 0x10) {
-		/* is user mode access */
-		access ^= 1 ;
-	}
-	if (armcp15_isAccessAllowed((armcp15_t *)NDS_ARM9.coproc[15],adr,access)==FALSE) {
-		execute = FALSE ;
-	}
-}
-INLINE void check_access_write(u32 adr) {
-	u32 access = CP15_ACCESS_WRITE;
-	check_access(adr, access)
-}
-
-u8 FASTCALL MMU_read8_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read8(proc,adr);
-}
-u16 FASTCALL MMU_read16_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read16(proc,adr);
-}
-u32 FASTCALL MMU_read32_acl(u32 proc, u32 adr, u32 access)
-{
-	/* on arm9 we need to check the MPU regions */
-	if (proc == ARMCPU_ARM9)
-		check_access(u32 adr, u32 access);
-	return MMU_read32(proc,adr);
-}
-
-void FASTCALL MMU_write8_acl(u32 proc, u32 adr, u8 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write8(proc,adr,val);
-}
-void FASTCALL MMU_write16_acl(u32 proc, u32 adr, u16 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write16(proc,adr,val) ;
-}
-void FASTCALL MMU_write32_acl(u32 proc, u32 adr, u32 val)
-{
-	/* check MPU region on ARM9 */
-	if (proc == ARMCPU_ARM9)
-		check_access_write(adr);
-	MMU_write32(proc,adr,val) ;
-}
-#endif
-
 //a stub for memory profiler, if we choose to re-add it
 #define PROFILE_PREFETCH 1
 #define profile_memory_access(X,Y,Z)
@@ -1652,8 +1588,10 @@ static INLINE void MMU_IPCSync(u8 proc, u32 val)
 	T1WriteLong(MMU.MMU_MEM[proc][0x40], 0x180, sync_l);
 	T1WriteLong(MMU.MMU_MEM[proc^1][0x40], 0x180, sync_r);
 
-	if ((sync_l & 0x2000) && (sync_r & 0x4000))
-		setIF(proc^1, ( 1 << 16 ));
+	if ((sync_l & IPCSYNC_IRQ_SEND) && (sync_r & IPCSYNC_IRQ_RECV))
+		NDS_makeIrq(proc^1, IRQ_BIT_IPCSYNC);
+
+	NDS_Reschedule();
 }
 
 static INLINE u16 read_timer(int proc, int timerIndex)
@@ -2465,27 +2403,27 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 		// Address is an IO register
 		switch(adr)
 		{
-		case eng_3D_GXSTAT:
-			MMU_new.gxstat.write(16,adr,val);
-			break;
-
-		case REG_DISPA_BG2XL: MainScreen.gpu->setAffineStartWord(2,0,val,0); break;
-		case REG_DISPA_BG2XH: MainScreen.gpu->setAffineStartWord(2,0,val,1); break;
-		case REG_DISPA_BG2YL: MainScreen.gpu->setAffineStartWord(2,1,val,0); break;
-		case REG_DISPA_BG2YH: MainScreen.gpu->setAffineStartWord(2,1,val,1); break;
-		case REG_DISPA_BG3XL: MainScreen.gpu->setAffineStartWord(3,0,val,0); break;
-		case REG_DISPA_BG3XH: MainScreen.gpu->setAffineStartWord(3,0,val,1); break;
-		case REG_DISPA_BG3YL: MainScreen.gpu->setAffineStartWord(3,1,val,0); break;
-		case REG_DISPA_BG3YH: MainScreen.gpu->setAffineStartWord(3,1,val,1); break;
-		case REG_DISPB_BG2XL: SubScreen.gpu->setAffineStartWord(2,0,val,0); break;
-		case REG_DISPB_BG2XH: SubScreen.gpu->setAffineStartWord(2,0,val,1); break;
-		case REG_DISPB_BG2YL: SubScreen.gpu->setAffineStartWord(2,1,val,0); break;
-		case REG_DISPB_BG2YH: SubScreen.gpu->setAffineStartWord(2,1,val,1); break;
-		case REG_DISPB_BG3XL: SubScreen.gpu->setAffineStartWord(3,0,val,0); break;
-		case REG_DISPB_BG3XH: SubScreen.gpu->setAffineStartWord(3,0,val,1); break;
-		case REG_DISPB_BG3YL: SubScreen.gpu->setAffineStartWord(3,1,val,0); break;
-		case REG_DISPB_BG3YH: SubScreen.gpu->setAffineStartWord(3,1,val,1); break;
-
+			case eng_3D_GXSTAT:
+				MMU_new.gxstat.write(16,adr,val);
+				break;
+	
+			case REG_DISPA_BG2XL: MainScreen.gpu->setAffineStartWord(2,0,val,0); break;
+			case REG_DISPA_BG2XH: MainScreen.gpu->setAffineStartWord(2,0,val,1); break;
+			case REG_DISPA_BG2YL: MainScreen.gpu->setAffineStartWord(2,1,val,0); break;
+			case REG_DISPA_BG2YH: MainScreen.gpu->setAffineStartWord(2,1,val,1); break;
+			case REG_DISPA_BG3XL: MainScreen.gpu->setAffineStartWord(3,0,val,0); break;
+			case REG_DISPA_BG3XH: MainScreen.gpu->setAffineStartWord(3,0,val,1); break;
+			case REG_DISPA_BG3YL: MainScreen.gpu->setAffineStartWord(3,1,val,0); break;
+			case REG_DISPA_BG3YH: MainScreen.gpu->setAffineStartWord(3,1,val,1); break;
+			case REG_DISPB_BG2XL: SubScreen.gpu->setAffineStartWord(2,0,val,0); break;
+			case REG_DISPB_BG2XH: SubScreen.gpu->setAffineStartWord(2,0,val,1); break;
+			case REG_DISPB_BG2YL: SubScreen.gpu->setAffineStartWord(2,1,val,0); break;
+			case REG_DISPB_BG2YH: SubScreen.gpu->setAffineStartWord(2,1,val,1); break;
+			case REG_DISPB_BG3XL: SubScreen.gpu->setAffineStartWord(3,0,val,0); break;
+			case REG_DISPB_BG3XH: SubScreen.gpu->setAffineStartWord(3,0,val,1); break;
+			case REG_DISPB_BG3YL: SubScreen.gpu->setAffineStartWord(3,1,val,0); break;
+			case REG_DISPB_BG3YH: SubScreen.gpu->setAffineStartWord(3,1,val,1); break;
+	
 			case REG_DISPA_DISP3DCNT:
 			{
 				u32 &disp3dcnt = MainScreen.gpu->dispx_st->dispA_DISP3DCNT.val;
@@ -2656,7 +2594,7 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				GPU_setMasterBrightness (SubScreen.gpu, val);
 				break;
 			
-            case REG_POWCNT1 :
+            case REG_POWCNT1:
 				{
 // TODO: make this later
 #if 0			
@@ -2808,7 +2746,6 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				}
 #endif
 				return;
-				
 			case REG_IF :
 				NDS_Reschedule();
 				MMU.reg_IF[ARMCPU_ARM9] &= (~((u32)val)); 
@@ -2821,11 +2758,10 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 				return;
 
             case REG_IPCSYNC :
-					MMU_IPCSync(ARMCPU_ARM9, val);
+				MMU_IPCSync(ARMCPU_ARM9, val);
 				return;
-
 			case REG_IPCFIFOCNT :
-					IPC_FIFOcnt(ARMCPU_ARM9, val);
+				IPC_FIFOcnt(ARMCPU_ARM9, val);
 				return;
             case REG_TM0CNTL :
             case REG_TM1CNTL :
@@ -3244,11 +3180,11 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 				return;
 			}
 			case REG_IPCSYNC :
-					MMU_IPCSync(ARMCPU_ARM9, val);
+				MMU_IPCSync(ARMCPU_ARM9, val);
 				return;
 
 			case REG_IPCFIFOSEND :
-					IPC_FIFOsend(ARMCPU_ARM9, val);
+				IPC_FIFOsend(ARMCPU_ARM9, val);
 				return;
 
            
@@ -4062,9 +3998,10 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 
 		switch(adr)
 		{
+			case REG_DISPx_VCOUNT: 
+				return nds.VCount;
 			case REG_RTC:
 				return rtcRead();
-
 			case REG_IME :
 				return (u16)MMU.reg_IME[ARMCPU_ARM7];
 				
@@ -4090,7 +4027,7 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 			case REG_KEYINPUT:
 			case REG_EXTKEYIN:
 				//here is an example of what not to do:
-				//since the arm7 polls this every frame, we shouldnt count this as an input check
+				//since the arm7 polls this (and EXTKEYIN) every frame, we shouldn't count this as an input check
 				//LagFrameFlag=0;
 				break;
 
@@ -4133,6 +4070,7 @@ u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 		{
 			case REG_RTC:
 				return (u32)rtcRead();
+			case REG_DISPx_VCOUNT: return nds.VCount;
 
 			case REG_IME : 
 				return MMU.reg_IME[ARMCPU_ARM7];
@@ -4245,83 +4183,67 @@ void FASTCALL MMU_DumpMemBlock(u8 proc, u32 address, u32 size, u8 *buffer)
 //function pointer handlers for gdb stub stuff
 
 static u16 FASTCALL arm9_prefetch16( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_PREFETCH);
 	return _MMU_read16<ARMCPU_ARM9>(adr);
 }
 
 static u32 FASTCALL arm9_prefetch32( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_PREFETCH);
 	return _MMU_read32<ARMCPU_ARM9>(adr);
 }
 
 static u8 FASTCALL arm9_read8( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read08<ARMCPU_ARM9>(adr);
 }
 
 static u16 FASTCALL arm9_read16( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read16<ARMCPU_ARM9>(adr);
 }
 
 static u32 FASTCALL arm9_read32( void *data, u32 adr) {
-	profile_memory_access( 1, adr, PROFILE_READ);
 	return _MMU_read32<ARMCPU_ARM9>(adr);
 }
 
 static void FASTCALL arm9_write8(void *data, u32 adr, u8 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write08<ARMCPU_ARM9>(adr, val);
 }
 
 static void FASTCALL arm9_write16(void *data, u32 adr, u16 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write16<ARMCPU_ARM9>(adr, val);
 }
 
 static void FASTCALL arm9_write32(void *data, u32 adr, u32 val) {
-	profile_memory_access( 1, adr, PROFILE_WRITE);
 	_MMU_write32<ARMCPU_ARM9>(adr, val);
 }
 
 static u16 FASTCALL arm7_prefetch16( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_PREFETCH);
-  return _MMU_read16<ARMCPU_ARM7>(adr);
+	return _MMU_read16<ARMCPU_ARM7>(adr);
 }
 
 static u32 FASTCALL arm7_prefetch32( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_PREFETCH);
-  return _MMU_read32<ARMCPU_ARM7>(adr);
+	return _MMU_read32<ARMCPU_ARM7>(adr);
 }
 
 static u8 FASTCALL arm7_read8( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read08<ARMCPU_ARM7>(adr);
+	return _MMU_read08<ARMCPU_ARM7>(adr);
 }
 
 static u16 FASTCALL arm7_read16( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read16<ARMCPU_ARM7>(adr);
+	return _MMU_read16<ARMCPU_ARM7>(adr);
 }
 
 static u32 FASTCALL arm7_read32( void *data, u32 adr) {
-  profile_memory_access( 0, adr, PROFILE_READ);
-  return _MMU_read32<ARMCPU_ARM7>(adr);
+	return _MMU_read32<ARMCPU_ARM7>(adr);
 }
 
 static void FASTCALL arm7_write8(void *data, u32 adr, u8 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write08<ARMCPU_ARM7>(adr, val);
+	_MMU_write08<ARMCPU_ARM7>(adr, val);
 }
 
 static void FASTCALL arm7_write16(void *data, u32 adr, u16 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write16<ARMCPU_ARM7>(adr, val);
+	_MMU_write16<ARMCPU_ARM7>(adr, val);
 }
 
 static void FASTCALL arm7_write32(void *data, u32 adr, u32 val) {
-  profile_memory_access( 0, adr, PROFILE_WRITE);
-  _MMU_write32<ARMCPU_ARM7>(adr, val);
+	_MMU_write32<ARMCPU_ARM7>(adr, val);
 }
 
 

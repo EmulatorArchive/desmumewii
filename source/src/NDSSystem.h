@@ -436,7 +436,7 @@ static INLINE void NDS_ARM7VBlankInt(void)
          //emu_halt();
 }
 
-void NDS_swapScreen(void);
+//void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
 
