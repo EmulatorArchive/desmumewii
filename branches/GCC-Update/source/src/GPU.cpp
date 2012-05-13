@@ -201,13 +201,18 @@ void GPU_Reset(GPU *g, u8 l)
 {
 	memset(g, 0, sizeof(GPU));
 
+	//important for emulator stability for this to initialize, since we have to setup a table based on it
+	g->BLDALPHA_EVA = 0;
+	g->BLDALPHA_EVB = 0;
+	//make sure we have our blend table setup even if the game blends without setting the blend variables
+	g->updateBLDALPHA();
+
 	g->setFinalColorBck_funcNum = 0;
 	g->setFinalColor3d_funcNum = 0;
 	g->setFinalColorSpr_funcNum = 0;
 	g->core = l;
 	g->BGSize[0][0] = g->BGSize[1][0] = g->BGSize[2][0] = g->BGSize[3][0] = 256;
 	g->BGSize[0][1] = g->BGSize[1][1] = g->BGSize[2][1] = g->BGSize[3][1] = 256;
-	g->dispOBJ = g->dispBG[0] = g->dispBG[1] = g->dispBG[2] = g->dispBG[3] = TRUE;
 
 	g->spriteRenderMode = GPU::SPRITE_1D;
 
@@ -248,11 +253,11 @@ static void GPU_resortBGs(GPU *gpu)
 #define OP ^ !
 // if we untick boxes, layers become invisible
 //#define OP &&
-	gpu->LayersEnable[0] = gpu->dispBG[0] OP(cnt->BG0_Enable/* && !(cnt->BG0_3D && (gpu->core==0))*/);
-	gpu->LayersEnable[1] = gpu->dispBG[1] OP(cnt->BG1_Enable);
-	gpu->LayersEnable[2] = gpu->dispBG[2] OP(cnt->BG2_Enable);
-	gpu->LayersEnable[3] = gpu->dispBG[3] OP(cnt->BG3_Enable);
-	gpu->LayersEnable[4] = gpu->dispOBJ   OP(cnt->OBJ_Enable);
+	gpu->LayersEnable[0] = CommonSettings.dispLayers[gpu->core][0] OP(cnt->BG0_Enable/* && !(cnt->BG0_3D && (gpu->core==0))*/);
+	gpu->LayersEnable[1] = CommonSettings.dispLayers[gpu->core][1] OP(cnt->BG1_Enable);
+	gpu->LayersEnable[2] = CommonSettings.dispLayers[gpu->core][2] OP(cnt->BG2_Enable);
+	gpu->LayersEnable[3] = CommonSettings.dispLayers[gpu->core][3] OP(cnt->BG3_Enable);
+	gpu->LayersEnable[4] = CommonSettings.dispLayers[gpu->core][4] OP(cnt->OBJ_Enable);
 
 	// KISS ! lower priority first, if same then lower num
 	for (i=0;i<NB_PRIORITIES;i++) {
@@ -488,15 +493,12 @@ void GPU_setBGProp(GPU * gpu, u16 num, u16 p)
 
 void GPU_remove(GPU * gpu, u8 num)
 {
-	if (num == 4)	gpu->dispOBJ = 0;
-	else		gpu->dispBG[num] = 0;
+	CommonSettings.dispLayers[gpu->core][num] = false;
 	GPU_resortBGs(gpu);
 }
 void GPU_addBack(GPU * gpu, u8 num)
 {
-	//REG_DISPx_pack_test(gpu);
-	if (num == 4)	gpu->dispOBJ = 1;
-	else		gpu->dispBG[num] = 1;
+	CommonSettings.dispLayers[gpu->core][num] = true;
 	GPU_resortBGs(gpu);
 }
 
@@ -583,6 +585,13 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 
 	u8* dst = currDst;
 	COLOR32 color;
+/*
+	color.val = (*(u32 *)&_3dColorLine[srcX<<2]);
+	u8 red = color.bits.red;
+	u8 green = color.bits.green;
+	u8 blue = color.bits.blue;
+	u8 alpha = color.bits.alpha;
+//*/
 	u16 final;
 
 	this->currBgNum = 0;
@@ -621,24 +630,24 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 		int bg_under = bgPixels[k];
 		if(blend2[bg_under])
 		{
-			++color.bits.a;
-			if(color.bits.a < 32)
+			++color.bits.alpha;
+			if(color.bits.alpha < 32)
 			{
 				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
 				COLOR c2, cfinal;
 				c2.val = HostReadWord(dst, passing);
-				u8 invAlpha = (32 - color.bits.a);
-				cfinal.bits.red		= ((color.bits.r * color.bits.a) + ((c2.bits.red << 1) * invAlpha)) >> 6;
-				cfinal.bits.green	= ((color.bits.g * color.bits.a) + ((c2.bits.green << 1) * invAlpha)) >> 6;
-				cfinal.bits.blue	= ((color.bits.b * color.bits.a) + ((c2.bits.blue << 1) * invAlpha)) >> 6;
+				u8 invAlpha = (32 - color.bits.alpha);
+				cfinal.bits.red		= ((color.bits.red * color.bits.alpha) + ((c2.bits.red << 1) * invAlpha)) >> 6;
+				cfinal.bits.green	= ((color.bits.green * color.bits.alpha) + ((c2.bits.green << 1) * invAlpha)) >> 6;
+				cfinal.bits.blue	= ((color.bits.blue * color.bits.alpha) + ((c2.bits.blue << 1) * invAlpha)) >> 6;
 
 				final = cfinal.val;
 			}
-			else final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
+			else final = R6G6B6TORGB15(color.bits.red, color.bits.green, color.bits.blue);
 		}
 		else
 		{
-			final = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b);
+			final = R6G6B6TORGB15(color.bits.red, color.bits.green, color.bits.blue);
 			//perform the special effect
 			if(windowEffect)
 				switch(FUNC) {
@@ -906,10 +915,9 @@ template<bool MOSAIC> void lineLarge8bpp(GPU * gpu)
 		return;
 	}
 
-	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
 	u8 num = gpu->currBgNum;
-	u16 XBG = T1ReadWord((u8 *)&ofs->BGxHOFS, 0);
-	u16 YBG = gpu->currLine + T1ReadWord((u8 *)&ofs->BGxVOFS, 0);
+	u16 XBG = gpu->getHOFS(gpu->currBgNum);
+	u16 YBG = gpu->currLine + gpu->getVOFS(gpu->currBgNum);
 	u16 lg     = gpu->BGSize[num][0];
 	u16 ht     = gpu->BGSize[num][1];
 	u16 wmask  = (lg-1);
@@ -1249,10 +1257,6 @@ static void lineNull(GPU * gpu)
 
 template<bool MOSAIC> void lineText(GPU * gpu)
 {
-	BGxOFS * ofs = &gpu->dispx_st->dispx_BGxOFS[gpu->currBgNum];
-
-
-
 //	if(gpu->debug)
 //	{
 //		const s32 wh = gpu->BGSize[gpu->currBgNum][0];
@@ -1260,8 +1264,8 @@ template<bool MOSAIC> void lineText(GPU * gpu)
 //	}
 //	else
 //	{
-		const u16 vofs = T1ReadWord((u8 *)&ofs->BGxVOFS,0);
-		const u16 hofs = T1ReadWord((u8 *)&ofs->BGxHOFS,0);
+		const u16 vofs = gpu->getVOFS(gpu->currBgNum);
+		const u16 hofs = gpu->getHOFS(gpu->currBgNum);
 		renderline_textBG<MOSAIC>(gpu, hofs, gpu->currLine + vofs, 256);
 //	}
 }

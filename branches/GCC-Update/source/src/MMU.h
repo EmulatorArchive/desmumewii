@@ -114,12 +114,17 @@ public:
 struct TGXSTAT : public TRegister_32
 {
 	TGXSTAT() {
-		gxfifo_irq = se = tr = tb = 0;
+		gxfifo_irq = se = tr = tb = sb = 0;
+		fifo_empty = true;
+		fifo_low = false;
 	}
 	u8 tb; //test busy
 	u8 tr; //test result
 	u8 se; //stack error
+	u8 sb; //stack busy
 	u8 gxfifo_irq; //irq configuration
+
+	bool fifo_empty, fifo_low;
 
 	virtual u32 read32();
 	virtual void write32(const u32 val);
@@ -327,6 +332,10 @@ struct MMU_struct
 	u32 reg_IME[2];
 	u32 reg_IE[2];
 	u32 reg_IF[2];
+
+	u32 reg_DISP3DCNT_bits;
+
+	template<int PROCNUM> u32 gen_IF();
 
 	BOOL divRunning;
 	s64 divResult;

@@ -488,10 +488,27 @@ typedef union
 } COLOR;
 
 struct _COLOR32 { // ARGB
-#ifdef WORDS_BIGENDIAN
-	u8 a, b, g, r;
+#if 0
+	unsigned :7;
+	unsigned alpha:1;
+	
+	unsigned :3;
+	unsigned red:5;	
+
+	
+	unsigned :3;
+	unsigned green:5;
+
+	unsigned :3;
+	unsigned blue:5;	
 #else
-	u8 r, g, b, a;
+
+#ifdef WORDS_BIGENDIAN
+	u8 alpha, blue, green, red;
+#else
+	u8 red, green, blue, alpha;
+#endif
+
 #endif
 };
 
@@ -684,9 +701,6 @@ struct GPU
 
 	//FIFO	fifo;
 
-	BOOL dispBG[4];
-	BOOL dispOBJ;
-
 	u8 bgPrio[5];
 
 	BOOL bg0HasHighestPrio;
@@ -840,6 +854,9 @@ struct GPU
 		BLDALPHA_EVB = (val&0x1f) > 16 ? 16 : (val&0x1f);
 		updateBLDALPHA();
 	}
+
+	u32 getHOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxHOFS,0) & 0x1FF; }
+	u32 getVOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxVOFS,0) & 0x1FF; }
 
 	typedef u8 TBlendTable[32][32];
 	TBlendTable *blendTable;

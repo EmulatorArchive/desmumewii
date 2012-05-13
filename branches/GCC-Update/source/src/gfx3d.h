@@ -189,8 +189,7 @@ struct POLY {
 	}
 };
 
-#define POLYLIST_SIZE 40000 //100000
-//#define POLYLIST_SIZE 2048
+#define POLYLIST_SIZE 40000
 struct POLYLIST {
 	POLY list[POLYLIST_SIZE];
 	int count;
@@ -244,8 +243,7 @@ struct VERT {
 	}
 };
 
-#define VERTLIST_SIZE 100000//400000
-//#define VERTLIST_SIZE 10000
+#define VERTLIST_SIZE 100000
 struct VERTLIST {
 	VERT list[VERTLIST_SIZE];
 	int count;
