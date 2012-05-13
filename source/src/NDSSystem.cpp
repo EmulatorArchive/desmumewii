@@ -381,9 +381,11 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	char				*noext = strdup(filename);
 
 	reader = ROMReaderInit(&noext);
-
-	if(logicalFilename) path.init(logicalFilename);
-	else path.init(filename);
+	
+	if (logicalFilename)
+		path.init(logicalFilename);
+	else
+		path.init(filename);
 
 	/*
 	if(!strcasecmp(path.extension().c_str(), "zip"))		

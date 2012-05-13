@@ -375,52 +375,28 @@ template<u32 PROCNUM>
 FORCEINLINE static u32 armcpu_prefetch()
 {
 	armcpu_t* const armcpu = &ARMPROC;
-#ifdef GDB_STUB
-	u32 temp_instruction;
-#endif
+
 
 	if(armcpu->CPSR.bits.T == 0)
 	{
 		u32 curInstruction = armcpu->next_instruction;
-#ifdef GDB_STUB
-		temp_instruction =
-			armcpu->mem_if->prefetch32( armcpu->mem_if->data,
-			armcpu->next_instruction);
 
-		if ( !armcpu->stalled) {
-			armcpu->instruction = temp_instruction;
-			armcpu->instruct_adr = armcpu->next_instruction;
-			armcpu->next_instruction += 4;
-			armcpu->R[15] = armcpu->next_instruction + 4;
-		}
-#else
 		armcpu->instruction = _MMU_read32<PROCNUM,MMU_AT_CODE>(curInstruction&0xFFFFFFFC);
 		armcpu->instruct_adr = curInstruction;
 		armcpu->next_instruction = curInstruction + 4;
 		armcpu->R[15] = curInstruction + 8;
-#endif
+
 
 		return MMU_codeFetchCycles<PROCNUM,32>(curInstruction);
 	}
 
 	u32 curInstruction = armcpu->next_instruction;
-#ifdef GDB_STUB
-	temp_instruction =
-		armcpu->mem_if->prefetch16( armcpu->mem_if->data,
-		armcpu->next_instruction);
 
-	if ( !armcpu->stalled) {
-		armcpu->instruction = temp_instruction;
-		armcpu->instruct_adr = armcpu->next_instruction;
-		armcpu->next_instruction = armcpu->next_instruction + 2;
-		armcpu->R[15] = armcpu->next_instruction + 2;
-	}
-#else
 	armcpu->instruction = _MMU_read16<PROCNUM, MMU_AT_CODE>(curInstruction&0xFFFFFFFE);
 	armcpu->instruct_adr = curInstruction;
 	armcpu->next_instruction = curInstruction + 2;
 	armcpu->R[15] = curInstruction + 4;
-#endif
+
 
 	if(PROCNUM==0)
 	{
@@ -512,9 +488,6 @@ u32 TRAPUNDEF(armcpu_t* cpu){
 	}
 	return 4;
 }
-
-
-	
 
 template<int PROCNUM>
 u32 armcpu_exec()

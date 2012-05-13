@@ -241,32 +241,32 @@ TEMPLATE static u32 wait4IRQ()
 
 TEMPLATE u32 intrWaitARM()
 {
-	u32 intrFlagAdr = 0;
-	u32 intr = 0;
-	u32 intrFlag = 0;
+	//TODO - account for differences between arm7 and arm9 (according to gbatek, the "bug doesn't work")
 
-	//BOOL noDiscard = ((cpu->R[0] == 0) && (PROCNUM == ARMCPU_ARM7));
+	const u32 intrFlagAdr = (PROCNUM == ARMCPU_ARM7)
+		? 0x380FFF8
+		: (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
 
-	if(PROCNUM == ARMCPU_ARM7)
-		intrFlagAdr = 0x380FFF8;
-	else
-		intrFlagAdr = (((armcp15_t *)(cpu->coproc[15]))->DTCMRegion&0xFFFFF000)+0x3FF8;
+	//set IME=1
+	//without this, no irq handlers can happen (even though IF&IE waits can happily happen)
+	//and so no bits in the OS irq flag variable can get set by the handlers
+	_MMU_write32<PROCNUM>(0x04000208, 1);
 
-	intr = _MMU_read32<PROCNUM>(intrFlagAdr);
-	intrFlag = (cpu->R[1] & intr);
+	//analyze the OS irq flag variable
+	u32 intr = _MMU_read32<PROCNUM>(intrFlagAdr);
+	u32 intrFlag = (cpu->R[1] & intr);
 
-	//INFO("ARM%c: wait for IRQ r0=0x%02X, r1=0x%08X - 0x%08X (flag 0x%08X)\n", PROCNUM?'7':'9', cpu->R[0], cpu->R[1], intr, intrFlag);
-	//if(!noDiscard)
-	//	intrFlag &= cpu->newIrqFlags;
 
-	_MMU_write32<PROCNUM>(0x04000208, 1);			// set IME=1
 
-	if (intrFlag)
-	{
+
+	// Now, if the condition is satisfied (and it won't be the first time through, no matter what, due to cares taken above)
+	if(intrFlag){
+		// Write back the OS irq flags with the ones we were waiting for to clear
 		intr ^= intrFlag;
 		_MMU_write32<PROCNUM>(intrFlagAdr, intr);
 		return wait4IRQ<PROCNUM>();
 	}
+	//(rewire PC to jump back to this opcode)
 	u32 instructAddr = cpu->instruct_adr;
 	cpu->R[15] = instructAddr;
 	cpu->next_instruction = instructAddr;

@@ -575,13 +575,13 @@ public:
 								color1.val = tmp_col[0];
 								color2.val = tmp_col[1];
 
-								u8 red1   = color1.bits.r;
-								u8 green1 = color1.bits.g;
-								u8 blue1  = color1.bits.b;
+								u8 red1   = color1.bits.red;
+								u8 green1 = color1.bits.green;
+								u8 blue1  = color1.bits.blue;
 
-								u8 red2   = color2.bits.r;
-								u8 green2 = color2.bits.g;
-								u8 blue2  = color2.bits.b;
+								u8 red2   = color2.bits.red;
+								u8 green2 = color2.bits.green;
+								u8 blue2  = color2.bits.blue;
 
 								tmp1 =  (((INTx5(red1)   + INTx3(red2))   >>6) <<  0) |
 									(((INTx5(green1) + INTx3(green2)) >>6) <<  5) |

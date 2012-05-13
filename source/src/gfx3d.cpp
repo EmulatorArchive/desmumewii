@@ -2507,7 +2507,7 @@ void gfx3d_GetLineData15bpp(int line, u16** dst){
 #if 1
 		COLOR32 color;
 		color.val = (*(u32 *)&lineData[i*4]);
-		buf[i] = R6G6B6TORGB15(color.bits.r, color.bits.g, color.bits.b) | (color.bits.a == 0 ? 0 : 0x8000);
+		buf[i] = R6G6B6TORGB15(color.bits.red, color.bits.green, color.bits.blue) | (color.bits.alpha == 0 ? 0 : 0x8000);
 #else
 		const u8 r = lineData[i*4+0];
 		const u8 g = lineData[i*4+1];

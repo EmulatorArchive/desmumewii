@@ -1554,10 +1554,6 @@ u32 MMU_readFromGC()
 	return val;
 }
 
-//a stub for memory profiler, if we choose to re-add it
-#define PROFILE_PREFETCH 1
-#define profile_memory_access(X,Y,Z)
-
 //does some validation on the game's choice of IF value, correcting it if necessary
 static void validateIF_arm9()
 {
@@ -1572,8 +1568,199 @@ static void validateIF_arm9()
 			MMU.reg_IF[ARMCPU_ARM9] |= (1<<21);
 		else  MMU.reg_IF[ARMCPU_ARM9] &= ~(1<<21);
 	else if(MMU_new.gxstat.gxfifo_irq == 0) MMU.reg_IF[ARMCPU_ARM9] &= ~(1<<21);
+
+}
+/*
+template<int PROCNUM> static void REG_IF_WriteByte(u32 addr, u8 val)
+{
+	//the following bits are generated from logic and should not be affected here
+	//Bit 21    NDS9 only: Geometry Command FIFO
+	//arm9: IF &= ~0x00200000;
+	//arm7: IF &= ~0x00000000;
+	//UPDATE IN setIF() ALSO!!!!!!!!!!!!!!!!
+	//UPDATE IN mmu_loadstate ALSO!!!!!!!!!!!!
+	if (addr==2) {
+		if(PROCNUM==ARMCPU_ARM9)
+			val &= ~0x20;
+		else
+			val &= ~0x00;
+	}
+
+	//ZERO 01-dec-2010 : I am no longer sure this approach is correct.. it proved to be wrong for IPC fifo.......
+	//it seems as if IF bits should always be cached (only the user can clear them)
+	
+	MMU.reg_IF_bits[PROCNUM] &= (~(((u32)val)<<(addr<<3)));
+	NDS_Reschedule();
 }
 
+template<int PROCNUM> static void REG_IF_WriteWord(u32 addr,u16 val)
+{
+	REG_IF_WriteByte<PROCNUM>(addr,val&0xFF);
+	REG_IF_WriteByte<PROCNUM>(addr+1,(val>>8)&0xFF);
+}
+
+template<int PROCNUM> static void REG_IF_WriteLong(u32 val)
+{
+	REG_IF_WriteByte<PROCNUM>(0,val&0xFF);
+	REG_IF_WriteByte<PROCNUM>(1,(val>>8)&0xFF);
+	REG_IF_WriteByte<PROCNUM>(2,(val>>16)&0xFF);
+	REG_IF_WriteByte<PROCNUM>(3,(val>>24)&0xFF);
+}
+
+template<int PROCNUM>
+u32 MMU_struct::gen_IF()
+{
+	u32 IF = reg_IF_bits[PROCNUM];
+
+	if(PROCNUM==ARMCPU_ARM9)
+	{
+		//according to gbatek, these flags are forced on until the condition is removed.
+		//no proof of this though...
+		switch(MMU_new.gxstat.gxfifo_irq)
+		{
+		case 0: //never
+			break;
+		case 1: //less than half full
+			if(MMU_new.gxstat.fifo_low) 
+				IF |= IRQ_MASK_ARM9_GXFIFO;
+			break;
+		case 2: //empty
+			if(MMU_new.gxstat.fifo_empty) 
+				IF |= IRQ_MASK_ARM9_GXFIFO;
+			break;
+		case 3: //reserved/unknown
+			break;
+		}
+	}
+
+	return IF;
+}
+
+static void writereg_DISP3DCNT(const int size, const u32 adr, const u32 val)
+{
+	//UGH. rewrite this shite to use individual values and reconstruct the return value instead of packing things in this !@#)ing register
+	
+	//nanostray2 cutscene will test this vs old desmumes by using some kind of 32bit access for setting up this reg for cutscenes
+	switch(size)
+	{
+	case 8:
+		switch(adr)
+		{
+		case REG_DISPA_DISP3DCNT: 
+			MMU.reg_DISP3DCNT_bits &= 0xFFFFFF00;
+			MMU.reg_DISP3DCNT_bits |= val;
+			gfx3d_Control(MMU.reg_DISP3DCNT_bits);
+			break;
+		case REG_DISPA_DISP3DCNT+1:
+			{
+				u32 myval = (val & ~0x30) | (~val & ((MMU.reg_DISP3DCNT_bits>>8) & 0x30)); // bits 12,13 are ack bits
+				myval &= 0x7F; //top bit isnt connected
+				MMU.reg_DISP3DCNT_bits = MMU.reg_DISP3DCNT_bits&0xFFFF00FF;
+				MMU.reg_DISP3DCNT_bits |= (myval<<8);
+				gfx3d_Control(MMU.reg_DISP3DCNT_bits);
+			}
+			break;
+		}
+		break;
+	case 16:
+	case 32:
+		writereg_DISP3DCNT(8,adr,val&0xFF);
+		writereg_DISP3DCNT(8,adr+1,(val>>8)&0xFF);
+		break;
+	}
+}
+
+static u32 readreg_DISP3DCNT(const int size, const u32 adr)
+{
+	//UGH. rewrite this shite to use individual values and reconstruct the return value instead of packing things in this !@#)ing register
+	switch(size)
+	{
+	case 8:
+		switch(adr)
+		{
+		case REG_DISPA_DISP3DCNT: 
+			return MMU.reg_DISP3DCNT_bits & 0xFF;
+		case REG_DISPA_DISP3DCNT+1:
+			return ((MMU.reg_DISP3DCNT_bits)>>8)& 0xFF;
+		}
+		break;
+	case 16:
+	case 32:
+		return readreg_DISP3DCNT(8,adr)|(readreg_DISP3DCNT(8,adr+1)<<8);
+	}
+	assert(false);
+	return 0;
+}
+
+
+static u32 readreg_POWCNT1(const int size, const u32 adr) { 
+	switch(size)
+	{
+	case 8:
+		switch(adr)
+		{
+			case REG_POWCNT1: {
+				u8 ret = 0;		
+				ret |= nds.power1.lcd?BIT(0):0;
+				ret |= nds.power1.gpuMain?BIT(1):0;
+				ret |= nds.power1.gfx3d_render?BIT(2):0;
+				ret |= nds.power1.gfx3d_geometry?BIT(3):0;
+				return ret;
+			}
+			case REG_POWCNT1+1: {
+				u8 ret = 0;
+				ret |= nds.power1.gpuSub?BIT(1):0;
+				ret |= nds.power1.dispswap?BIT(7):0;
+				return ret;
+			}
+			default:
+				return 0;		
+		}
+	case 16:
+	case 32:
+		return readreg_POWCNT1(8,adr)|(readreg_POWCNT1(8,adr+1)<<8);
+	}
+	assert(false);
+	return 0;
+}
+static void writereg_POWCNT1(const int size, const u32 adr, const u32 val) { 
+	switch(size)
+	{
+	case 8:
+		switch(adr)
+		{
+		case REG_POWCNT1:
+			nds.power1.lcd = BIT0(val);
+			nds.power1.gpuMain = BIT1(val);
+			nds.power1.gfx3d_render = BIT2(val);
+			nds.power1.gfx3d_geometry = BIT3(val);
+			break;
+		case REG_POWCNT1+1:
+			nds.power1.gpuSub = BIT1(val);
+			nds.power1.dispswap = BIT7(val);
+			if(nds.power1.dispswap)
+			{
+				//printf("Main core on top (vcount=%d)\n",nds.VCount);
+				MainScreen.offset = 0;
+				SubScreen.offset = 192;
+			}
+			else
+			{
+				//printf("Main core on bottom (vcount=%d)\n",nds.VCount);
+				MainScreen.offset = 192;
+				SubScreen.offset = 0;
+			}	
+			break;
+		}
+		break;
+	case 16:
+	case 32:
+		writereg_POWCNT1(8,adr,val&0xFF);
+		writereg_POWCNT1(8,adr+1,(val>>8)&0xFF);
+		break;
+	}
+}
+//*/
 static INLINE void MMU_IPCSync(u8 proc, u32 val)
 {
 	//INFO("IPC%s sync 0x%04X (0x%02X|%02X)\n", proc?"7":"9", val, val >> 8, val & 0xFF);
@@ -2010,9 +2197,6 @@ void DmaController::doCopy()
 		for(s32 i=(s32)todo; i>0; i--)
 		{
 			u32 temp = _MMU_read32(procnum,MMU_AT_DMA,src);
-			if(startmode == EDMAMode_GXFifo) {
-				//printf("GXFIFO DMA OF %08X FROM %08X WHILE GXFIFO.SIZE=%d\n",temp,src,gxFIFO.size);
-			}
 			_MMU_write32(procnum,MMU_AT_DMA,dst, temp);
 			dst += dstinc;
 			src += srcinc;
@@ -2596,14 +2780,6 @@ void FASTCALL _MMU_ARM9_write16(u32 adr, u16 val)
 			
             case REG_POWCNT1:
 				{
-// TODO: make this later
-#if 0			
-					u8	_LCD = (val) & 0x01;
-					u8	_2DEngineA = (val>>1) & 0x01;
-					u8	_2DEngineB = (val>>9) & 0x01;
-					u8	_3DRender = (val>>2) & 0x01;
-					u8	_3DGeometry = (val>>3) & 0x01;
-#endif
 					if(val & (1<<15))
 					{
 						//printf("Main core on top (vcount=%d)\n",nds.VCount);

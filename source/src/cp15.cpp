@@ -450,7 +450,8 @@ BOOL armcp15_moveARM2CP(armcp15_t *armcp15, u32 val, u8 CRn, u8 CRm, u8 opcode1,
 		case 1:
 			if((opcode1==0) && (opcode2==0) && (CRm==0))
 			{
-				armcp15->ctrl = val;
+				//On the NDS bit0,2,7,12..19 are R/W, Bit3..6 are always set, all other bits are always zero.
+				armcp15->ctrl = (val & 0x000FF085) | 0x00000078;
 				MMU.ARM9_RW_MODE = BIT7(val);
 				//zero 31-jan-2010: change from 0x0FFF0000 to 0xFFFF0000 per gbatek
 				armcp15->cpu->intVector = 0xFFFF0000 * (BIT13(val));
@@ -570,8 +571,8 @@ BOOL armcp15_moveARM2CP(armcp15_t *armcp15, u32 val, u8 CRn, u8 CRm, u8 opcode1,
 					switch(opcode2)
 					{
 						case 0:
-							armcp15->DTCMRegion = val;
-							MMU.DTCMRegion = val & 0x0FFFFFFC0;
+
+							MMU.DTCMRegion = armcp15->DTCMRegion = val & 0x0FFFF000;
 							return TRUE;
 						case 1:
 							armcp15->ITCMRegion = val;
