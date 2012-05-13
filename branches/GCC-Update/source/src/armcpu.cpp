@@ -371,6 +371,13 @@ u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
 	return oldmode;
 }
 
+u32 armcpu_Wait4IRQ(armcpu_t *cpu)
+{
+	cpu->waitIRQ = TRUE;
+	//cpu->halt_IE_and_IF = TRUE;
+	return 1;
+}
+
 template<u32 PROCNUM>
 FORCEINLINE static u32 armcpu_prefetch()
 {
@@ -461,10 +468,9 @@ BOOL armcpu_irqException(armcpu_t *armcpu)
 	armcpu->next_instruction = armcpu->intVector + 0x18;
 	armcpu->waitIRQ = 0;
 
-#ifndef GDB_STUB
+
 	armcpu->R[15] = armcpu->next_instruction + 8;
 	armcpu_prefetch(armcpu);
-#endif
 
 	return TRUE;
 }

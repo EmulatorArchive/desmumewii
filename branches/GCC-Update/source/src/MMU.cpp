@@ -1868,10 +1868,11 @@ u32 TGXSTAT::read32()
 	
 	// stack position always equal zero. possible timings is wrong
 	// using in "The Wild West"
-	ret |= ((_hack_getMatrixStackLevel(0) << 13) | (_hack_getMatrixStackLevel(1) << 8)); //matrix stack levels //no proof that these are needed yet
+	int proj_level = _hack_getMatrixStackLevel(0);
+	int mv_level = _hack_getMatrixStackLevel(1);
+	ret |= ((proj_level << 13) | (mv_level << 8)); //matrix stack levels //no proof that these are needed yet
 
-	//todo: stack busy flag (bit14)
-
+	ret |= sb<<14;	//stack busy
 	ret |= se<<15;
 	ret |= (std::min(gxFIFO.size,(u32)255))<<16;
 	if(gxFIFO.size>=255) ret |= BIT(24); //fifo full
@@ -1914,16 +1915,22 @@ void TGXSTAT::write32(const u32 val)
 
 void TGXSTAT::savestate(EMUFILE *f)
 {
-	write32le(0,f); //version
-	write8le(tb,f); write8le(tr,f); write8le(se,f); write8le(gxfifo_irq,f); 
+	write32le(1,f); //version
+	write8le(tb,f); 
+	write8le(tr,f); 
+	write8le(se,f); 
+	write8le(gxfifo_irq,f); 
+	write8le(sb,f);
 }
 bool TGXSTAT::loadstate(EMUFILE *f)
 {
 	u32 version;
 	if(read32le(&version,f) != 1) return false;
-	if(version != 0) return false;
+	if(version > 1) return false;
 
 	read8le(&tb,f); read8le(&tr,f); read8le(&se,f); read8le(&gxfifo_irq,f); 
+	if (version >= 1)
+		read8le(&sb,f);
 
 	return true;
 }
@@ -1977,7 +1984,7 @@ bool DmaController::loadstate(EMUFILE* f)
 {
 	u32 version;
 	if(read32le(&version,f) != 1) return false;
-	if(version != 0) return false;
+	if(version >1) return false;
 
 	read8le(&enable,f); read8le(&irq,f); read8le(&repeatMode,f); read8le(&_startmode,f);
 	read8le(&userEnable,f);
@@ -1996,7 +2003,7 @@ bool DmaController::loadstate(EMUFILE* f)
 
 void DmaController::savestate(EMUFILE *f)
 {
-	write32le(0,f); //version
+	write32le(1,f); //version
 	write8le(enable,f); write8le(irq,f); write8le(repeatMode,f); write8le(_startmode,f);
 	write8le(userEnable,f);
 	write32le(wordcount,f);
@@ -2235,7 +2242,9 @@ void DmaController::doCopy()
 
 void triggerDma(EDMAMode mode)
 {
-	for(int i=0;i<2;i++) for(int j=0;j<4;j++) MMU_new.dma[i][j].tryTrigger(mode);
+	for(int i=0;i<2;i++) 
+		for(int j=0;j<4;j++) 
+			MMU_new.dma[i][j].tryTrigger(mode);
 }
 
 void DmaController::tryTrigger(EDMAMode mode)

@@ -73,8 +73,9 @@ But since we're not sure how we'll eventually want this, I am leaving it sort of
 in this function: */
 static void gfx3d_doFlush();
 
-#define INVALID_COMMAND 0xFF
-#define UNDEFINED_COMMAND 0xCC
+#define GFX_NOARG_COMMAND 0x00
+#define GFX_INVALID_COMMAND 0xFF
+#define GFX_UNDEFINED_COMMAND 0xCC
 static const u8 gfx3d_commandTypes[] = {
 	/* 00 */ 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, //invalid commands; no parameters
 	/* 10 */ 0x01,0x00,0x01,0x01,0x01,0x00,0x10,0x0C, 0x10,0x0C,0x09,0x03,0x03,0xCC,0xCC,0xCC, //matrix commands
@@ -95,9 +96,6 @@ static const u8 gfx3d_commandTypes[] = {
 	/* F0 */ 0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC, 0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC
 };
 
-
-//todo: it would be nice to make some kind of state machine that more closely models the hardware
-//but this is servicable for now
 class GXF_Hardware{
 public:
 	GXF_Hardware(){
@@ -110,97 +108,69 @@ public:
 			commandsPending[i].command = 0;
 			commandsPending[i].countdown = 0;
 		}
+		size = 0;
 	}
-	//todo - things in here other than the very first thing involving GFX3D_NOP_NOARG_HACK I am not too sure about.
-	void receive(u32 val) {
-		bool hack = false;
-		if(size()>0 && val != 0 &&
-			(front().command == 0x15 || front().command == 0x11 || front().command == 0x41
-			|| front().command == GFX3D_NOP_NOARG_HACK  //nintendogs dalmatian sends these I think.
-			)) {
-			//apparently a zero is swallowed in this case but if another value is sent
-			//processing will continue
-			if(front().command == GFX3D_NOP_NOARG_HACK) { 
-				//nothing
-			}else{
-				//printf("gxf: sending hack %02X: (dummy=0)\n", front().command);
-				GFX_FIFOsend(front().command,0);
-			}
-			hack = true;
-			goto hackTrigger;
-		}
-		if(countdown>0) {
-			//received a parameter
-			//printf("gxf: sending %02X: %08X\n", front().command,val);
-			//if(commandsPending.front() == GFX3D_NOP_NOARG_HACK)
-			//{}
-			//else
-			GFX_FIFOsend(front().command,val);
-hackTrigger:
-			countdown--;
-			while(countdown==0) {
-				dequeue();
-trigger:
-				//dont set hack to false if you jumped from below! it needs to be true for when you jump down from above.
-				//oh my what a mess.
-				if(size()==0) break;
-				countdown = front().countdown;
-				if(!countdown) {
-					if(front().command != INVALID_COMMAND
-						&& front().command != GFX3D_NOP_NOARG_HACK //g.i. joe sends these in the form of 0xFF commands
-						){
-						//printf("[%06d]gxf: sending %02X: (dummy=0)\n", currFrameCounter,front().command);
-						GFX_FIFOsend(front().command,0);
-					}
-				}
-			}
-			if(hack) goto decode;
-		} else {
-			//decode a packed command
-decode:
-			//printf("[%05d] gxf: decoding %08X\n",currFrameCounter,val);
-			
-			const u8 commands[] = { val&0xFF, (val>>8)&0xFF, (val>>16)&0xFF, (val>>24)&0xFF };
-			const u8 commandTypes[] = { gfx3d_commandTypes[commands[0]], gfx3d_commandTypes[commands[1]],gfx3d_commandTypes[commands[2]], gfx3d_commandTypes[commands[3]] };
 
-			for(int i=0;i<4;i++) {
-				u8 cmd = commands[i];
-				u8 type = commandTypes[i];
-				if(type == INVALID_COMMAND) {
-					commandsPending[i].command = INVALID_COMMAND;
-				} else {
-					if(type == UNDEFINED_COMMAND){
-						commandsPending[i].command = GFX3D_NOP_NOARG_HACK;  //enqueue a single undefined command we know how to handle
-					}
-					else commandsPending[i].command = cmd;
+	void receive(u32 val){
+		if (size > 0)
+		{
+			GFX_FIFOsend(front().command, val);
+			front().countdown--;
+			if (front().countdown == 0) 
+			{
+				size--; 
+				if (size == 0) return;
+				dequeue();
+
+				while (gfx3d_commandTypes[front().command] == GFX_NOARG_COMMAND)
+				{
+					GFX_FIFOsend(front().command, 0);
+					size--; 
+					if (size == 0) break;
+					dequeue();
 				}
-				if(type == UNDEFINED_COMMAND
-					//|| type == 0x00 //DON'T DO THIS: galactik football will break if you do (ingame character portraits etc.) as well as nintendogs dalmatian
-					) {
-					//these are valid commands with no parameters. they might need special handling
-					//as long as there is a subsequent defined command with parameters, we're safe
-					bool safe = false;
-					for(int j=i+1;j<4;j++) {
-						if(commandTypes[j] != INVALID_COMMAND) {
-							safe = true;
-							break;
-						}
-					}
-					if(safe) {
-						commandsPending[i].countdown = 0;
-					} else {
-						//we need to receive a dummy parameter in this case
-						commandsPending[i].countdown = 1;
-					}
-				} else if(type != INVALID_COMMAND) {
-					commandsPending[i].countdown = type;
-				} else commandsPending[i].countdown = 0;
 			}
+		} else {
+			if (val == 0) return;	// nop
+
+			const u8 commands[] = { val&0xFF, (val>>8)&0xFF, (val>>16)&0xFF, (val>>24)&0xFF };
+			const u8 commandTypes[] = { gfx3d_commandTypes[commands[0]], gfx3d_commandTypes[commands[1]], gfx3d_commandTypes[commands[2]], gfx3d_commandTypes[commands[3]] };
 
 			commandCursor = 0;
-			countdown = front().countdown;
-			if(countdown==0)
-				goto trigger;
+			size = 0;
+
+			// A “command without parameters” is one of the four following commands:
+			// - PushMatrix
+			// - LoadIdentity
+			// - End
+			// - Commands undefined within the region between 0x10 and 0xFF
+
+			for (u8 i = 0; i < 4; i++)
+			{
+				if (commandTypes[i] == GFX_INVALID_COMMAND)
+				{
+					//printf("gfx3D: invalid command (%02X)\n", commands[i]);
+					continue;
+				}
+
+				if (commandTypes[i] == GFX_UNDEFINED_COMMAND)
+				{
+					//printf("gfx3D: undefined command (%02X)\n", commands[i]);
+					continue;
+				}
+				commandsPending[size].command = commands[i];
+				commandsPending[size].countdown = commandTypes[i];
+				//printf("%i: CMD %02X size %i\n", i, commands[i], commandsPending[size].countdown);
+				if ((commandsPending[size].countdown == 0) && (size == 0)) // cmd 0x11, 0x15, 0x41 - no params
+				{
+					GFX_FIFOsend(commands[i], 0);
+
+					while ((i < 4) && commands[i+1] != 0 && gfx3d_commandTypes[commands[i+1]] == GFX_NOARG_COMMAND)
+						GFX_FIFOsend(commands[++i], 0);
+				}
+				else
+					size++;
+			}
 		}
 	}
 
@@ -214,17 +184,17 @@ decode:
 private:
 	void dequeue() { commandCursor++; }
 	CommandItem& front() { return commandsPending[commandCursor]; }
-	u32 size() { return 4-commandCursor; }
+	u32 size;
 public:
 
 	void savestate(EMUFILE *f)
 	{
 		//TODO - next time we invalidate savestates, simplify this format.
-		write32le(0,f); //version
-		write32le(size(),f);
-		for(u32 i=commandCursor;i<4;i++) write8le(commandsPending[i].command,f);
-		write32le(0,f);
-		for(u32 i=commandCursor;i<4;i++) write8le(commandsPending[i].countdown,f);
+		write32le(1,f); //version
+		write32le(size,f);
+		write32le(commandCursor,f);
+		for(u32 i=0;i<4;i++) write8le(commandsPending[i].command,f);
+		for(u32 i=0;i<4;i++) write8le(commandsPending[i].countdown,f);
 		write8le(countdown,f);
 	}
 	
@@ -232,16 +202,25 @@ public:
 	{
 		u32 version;
 		if(read32le(&version,f) != 1) return false;
-		if(version != 0) return false;
+		if(version > 1) return false;
 
-		u32 tempsize;
-		read32le(&tempsize,f);
-		commandCursor = 4-tempsize;
-		for(u32 i=0;i<commandCursor;i++) commandsPending[i].command = 0;
-		for(u32 i=commandCursor;i<4;i++) read8le(&commandsPending[i].command,f);
-		read32le(&tempsize,f);
-		for(u32 i=0;i<commandCursor;i++) commandsPending[i].countdown = 0;
-		for(u32 i=commandCursor;i<4;i++) read8le(&commandsPending[i].countdown,f);
+		if (version == 0)
+		{
+			read32le(&size,f);
+			commandCursor = 4-size;
+			for(u32 i=commandCursor;i<4;i++) read8le(&commandsPending[i-commandCursor].command,f);
+			read32le(&size,f);
+			size = 4-commandCursor;
+			for(u32 i=commandCursor;i<4;i++) read8le(&commandsPending[i-commandCursor].countdown,f);
+		}
+		else
+		if (version == 1)
+		{
+			read32le(&size,f);
+			read32le(&commandCursor,f);
+			for(u32 i=0;i<4;i++) read8le(&commandsPending[i].command,f);
+			for(u32 i=0;i<4;i++) read8le(&commandsPending[i].countdown,f);
+		}
 
 		read8le(&countdown,f);
 
@@ -379,10 +358,10 @@ static u8 MM4x3ind = 0;
 static u8 MM3x3ind = 0;
 
 // Data for vertex submission
-static CACHE_ALIGN u16   u16coord[4] = {0, 0, 0, 0};
-static char              coordind = 0;
-static u32               vtxFormat = 0;
-static BOOL              inBegin = FALSE;
+static CACHE_ALIGN u16	u16coord[4] = {0, 0, 0, 0};
+static char				coordind = 0;
+static u32				vtxFormat = 0;
+static BOOL				inBegin = FALSE;
 
 // Data for basic transforms
 static CACHE_ALIGN float trans[4] = {0.0, 0.0, 0.0, 0.0};
@@ -403,7 +382,7 @@ BOOL isSwapBuffers = FALSE;
 
 static u32 BTind = 0;
 static u32 PTind = 0;
-static u16 BTcoords[6] = {0, 0, 0, 0, 0, 0};
+static CACHE_ALIGN u16 BTcoords[6] = {0, 0, 0, 0, 0, 0};
 static CACHE_ALIGN float PTcoords[4] = {0.0, 0.0, 0.0, 1.0};
 
 //raw ds format poly attributes
@@ -762,7 +741,6 @@ static void SetVertex()
 		default:
 			break;
 	};
-	//MatrixMultVec4x4_M2(mtxCurrent[0], coordTransformed);
 #endif
 	//TODO - culling should be done here.
 	//TODO - viewport transform?
@@ -1064,8 +1042,14 @@ static void gfx3d_glStoreMatrix(u32 v){
 	if(mymode==0 || mymode==3)
 		v = 0;
 
-	if(v >= 31) return;
+	v &= 31;
 
+	//according to gbatek, 31 works but sets the stack overflow flag
+	//spider-man 2 tests this on the spiderman model (and elsewhere)
+	//i am somewhat skeptical of this, but we'll leave it this way for now.
+	//a test shouldnt be too hard
+	if(v==31)
+		MMU_new.gxstat.se = 1;
 #ifdef GX_3D_FUNCTIONS
 
 	guMtx44Copy(mtxCurrent[mymode], mtxStack[mymode].getStackPtr(v));
@@ -1094,9 +1078,15 @@ static void gfx3d_glRestoreMatrix(u32 v){
 	//without the mymode==3 namco classics galaxian will try to use pos=1 and overrun the stack, corrupting emu
 	if(mymode==0 || mymode==3)
 		v = 0;
-	
-	if(v >= 31) return;
 
+	v &= 31;
+
+	//according to gbatek, 31 works but sets the stack overflow flag
+	//spider-man 2 tests this on the spiderman model (and elsewhere)
+	//i am somewhat skeptical of this, but we'll leave it this way for now.
+	//a test shouldnt be too hard
+	if(v==31)
+		MMU_new.gxstat.se = 1;
 
 
 #ifdef GX_3D_FUNCTIONS
@@ -1462,9 +1452,9 @@ static void gfx3d_glNormal(u32 v){
 
 #else
 	DS_ALIGN(16) float normal[4] = { normalTable[v&1023],
-								normalTable[(v>>10)&1023],
-								normalTable[(v>>20)&1023],
-								1};
+									normalTable[(v>>10)&1023],
+									normalTable[(v>>20)&1023],
+									1};
 
 	if (texCoordinateTransform == 2){
 		last_s =(       (normal[0] *mtxCurrent[3][0] + normal[1] *mtxCurrent[3][4] +
@@ -1472,85 +1462,84 @@ static void gfx3d_glNormal(u32 v){
 		last_t =(       (normal[0] *mtxCurrent[3][1] + normal[1] *mtxCurrent[3][5] +
 								 normal[2] *mtxCurrent[3][9]) + (_t*16.0f)) / 16.0f;
 	}
-
+	
 	//use the current normal transform matrix
 	MatrixMultVec3x3 (mtxCurrent[2], normal);
 
 #endif
 	//apply lighting model
-	{
-		u8 diffuse[3] = {
-			(dsDiffuse)&0x1F,
-			(dsDiffuse>>5)&0x1F,
-			(dsDiffuse>>10)&0x1F };
-	
-		u8 ambient[3] = {
-			(dsAmbient)&0x1F,
-			(dsAmbient>>5)&0x1F,
-			(dsAmbient>>10)&0x1F };
-	
-		u8 emission[3] = {
-			(dsEmission)&0x1F,
-			(dsEmission>>5)&0x1F,
-			(dsEmission>>10)&0x1F };
-	
-		u8 specular[3] = {
-			(dsSpecular)&0x1F,
-			(dsSpecular>>5)&0x1F,
-			(dsSpecular>>10)&0x1F };
-	
-	
-		int vertexColor[3] = { emission[0], emission[1], emission[2] };
+	u8 diffuse[3] = {
+		(dsDiffuse)&0x1F,
+		(dsDiffuse>>5)&0x1F,
+		(dsDiffuse>>10)&0x1F };
 
-		int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
+	u8 ambient[3] = {
+		(dsAmbient)&0x1F,
+		(dsAmbient>>5)&0x1F,
+		(dsAmbient>>10)&0x1F };
 
-		for(int i=0; i<4; i++){
+	u8 emission[3] = {
+		(dsEmission)&0x1F,
+		(dsEmission>>5)&0x1F,
+		(dsEmission>>10)&0x1F };
+
+	u8 specular[3] = {
+		(dsSpecular)&0x1F,
+		(dsSpecular>>5)&0x1F,
+		(dsSpecular>>10)&0x1F };
+
+
+	int vertexColor[3] = { emission[0], emission[1], emission[2] };
+
+	int shininessTable_size = (int)ARRAY_SIZE(shininessTable);
+
+	for(int i=0; i<4; i++){
+	
+		if(!((lightMask>>i)&1)) continue;
+
+		u8 _lightColor[3] = {
+			(lightColor[i])&0x1F,
+			(lightColor[i]>>5)&0x1F,
+			(lightColor[i]>>10)&0x1F };
 		
-			if(!((lightMask>>i)&1)) continue;
-
-			u8 _lightColor[3] = {
-				(lightColor[i])&0x1F,
-				(lightColor[i]>>5)&0x1F,
-				(lightColor[i]>>10)&0x1F };
-			
-			// This formula is the one used by the DS
-			// Reference : http://nocash.emubase.de/gbatek.htm#ds3dpolygonlightparameters
+		// This formula is the one used by the DS
+		// Reference : http://nocash.emubase.de/gbatek.htm#ds3dpolygonlightparameters
 #ifdef GX_3D_FUNCTIONS	
 
 #define quat3dot(a,b) (((a.x) * (b.x)) + ((a.y) * (b.y)) + ((a.z) * (b.z)))
-			float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
-			float shininessLevel = pow(std::max(0.0f, quat3dot((-cacheHalfVector[i]), normal)), 2);
+		float diffuseLevel = std::max(0.0f, -quat3dot(cacheLightDirection[i], normal));
+		float shininessLevel = pow(std::max(0.0f, quat3dot((-cacheHalfVector[i]), normal)), 2);
 #else
-			float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
-			float shininessLevel = pow(std::max(0.0f, vec3dot(-cacheHalfVector[i], normal)), 2);
+		float diffuseLevel = std::max(0.0f, -vec3dot(cacheLightDirection[i], normal));
+		float shininessLevel = pow(std::max(0.0f, vec3dot(-cacheHalfVector[i], normal)), 2);
 #endif
-			if(dsSpecular & 0x8000){
-				int shininessIndex = (int)(shininessLevel * 128);
-				if(shininessIndex >= shininessTable_size) {
-					//we can't print this right now, because when a game triggers this it triggers it _A_LOT_
-					//so wait until we have per-frame diagnostics.
-					//this was tested using Princess Debut (US) after proceeding through the intro and getting the tiara.
-					//After much research, I determined that this was caused by the game feeding in a totally jacked matrix
-					//to mult4x4 from 0x02129B80 (after feeding two other valid matrices)
-					//the game seems to internally index these as: ?, 0x37, 0x2B <-- error
-					//but, man... this is seriously messed up. there must be something going wrong.
-					//maybe it has something to do with what looks like a mirror room effect that is going on during this time?
-					//PROGINFO("ERROR: shininess table out of bounds.\n  maybe an emulator error; maybe a non-unit normal; setting to 0\n");
-					shininessIndex = 0;
-				}
-				shininessLevel = shininessTable[shininessIndex];
+		if(dsSpecular & 0x8000){
+			int shininessIndex = (int)(shininessLevel * 128);
+			if(shininessIndex >= shininessTable_size) {
+				//we can't print this right now, because when a game triggers this it triggers it _A_LOT_
+				//so wait until we have per-frame diagnostics.
+				//this was tested using Princess Debut (US) after proceeding through the intro and getting the tiara.
+				//After much research, I determined that this was caused by the game feeding in a totally jacked matrix
+				//to mult4x4 from 0x02129B80 (after feeding two other valid matrices)
+				//the game seems to internally index these as: ?, 0x37, 0x2B <-- error
+				//but, man... this is seriously messed up. there must be something going wrong.
+				//maybe it has something to do with what looks like a mirror room effect that is going on during this time?
+				//PROGINFO("ERROR: shininess table out of bounds.\n  maybe an emulator error; maybe a non-unit normal; setting to 0\n");
+				shininessIndex = 0;
 			}
-
-			for(int c = 0; c < 3; c++){
-				vertexColor[c] += (int)(((specular[c] * _lightColor[c] * shininessLevel)
-						+ (diffuse[c] * _lightColor[c] * diffuseLevel)
-						+ (ambient[c] * _lightColor[c])) / 31.0f);
-			}
+			shininessLevel = shininessTable[shininessIndex];
 		}
 
-		for(int c=0;c<3;c++)
-			colorRGB[c] = std::min(31,vertexColor[c]);
+		for(int c = 0; c < 3; c++){
+			vertexColor[c] += (int)(((specular[c] * _lightColor[c] * shininessLevel)
+					+ (diffuse[c] * _lightColor[c] * diffuseLevel)
+					+ (ambient[c] * _lightColor[c])) / 31.0f);
+		}
 	}
+
+	for(int c=0;c<3;c++)
+		colorRGB[c] = std::min(31,vertexColor[c]);
+
 
 	GFX_DELAY(9);
 	GFX_DELAY_M2((lightMask) & 0x01);
@@ -2079,17 +2068,12 @@ unsigned int gfx3d_glGetPosRes(u32 index){
 	return (u32)(PTcoords[index] * 4096.0f);
 }
 
-unsigned short gfx3d_glGetVecRes(u32 index){
-        //INFO("NDS_glGetVecRes\n");
-        return 0;
-}
 
 //#define _3D_LOG_EXEC
 static void gfx3d_execute(u8 cmd, u32 param){
 	//printf("*** gxFIFO: exec 0x%02X, size %03i\n", cmd, gxFIFO.size);
 #ifdef _3D_LOG_EXEC
 	u32 gxstat2 = T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600);
-	//INFO("*** gxFIFO: exec 0x%02X, tail %03i, gxstat 0x%08X (timer %i)\n", cmd, gxFIFO.tail, gxstat2, nds_timer);
 #endif
 #if 1
 	gfx3d_cmd_lut[cmd](param);
@@ -2474,13 +2458,19 @@ void gfx3d_Control(u32 v){
 /*
 void gfx3d_glGetMatrix(unsigned int m_mode, int index, float* dest)
 {
-	if(index == -1)
-	{
-		MatrixCopy(dest, mtxCurrent[m_mode]);
-		return;
-	}
+	//if(index == -1)
+	//{
+	//	MatrixCopy(dest, mtxCurrent[m_mode]);
+	//	return;
+	//}
 
-	MatrixCopy(dest, MatrixStackGetPos(&mtxStack[m_mode], index));
+	//MatrixCopy(dest, MatrixStackGetPos(&mtxStack[m_mode], index));
+	s32* src;
+	if(index==-1)
+		src = mtxCurrent[m_mode];
+	else src=MatrixStackGetPos(&mtxStack[m_mode],index);
+	for(int i=0;i<16;i++)
+		dest[i] = src[i]/4096.0f;
 }
 //*/
 
@@ -2813,8 +2803,7 @@ public:
 	}
 
 	// closes the loop and returns the number of clipped output verts
-	int finish()
-	{
+	int finish(){
 		this->clipVert(m_firstVert);
 		return m_next.finish();
 	}
