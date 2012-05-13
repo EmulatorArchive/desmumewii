@@ -187,6 +187,7 @@ struct NDSSystem
 
 	BOOL sleeping;
 	BOOL cardEjected;
+	u32 freezeBus;
 
 	//this is not essential NDS runtime state.
 	//it was perhaps a mistake to put it here.
@@ -292,7 +293,8 @@ struct GameInfo
 	u32 crc;
 	NDS_header header;
 	char ROMserial[20];
-	char ROMfullName[7][0x100];
+	char ROMname[20];
+	//char ROMfullName[7][0x100];
 	void populate();
 	char* romdata;
 	u32 romsize;

@@ -358,6 +358,8 @@ void GameInfo::populate()
 	}
 	else
 	{
+		//--DCN: Not going to upgrade this. I don't want
+		//       to use the extra memory space required.
 		memset(ROMserial, '_', sizeof(ROMserial));
 		memcpy(ROMserial, header.gameTile, strlen(header.gameTile) < 12 ? strlen(header.gameTile) : 12);
 		memcpy(ROMserial+12+1, header.gameCode, 4);

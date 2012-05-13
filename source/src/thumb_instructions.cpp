@@ -44,7 +44,7 @@
 
 TEMPLATE static  u32 FASTCALL OP_UND_THUMB(const u32 i)
 {
-	emu_halt();
+	TRAPUNDEF(cpu);
 	return 1;
 }
 

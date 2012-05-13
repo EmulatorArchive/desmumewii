@@ -908,7 +908,7 @@ void BackupDevice::flush()
 	else
 	{
 		delete outf;
-		printf("Unable to open savefile %s\n",filename.c_str());
+		printf("Unable to open savefile %s\n", filename.c_str());
 	}
 }
 
