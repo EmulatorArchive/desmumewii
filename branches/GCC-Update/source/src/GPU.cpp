@@ -218,7 +218,7 @@ void GPU_Reset(GPU *g, u8 l)
 
 	g->bgPrio[4] = 0xFF;
 
-	g->bg0HasHighestPrio = TRUE;
+	//g->bg0HasHighestPrio = TRUE;
 
 	if(g->core == GPU_SUB)
 	{
@@ -275,6 +275,7 @@ static void GPU_resortBGs(GPU *gpu)
 		++item->nbBGs;
 	}while(i > 0);
 
+	/*
 	const int bg0Prio = gpu->dispx_st->dispx_BGxCNT[0].bits.Priority;
 	gpu->bg0HasHighestPrio = TRUE;
 	for(i = 1; i < 4; i++)
@@ -288,6 +289,7 @@ static void GPU_resortBGs(GPU *gpu)
 			}
 		}
 	}
+	*/
 	
 #if 0
 //debug
@@ -836,7 +838,7 @@ FORCEINLINE void GPU::___setFinalColorBck(u16 color, const u32 x, const int opaq
 	//under ordinary circumstances, nobody should pass in something >=256
 	//but in fact, someone is going to try. specifically, that is the map viewer debug tools
 	//which try to render the enter BG. in cases where that is large, it could be up to 1024 wide.
-	assert(debug || x<256);
+	assert(x<256);
 
 	//due to this early out, we will get incorrect behavior in cases where 
 	//we enable mosaic in the middle of a frame. this is deemed unlikely.
@@ -873,7 +875,7 @@ static void mosaicSpriteLinePixel(GPU * gpu, int x, u16 l, u8 * dst, u8 * dst_al
 	int x_int;
 	int y = l;
 
-	_OAM_ * spriteInfo = (_OAM_ *)(gpu->oam + gpu->sprNum[x]);
+	OAM * spriteInfo = (OAM *)(gpu->oam + gpu->sprNum[x]);
 	bool enabled = spriteInfo->Mosaic;
 	if(!enabled)
 		return;
@@ -1434,7 +1436,7 @@ INLINE void render_sprite_Win (GPU * gpu, u16 l, u8 * src,
 }
 
 // return val means if the sprite is to be drawn or not
-FORCEINLINE BOOL compute_sprite_vars(_OAM_ * spriteInfo, u16 l, 
+FORCEINLINE BOOL compute_sprite_vars(OAM * spriteInfo, u16 l, 
 	size &sprSize, s32 &sprX, s32 &sprY, s32 &x, s32 &y, s32 &lg, int &xdir) {
 
 	x = 0;
@@ -1490,7 +1492,7 @@ FORCEINLINE BOOL compute_sprite_vars(_OAM_ * spriteInfo, u16 l,
 
 //TODO - refactor this so there isnt as much duped code between rotozoomed and non-rotozoomed versions
 
-static u8* bmp_sprite_address(GPU* gpu, _OAM_ * spriteInfo, size sprSize, s32 y)
+static u8* bmp_sprite_address(GPU* gpu, OAM * spriteInfo, size sprSize, s32 y)
 {
 	u8* src = 0;
 	if (spriteInfo->Mode == 3) //sprite is in BMP format
@@ -1525,7 +1527,7 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	GPU *gpu = this;
 
 	struct _DISPCNT * dispCnt = &(gpu->dispx_st)->dispx_DISPCNT.bits;
-	_OAM_ * spriteInfo = (_OAM_ *)(gpu->oam + (nbShow-1));// + 127;
+	OAM* spriteInfo = (OAM *)(gpu->oam + (nbShow-1));// + 127;
 	u8 block = gpu->sprBoundary;
 	u8 i;
 
