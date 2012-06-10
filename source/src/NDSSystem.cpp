@@ -157,7 +157,6 @@ int NDS_Init( void) {
 	
 	nds.VCount = 0;
 
-	nds.sleeping = FALSE;
 
 	if (Screen_Init(GFXCORE_DUMMY) != 0)
 		return -1;
@@ -189,6 +188,10 @@ int NDS_Init( void) {
 	TSCal.adc.y2 = 0x0800;
 	TSCal.scr.x2 = 0xE0 + 1;
 	TSCal.scr.y2 = 0x80 + 1;
+	TSCal.adc.width = (TSCal.adc.x2 - TSCal.adc.x1);
+	TSCal.adc.height = (TSCal.adc.y2 - TSCal.adc.y1);
+	TSCal.scr.width = (TSCal.scr.x2 - TSCal.scr.x1);
+	TSCal.scr.height = (TSCal.scr.y2 - TSCal.scr.y1);
 
 	return 0;
 }
@@ -1798,6 +1801,12 @@ void NDS_Reset()
 
 	if (!header) return ;
 
+	nds.sleeping = FALSE;
+	nds.cardEjected = FALSE;
+	nds.freezeBus = FALSE;
+	nds.power1.lcd = nds.power1.gpuMain = nds.power1.gfx3d_render = nds.power1.gfx3d_geometry = nds.power1.gpuSub = nds.power1.dispswap = 1;
+	nds.power2.speakers = 1;
+	nds.power2.wifi = 0;
 
 	nds_timer = 0;
 	nds_arm9_timer = 0;
