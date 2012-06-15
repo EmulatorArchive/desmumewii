@@ -150,8 +150,6 @@ struct armcpu_ctrl_iface **arm7_ctrl_iface) {
 #else
 int NDS_Init( void) {
 #endif
-	nds.idleFrameCounter = 0;
-	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	
 	MMU_Init();
 	
@@ -175,9 +173,6 @@ int NDS_Init( void) {
 		return -1;
 
 	WIFI_Init() ;
-
-	nds.FW_ARM9BootCode = NULL;
-	nds.FW_ARM7BootCode = NULL;
 
 	// Init calibration info
 	TSCal.adc.x1 = 0x0200;
@@ -379,7 +374,6 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 	ROMReader_struct	*reader;
 	int					ret;
 	int					type = ROM_NDS;
-	u32					mask;
 	void				*file;
 	u8					*data;
 	char				buf[MAX_PATH];
@@ -428,7 +422,7 @@ int NDS_LoadROM(const char *filename, const char *logicalFilename)
 
 	//zero 25-dec-08 - this used to yield a mask which was 2x large
 	//mask = size; 
-	mask = size-1; 
+	u32 mask = size-1; 
 	mask |= (mask >>1);
 	mask |= (mask >>2);
 	mask |= (mask >>4);
@@ -1297,8 +1291,8 @@ static void execHardware_hstart_vblankStart()
 	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 1);
 
 	//fire vblank interrupts if necessary
-	NDS_ARM9VBlankInt();
-	NDS_ARM7VBlankInt();
+	if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8) NDS_makeIrq(ARMCPU_ARM9,IRQ_BIT_LCD_VBLANK);
+	if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8) NDS_makeIrq(ARMCPU_ARM7,IRQ_BIT_LCD_VBLANK);
 
 	//some emulation housekeeping
 	gfx3d_VBlankSignal();
@@ -1307,10 +1301,6 @@ static void execHardware_hstart_vblankStart()
 	triggerDma(EDMAMode_VBlank);
 
 	//tracking for arm9 load average
-	nds.runCycleCollector[nds.idleFrameCounter] = 1120380-nds.idleCycles;
-	nds.idleFrameCounter++;
-	nds.idleFrameCounter &= 15;
-	nds.idleCycles = 0;
 }
 
 static void execHardware_hstart_vcount()
@@ -1600,9 +1590,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 			}
 			else
 			{
-				s32 temp = arm9;
 				arm9 = min(s32next, arm9 + kIrqWait);
-				nds.idleCycles += arm9-temp;
 			}
 		}
 		if(doarm7 && (!doarm9 || arm7 <= timer))
@@ -1637,8 +1625,6 @@ void NDS_exec(s32 nb)
 
 	sequencer.nds_vblankEnded = false;
 
-	nds.cpuloopIterationCount = 0;
-
 	IF_DEVELOPER(for(int i=0;i<32;i++) DEBUG_statistics.sequencerExecutionCounters[i] = 0);
 
 	if(nds.sleeping)
@@ -1652,7 +1638,6 @@ void NDS_exec(s32 nb)
 	{
 		for(;;)
 		{
-			nds.cpuloopIterationCount++;
 			//--DCN: START
 			/* This is where it all seems to start.
 			 It then checks: enabled && nds_timer >= timestamp
@@ -1992,11 +1977,7 @@ void NDS_Reset()
 	nds.old = 0;
 	nds.touchX = nds.touchY = 0;
 	nds.isTouch = 0;
-	nds.debugConsole = CommonSettings.DebugConsole;
-	nds.ensataEmulation = CommonSettings.EnsataEmulation;
-	nds.ensataHandshake = ENSATA_HANDSHAKE_none;
-	nds.ensataIpcSyncCounter = 0;
-	SetupMMU(nds.debugConsole);
+	SetupMMU();
 
 	_MMU_write16<ARMCPU_ARM9>(REG_KEYINPUT, 0x3FF);
 	_MMU_write16<ARMCPU_ARM7>(REG_KEYINPUT, 0x3FF);
@@ -2143,13 +2124,13 @@ INLINE u16 NDS_getADCTouchPosX(u16 scrX)
 	// we're basically adjusting the ADC results to
 	// compensate for how they will be interpreted.
 	// the actual system doesn't do this transformation.
-	int rv = (scrX - TSCal.scr.x1 + 1) * (TSCal.adc.x2 - TSCal.adc.x1) / (TSCal.scr.x2 - TSCal.scr.x1) + TSCal.adc.x1;
+	int rv = (scrX - TSCal.scr.x1 + 1) * TSCal.adc.width / TSCal.scr.width + TSCal.adc.x1;
 	rv = min(0xFFF, max(0, rv));
 	return (u16)(rv);
 }
 INLINE u16 NDS_getADCTouchPosY(u16 scrY)
 {
-	int rv = (scrY - TSCal.scr.y1 + 1) * (TSCal.adc.y2 - TSCal.adc.y1) / (TSCal.scr.y2 - TSCal.scr.y1) + TSCal.adc.y1;
+	int rv = ((scrY - TSCal.scr.y1 + 1) * TSCal.adc.height) / TSCal.scr.height + TSCal.adc.y1;
 	rv = min(0xFFF, max(0, rv));
 	return (u16)(rv);
 }

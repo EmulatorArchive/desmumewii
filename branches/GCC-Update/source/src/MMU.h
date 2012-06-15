@@ -634,9 +634,8 @@ extern u32 partie;
 extern u32 _MMU_MAIN_MEM_MASK;
 extern u32 _MMU_MAIN_MEM_MASK16;
 extern u32 _MMU_MAIN_MEM_MASK32;
-inline void SetupMMU(BOOL debugConsole) {
-	if(debugConsole) _MMU_MAIN_MEM_MASK = 0x7FFFFF;
-	else _MMU_MAIN_MEM_MASK = 0x3FFFFF;
+inline void SetupMMU() {
+	_MMU_MAIN_MEM_MASK = 0x3FFFFF;
 	_MMU_MAIN_MEM_MASK16 = _MMU_MAIN_MEM_MASK & ~1;
 	_MMU_MAIN_MEM_MASK32 = _MMU_MAIN_MEM_MASK & ~3;
 }

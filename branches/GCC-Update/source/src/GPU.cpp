@@ -717,10 +717,6 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 			return;
 	}
 
-	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
-	const int bg_under = bgPixels[x];
-	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
-
 	const bool sourceEffectSelected = blend1;
 
 	//note that the fadein and fadeout is done here before blending, 
@@ -729,14 +725,21 @@ FORCEINLINE FASTCALL void GPU::_master_setFinalOBJColor(u16 color, u8 alpha, u8 
 	if(windowEffect && sourceEffectSelected)
 		switch(FUNC) 
 		{
-			case Increase: if(!allowBlend) color = currentFadeInColors[color&0x7FFF]; break;
-			case Decrease: if(!allowBlend) color = currentFadeOutColors[color&0x7FFF]; break;
-	
+			//zero 13-jun-2010 : if(allowBlend) was removed from these;
+			//it should be possible to increase/decrease and also blend
+			//(the effect would be increase, but the obj properties permit blending and the target layers are configured correctly)
+
+			case Increase: color = currentFadeInColors[color&0x7FFF]; break;
+			case Decrease: color = currentFadeOutColors[color&0x7FFF]; break;
+
 			//only when blend color effect is selected, ordinarily opaque sprites are blended with the color effect params
 			case Blend: forceBlendingForNormal = true; break;
 			case None: break;
 		}
 
+	//this inspects the layer beneath the sprite to see if the current blend flags make it a candidate for blending
+	const int bg_under = bgPixels[x];
+	const bool allowBlend = (bg_under != 4) && blend2[bg_under];
 
 	if(allowBlend)
 	{
@@ -1454,8 +1457,12 @@ FORCEINLINE BOOL compute_sprite_vars(OAM * spriteInfo, u16 l,
 // that tells us where the first pixel of a screenline starts in the sprite,
 // and how a step to the right in a screenline translates within the sprite
 
-	if ((l<sprY)||(l>=sprY+sprSize.y) ||	/* sprite lines outside of screen */
-		(sprX==256)||(sprX+sprSize.x<=0))	/* sprite pixels outside of line */
+	//this wasn't really tested by anything. very unlikely to get triggered
+	y = (l - sprY)&255;                        /* get the y line within sprite coords */
+	if(y >= sprSize.y)
+		return FALSE;
+
+	if((sprX==256)||(sprX+sprSize.x<=0))	/* sprite pixels outside of line */
 		return FALSE;				/* not to be drawn */
 
 	// sprite portion out of the screen (LEFT)
@@ -1468,8 +1475,6 @@ FORCEINLINE BOOL compute_sprite_vars(OAM * spriteInfo, u16 l,
 	// sprite portion out of the screen (RIGHT)
 	if (sprX+sprSize.x >= 256)
 		lg = 256 - sprX;
-
-	y = l - sprY;                           /* get the y line within sprite coords */
 
 	// switch TOP<-->BOTTOM
 	if (spriteInfo->VFlip)
@@ -1518,7 +1523,6 @@ static u8* bmp_sprite_address(GPU* gpu, OAM * spriteInfo, size sprSize, s32 y)
 
 	return src;
 }
-
 
 template<GPU::SpriteRenderMode MODE>
 void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
@@ -1587,16 +1591,16 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 				lg <<= 1;
 			}
 
-			// Sprite not visible - offscreen! .. moved from below
-			if(sprX + fieldX <= 0)
+			// Check if the sprite is visible y-wise. unfortunately our logic for x and y is different due to our scanline based rendering
+			//tested thoroughly by many large sprites in Super Robot Wars K which wrap around the screen
+			y = (l - sprY)&255;
+			if(y >= fieldY)
 				continue;
 
-			// Check if sprite enabled
-			if ((l   <sprY) || (l >= sprY+fieldY) ||
-				(sprX==256) || (sprX+fieldX<=0))
+			// Check if sprite is visible x-wise.
+			if((sprX==256) || (sprX+fieldX<=0))
 				continue;
 
-			y = l - sprY;
 
 			// Get which four parameter block is assigned to this sprite
 			blockparameter = (spriteInfo->RotScalIndex + (spriteInfo->HFlip<< 3) + (spriteInfo->VFlip << 4))*4;
@@ -1614,8 +1618,8 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 			if(sprX<0)
 			{
 				// If sprite is not in the window
-//				if(sprX + fieldX <= 0)
-//					continue;
+				if(sprX + fieldX <= 0)
+					continue;
 
 				// Otherwise, is partially visible
 				lg += sprX;
@@ -1675,6 +1679,10 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 			// Rotozoomed direct color
 			else if(spriteInfo->Mode == 3)
 			{
+				// Transparent (I think, don't bother to render?) if alpha is 0
+				if(spriteInfo->PaletteIndex == 0)
+					continue;
+
 				src = bmp_sprite_address(this,spriteInfo,sprSize,0);
 
 				for(j = 0; j < lg; ++j, ++sprX)
@@ -2057,12 +2065,16 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 
 		//for backdrops, fade in and fade out can be applied if it's a 1st target screen
 		case 2:
-			//for non-windowed fade, we can just fade the color and fill
-			memset_u16_le<256>(gpu->currDst,gpu->currentFadeInColors[backdrop_color]);
+			if(gpu->BLDCNT & 0x20) //backdrop is selected for color effect
+				memset_u16_le<256>(gpu->currDst,gpu->currentFadeInColors[backdrop_color]);
+			else 
+				memset_u16_le<256>(gpu->currDst,backdrop_color); 
 			break;
 		case 3:
-			//likewise for non-windowed fadeout
-			memset_u16_le<256>(gpu->currDst,gpu->currentFadeOutColors[backdrop_color]);
+			if(gpu->BLDCNT & 0x20) //backdrop is selected for color effect
+				memset_u16_le<256>(gpu->currDst,gpu->currentFadeOutColors[backdrop_color]);
+			else
+				memset_u16_le<256>(gpu->currDst,backdrop_color); 
 			break;
 
 		//windowed cases apparently need special treatment? why? can we not render the backdrop? how would that even work?
