@@ -175,7 +175,7 @@ SFORMAT SF_NDS[]={
 	{ "_TPX", 2, 1, &nds.touchX},
 	{ "_TPY", 2, 1, &nds.touchY},
 	{ "_TPB", 4, 1, &nds.isTouch},
-	{ "_DBG", 4, 1, &nds.debugConsole},
+	{ "_DBG", 4, 1, 0}, //No debug
 	{ 0 }
 };
 
@@ -1046,7 +1046,7 @@ static void loadstate()
 		_MMU_write16<ARMCPU_ARM9>(REG_BASE_DISPB+subRegenAddr[i], _MMU_read16<ARMCPU_ARM9>(REG_BASE_DISPB+subRegenAddr[i]));
 	// no need to restore 0x60 since control and MMU.ARM9_REG are both in the savestates, and restoring it could mess up the ack bits anyway
 
-	SetupMMU(nds.debugConsole);
+	SetupMMU();
 
 	execute = 1;//!driver->EMU_IsEmulationPaused();
 }
@@ -1100,9 +1100,6 @@ bool savestate_load(EMUFILE* is)
 	NDS_Reset();
 	_HACK_DONT_STOPMOVIE = false;
 
-	//reset some options to their old defaults which werent saved
-	nds.debugConsole = FALSE;
-
 	//GPU_Reset(MainScreen.gpu, 0);
 	//GPU_Reset(SubScreen.gpu, 1);
 	//gfx3d_reset();
@@ -1119,10 +1116,6 @@ bool savestate_load(EMUFILE* is)
 	}
 
 	loadstate();
-
-	if((nds.debugConsole!=0) != CommonSettings.DebugConsole) {
-		printf("WARNING: forcing console debug mode to: debugmode=%s\n",nds.debugConsole?"TRUE":"FALSE");
-	}
 
 	return true;
 }
@@ -1168,8 +1161,6 @@ void rewindsave () {
 void dorewind()
 {
 	//printf("rewind\n");
-
-	nds.debugConsole = FALSE;
 
 	int size = rewindbuffer.size();
 

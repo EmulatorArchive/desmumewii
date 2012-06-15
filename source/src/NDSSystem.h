@@ -148,15 +148,6 @@ void NDS_RescheduleGXFIFO(u32 cost);
 void NDS_RescheduleDMA();
 void NDS_RescheduleTimers();
 
-enum ENSATA_HANDSHAKE
-{
-	ENSATA_HANDSHAKE_none = 0,
-	ENSATA_HANDSHAKE_query = 1,
-	ENSATA_HANDSHAKE_ack = 2,
-	ENSATA_HANDSHAKE_confirm = 3,
-	ENSATA_HANDSHAKE_complete = 4,
-};
-
 enum NDS_CONSOLE_TYPE
 {
 	NDS_CONSOLE_TYPE_FAT,
@@ -178,37 +169,9 @@ struct NDSSystem
 	BOOL isTouch;
 	u16 pad;
 
-	u8 *FW_ARM9BootCode;
-	u8 *FW_ARM7BootCode;
-	u32 FW_ARM9BootCodeAddr;
-	u32 FW_ARM7BootCodeAddr;
-	u32 FW_ARM9BootCodeSize;
-	u32 FW_ARM7BootCodeSize;
-
 	BOOL sleeping;
 	BOOL cardEjected;
 	u32 freezeBus;
-
-	//this is not essential NDS runtime state.
-	//it was perhaps a mistake to put it here.
-	//it is far less important than the above.
-	//maybe I should move it.
-	s32 idleCycles;
-	s32 runCycleCollector[16];
-	s32 idleFrameCounter;
-	s32 cpuloopIterationCount; //counts the number of times during a frame that a reschedule happened
-
-	//if the game was booted on a debug console, this is set
-	BOOL debugConsole;
-
-	//set if the user requests ensata emulation
-	BOOL ensataEmulation;
-
-	//there is a hack in the ipc sync for ensata. this tracks its state
-	u32 ensataIpcSyncCounter;
-
-	//maintains the state of the ensata handshaking protocol
-	u32 ensataHandshake;
 
 	struct {
 		u8 lcd, gpuMain, gfx3d_render, gfx3d_geometry, gpuSub, dispswap;
@@ -401,43 +364,6 @@ template<bool FORCE> void NDS_exec(s32 nb = 560190<<1);
 
 extern int lagframecounter;
 
-static INLINE void NDS_ARM9HBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10)
-    {
-         //MMU.reg_IF[0] |= 2;// & (MMU.reg_IME[0] << 1);// (MMU.reg_IE[0] & (1<<1));
-		setIF(0, 2);
-    }
-}
-
-static INLINE void NDS_ARM7HBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10)
-    {
-        // MMU.reg_IF[1] |= 2;// & (MMU.reg_IME[1] << 1);// (MMU.reg_IE[1] & (1<<1));
-		setIF(1, 2);
-    }
-}
-
-static INLINE void NDS_ARM9VBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8)
-    {
-        // MMU.reg_IF[0] |= 1;// & (MMU.reg_IME[0]);// (MMU.reg_IE[0] & 1);
-		setIF(0, 1);
-              //emu_halt();
-              /*logcount++;*/
-    }
-}
-
-static INLINE void NDS_ARM7VBlankInt(void)
-{
-    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8)
-        // MMU.reg_IF[1] |= 1;// & (MMU.reg_IME[1]);// (MMU.reg_IE[1] & 1);
-		setIF(1, 1);
-         //emu_halt();
-}
-
 //void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
@@ -452,8 +378,6 @@ extern struct TCommonSettings {
 		, PatchSWI3(false)
 		, UseExtFirmware(false)
 		, BootFromFirmware(false)
-		, DebugConsole(false)
-		, EnsataEmulation(false)
 		, cheatsDisable(false)
 		, num_cores(1)
 		, rigorous_timing(false)
@@ -494,9 +418,6 @@ extern struct TCommonSettings {
 	char Firmware[256];
 	bool BootFromFirmware;
 	struct NDS_fw_config_data InternalFirmConf;
-
-	bool DebugConsole;
-	bool EnsataEmulation;
 	
 	bool cheatsDisable;
 
@@ -561,8 +482,6 @@ extern struct TCommonSettings {
 extern std::string InputDisplayString;
 extern int LagFrameFlag;
 extern int lastLag, TotalLagFrames;
-
-void MovieSRAM();
 
 void ClearAutoHold(void);
 
