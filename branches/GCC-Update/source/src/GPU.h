@@ -758,7 +758,7 @@ struct GPU{
 			_spriteRender<SPRITE_2D>(dst,dst_alpha,typeTab, prioTab);
 	}
 
-	void setFinalColor3d(int l, int i16);
+	void setFinalColor3d(int dstX, int srcX);
 
 	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
 	template<bool MOSAIC, bool BACKDROP> FORCEINLINE void __setFinalColorBck(u16 color, const u32 x, const int opaque);

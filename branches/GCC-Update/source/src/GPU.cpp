@@ -577,44 +577,17 @@ FORCEINLINE void GPU::renderline_checkWindows(u16 x, bool &draw, bool &effect) c
 /*****************************************************************************/
 
 template<BlendFunc FUNC, bool WINDOW>
-FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
+FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 {
-	//--DCN: AHA! This will only control fading for 3D!!!!
-	//return;
-	// So here's what we do. Instead of all this rubbish, 
-	// we just "lighten" or "darken" the texture of the rendered scene
-	// That should do it! We ALSO won't have to do this line-by-line!
-
+	int x = dstX;
+	int passing = dstX<<1;
+	u8* color = &_3dColorLine[srcX<<2];
+	u8 red = color[3];
+	u8 green = color[2];
+	u8 blue = color[1];
+	u8 alpha = color[0];
 	u8* dst = currDst;
-	COLOR32 color;
-/*
-	color.val = (*(u32 *)&_3dColorLine[srcX<<2]);
-	u8 red = color.bits.red;
-	u8 green = color.bits.green;
-	u8 blue = color.bits.blue;
-	u8 alpha = color.bits.alpha;
-//*/
 	u16 final;
-
-	this->currBgNum = 0;
-
-	const BGxOFS *bgofs = &this->dispx_st->dispx_BGxOFS[i16];
-	const u16 hofs = (T1ReadWord((u8*)&bgofs->BGxHOFS, 0) & 0x1FF);
-
-	gfx3d_GetLineData(l, &this->_3dColorLine);
-
-	const u8* colorLine = this->_3dColorLine;
-
-	for(int k = 256; k--;)
-	{
-		int q = ((k + hofs) & 0x1FF);
-
-		if((q < 0) || (q > 255) || !colorLine[(q<<2)])
-			continue;
-
-		int passing = k<<1;
-
-		color.val = (*(u32 *)&_3dColorLine[k<<2]);
 
 		bool windowEffect = blend1; //bomberman land touch dialogbox will fail without setting to blend1
 	
@@ -623,33 +596,35 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 		if(WINDOW)
 		{
 			bool windowDraw = false;
-			renderline_checkWindows(k, windowDraw, windowEffect);
+			renderline_checkWindows(dstX, windowDraw, windowEffect);
 
 			//we never have anything more to do if the window rejected us
 			if(!windowDraw) return;
 		}
-
-		int bg_under = bgPixels[k];
+	
+		int bg_under = bgPixels[dstX];
 		if(blend2[bg_under])
 		{
-			++color.bits.alpha;
-			if(color.bits.alpha < 32)
+			alpha++;
+			if(alpha<32)
 			{
 				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
 				COLOR c2, cfinal;
 				c2.val = HostReadWord(dst, passing);
-				u8 invAlpha = (32 - color.bits.alpha);
-				cfinal.bits.red		= ((color.bits.red * color.bits.alpha) + ((c2.bits.red << 1) * invAlpha)) >> 6;
-				cfinal.bits.green	= ((color.bits.green * color.bits.alpha) + ((c2.bits.green << 1) * invAlpha)) >> 6;
-				cfinal.bits.blue	= ((color.bits.blue * color.bits.alpha) + ((c2.bits.blue << 1) * invAlpha)) >> 6;
+
+				cfinal.bits.red		= ((red * alpha) + ((c2.bits.red<<1) * (32 - alpha)))>>6;
+				cfinal.bits.green	= ((green * alpha) + ((c2.bits.green<<1) * (32 - alpha)))>>6;
+				cfinal.bits.blue	= ((blue * alpha) + ((c2.bits.blue<<1) * (32 - alpha)))>>6;
 
 				final = cfinal.val;
 			}
-			else final = R6G6B6TORGB15(color.bits.red, color.bits.green, color.bits.blue);
+			else final = R6G6B6TORGB15(red,green,blue);
+	
+	
 		}
 		else
 		{
-			final = R6G6B6TORGB15(color.bits.red, color.bits.green, color.bits.blue);
+			final = R6G6B6TORGB15(red,green,blue);
 			//perform the special effect
 			if(windowEffect)
 				switch(FUNC) {
@@ -662,8 +637,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int l,int i16)
 		}
 
 		HostWriteWord(dst, passing, (final | 0x8000));
-		bgPixels[k] = 0;
-	}
+		bgPixels[x] = 0;
 }
 
 
@@ -2145,7 +2119,23 @@ static void GPU_RenderLine_layer(NDS_Screen * screen, u16 l)
 						if (i16 == 0 && dispCnt->BG0_3D)
 						{
 							gpu->currBgNum = 0;
-							gpu->setFinalColor3d(l,i16);
+
+							const u16 hofs = gpu->getHOFS(i16);
+
+							gfx3d_GetLineData(l, &gpu->_3dColorLine);
+							u8* colorLine = gpu->_3dColorLine;
+
+							for(int k = 0; k < 256; k++)
+							{
+								int q = ((k + hofs) & 0x1FF);
+
+								if((q < 0) || (q > 255))
+									continue;
+
+								if(colorLine[(q<<2)])
+									gpu->setFinalColor3d(k, q);
+							}
+
 							continue;
 						}
 					}
