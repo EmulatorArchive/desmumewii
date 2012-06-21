@@ -930,7 +930,7 @@ static void gfx3d_glLightDirection_cache(int index){
 	// Multiply the vector by the directional matrix
 	MatrixMultVec3x3(mtxCurrent[2], cacheLightDirection[index]);
 
-	// Calculate the half vector
+	// Calculate the half angle vector
 	float lineOfSight[4] = {0.0f, 0.0f, -1.0f, 0.0f};
 	for(int i = 0; i < 4; i++){
 		cacheHalfVector[index][i] = ((cacheLightDirection[index][i] + lineOfSight[i]) / 2.0f);

@@ -105,100 +105,8 @@ armcpu_t NDS_ARM9;
 		      }       \
                       while(0)
 
-#ifdef GDB_STUB
-
-#define STALLED_CYCLE_COUNT 10
-
-static void
-stall_cpu( void *instance) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-  printf("UNSTALL\n");
-  armcpu->stalled = 1;
-}
-                      
-static void
-unstall_cpu( void *instance) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-  printf("UNSTALL\n");
-  armcpu->stalled = 0;
-}
-
-static void
-install_post_exec_fn( void *instance,
-                      void (*ex_fn)( void *, u32 adr, int thumb),
-                      void *fn_data) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-
-  armcpu->post_ex_fn = ex_fn;
-  armcpu->post_ex_fn_data = fn_data;
-}
-
-static void
-remove_post_exec_fn( void *instance) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-
-  armcpu->post_ex_fn = NULL;
-}
-#endif
-
-#ifdef GDB_STUB
-static u32 read_cpu_reg( void *instance, u32 reg_num) {
-	armcpu_t *armcpu = (armcpu_t *)instance;
-
-	if ( reg_num <= 14) {
-		return armcpu->R[reg_num];
-	}
-	else if ( reg_num == 15) {
-		return armcpu->instruct_adr;
-	}
-	else if ( reg_num == 16) {
-		//CPSR
-		return armcpu->CPSR.val;
-	}
-}
-
-static void
-set_cpu_reg( void *instance, u32 reg_num, u32 value) {
-  armcpu_t *armcpu = (armcpu_t *)instance;
-
-  if ( reg_num <= 14) {
-    armcpu->R[reg_num] = value;
-  }
-  else if ( reg_num == 15) {
-    armcpu->next_instruction = value;
-  }
-  else if ( reg_num == 16) {
-    /* FIXME: setting the CPSR */
-  }
-}
-#endif
-
-#ifdef GDB_STUB
-int armcpu_new( armcpu_t *armcpu, u32 id,
-                struct armcpu_memory_iface *mem_if,
-                struct armcpu_ctrl_iface **ctrl_iface_ret)
-#else
-int armcpu_new( armcpu_t *armcpu, u32 id)
-#endif
-{
+int armcpu_new( armcpu_t *armcpu, u32 id){
 	armcpu->proc_ID = id;
-
-#ifdef GDB_STUB
-	armcpu->mem_if = mem_if;
-
-	/* populate the control interface */
-	armcpu->ctrl_iface.stall = stall_cpu;
-	armcpu->ctrl_iface.unstall = unstall_cpu;
-	armcpu->ctrl_iface.read_reg = read_cpu_reg;
-	armcpu->ctrl_iface.set_reg = set_cpu_reg;
-	armcpu->ctrl_iface.install_post_ex_fn = install_post_exec_fn;
-	armcpu->ctrl_iface.remove_post_ex_fn = remove_post_exec_fn;
-	armcpu->ctrl_iface.data = armcpu;
-
-	*ctrl_iface_ret = &armcpu->ctrl_iface;
-
-	armcpu->post_ex_fn = NULL;
-#endif
 
 	armcpu->stalled = 0;
 
@@ -223,10 +131,6 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	armcpu->waitIRQ = FALSE;
 	armcpu->wirq = FALSE;
 
-//#ifdef GDB_STUB
-//    armcpu->irq_flag = 0;
-//#endif
-
 	for(int i = 0; i < 16; ++i)
 	{
 		armcpu->R[i] = 0;
@@ -245,22 +149,13 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	
 	armcpu->SPSR_svc.val = armcpu->SPSR_abt.val = armcpu->SPSR_und.val = armcpu->SPSR_irq.val = armcpu->SPSR_fiq.val = 0;
 
-//#ifdef GDB_STUB
-//    armcpu->instruct_adr = adr;
-//	armcpu->R[15] = adr + 8;
-//#else
-	//armcpu->R[15] = adr;
-//#endif
-
 	armcpu->next_instruction = adr;
 	
 	// only ARM9 have co-processor
 	if (armcpu->proc_ID==0)
 		armcpu->coproc[15] = (armcp_t*)armcp15_new(armcpu);
 
-//#ifndef GDB_STUB
 	armcpu_prefetch(armcpu);
-//#endif
 }
 
 u32 armcpu_switchMode(armcpu_t *armcpu, u8 mode)
@@ -507,23 +402,6 @@ u32 armcpu_exec()
 	//this assert is annoying. but sometimes it is handy.
 	//assert(ARMPROC.instruct_adr!=0x00000000);
 
-#if 0 //#ifdef GDB_STUB
-	if (ARMPROC.stalled) {
-		return STALLED_CYCLE_COUNT;
-	}
-
-	/* check for interrupts */
-	if (ARMPROC.irq_flag) {
-		armcpu_irqException(&ARMPROC);
-	}
-
-	cFetch = armcpu_prefetch(&ARMPROC);
-
-	if (ARMPROC.stalled) {
-		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
-	}
-#endif
-
 	if(ARMPROC.CPSR.bits.T == 0)
 	{
 		if(
@@ -549,13 +427,7 @@ u32 armcpu_exec()
 		}
 		else
 			cExecute = 1; // If condition=false: 1S cycle
-#ifdef GDB_STUB
-		if ( ARMPROC.post_ex_fn != NULL) {
-			/* call the external post execute function */
-			ARMPROC.post_ex_fn(ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 0);
-		}
-		ARMPROC.mem_if->prefetch32( ARMPROC.mem_if->data, ARMPROC.next_instruction);
-#endif
+
 		cFetch = armcpu_prefetch<PROCNUM>();
 		return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 	}
@@ -577,13 +449,6 @@ u32 armcpu_exec()
 		cExecute = thumb_instructions_set_1[ARMPROC.instruction>>6](ARMPROC.instruction);
 	}
 
-#ifdef GDB_STUB
-	if ( ARMPROC.post_ex_fn != NULL) {
-		/* call the external post execute function */
-		ARMPROC.post_ex_fn( ARMPROC.post_ex_fn_data, ARMPROC.instruct_adr, 1);
-	}
-	ARMPROC.mem_if->prefetch32( ARMPROC.mem_if->data, ARMPROC.next_instruction);
-#endif
 	cFetch = armcpu_prefetch<PROCNUM>();
 	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 }

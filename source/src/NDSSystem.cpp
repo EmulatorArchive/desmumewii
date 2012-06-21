@@ -142,14 +142,7 @@ void Desmume_InitOnce()
 }
 
 
-#ifdef GDB_STUB
-int NDS_Init( struct armcpu_memory_iface *arm9_mem_if,
-struct armcpu_ctrl_iface **arm9_ctrl_iface,
-struct armcpu_memory_iface *arm7_mem_if,
-struct armcpu_ctrl_iface **arm7_ctrl_iface) {
-#else
 int NDS_Init( void) {
-#endif
 	
 	MMU_Init();
 	
@@ -161,13 +154,8 @@ int NDS_Init( void) {
 
 	gfx3d_init();
 
-#ifdef GDB_STUB
-	armcpu_new(&NDS_ARM7,1, arm7_mem_if, arm7_ctrl_iface);
-	armcpu_new(&NDS_ARM9,0, arm9_mem_if, arm9_ctrl_iface);
-#else
 	armcpu_new(&NDS_ARM7,1);
 	armcpu_new(&NDS_ARM9,0);
-#endif
 
 	if (SPU_Init(SNDCORE_DUMMY, 740) != 0)
 		return -1;
@@ -1492,27 +1480,37 @@ static bool loadUserInput(EMUFILE* is, int version);
 void nds_savestate(EMUFILE* os)
 {
 	//version
-	write32le(2,os);
+	write32le(3,os);
 
 	sequencer.save(os);
 
 	saveUserInput(os);
+
+	write32le(LidClosed,os);
+	write8le(countLid,os);
 }
 
 bool nds_loadstate(EMUFILE* is, int size)
 {
+	// this isn't part of the savestate loading logic, but
+	// don't skip the next frame after loading a savestate
+	frameSkipper.OmitSkip(true, true);
+
 	//read version
 	u32 version;
 	if(read32le(&version,is) != 1) return false;
 
-	if(version > 2) return false;
+	if(version > 3) return false;
 
 	bool temp = true;
 	temp &= sequencer.load(is, version);
 	if(version <= 1 || !temp) return temp;
 	temp &= loadUserInput(is, version);
 
-	frameSkipper.OmitSkip(true, true);
+	if(version < 3) return temp;
+
+	read32le(&LidClosed,is);
+	read8le(&countLid,is);
 
 	return temp;
 }
@@ -1748,11 +1746,7 @@ void execHardware_interrupts()
 {
 	if((MMU.reg_IF[0]&MMU.reg_IE[0]) && (MMU.reg_IME[0]))
 	{
-#ifdef GDB_STUB
-		if ( armcpu_flagIrq( &NDS_ARM9)) 
-#else
 		if ( armcpu_irqException(&NDS_ARM9))
-#endif
 		{
 			//printf("ARM9 interrupt! flags: %08X ; mask: %08X ; result: %08X\n",MMU.reg_IF[0],MMU.reg_IE[0],MMU.reg_IF[0]&MMU.reg_IE[0]);
 			//nds.ARM9Cycle = nds.cycles;
@@ -1761,11 +1755,7 @@ void execHardware_interrupts()
 
 	if((MMU.reg_IF[1]&MMU.reg_IE[1]) && (MMU.reg_IME[1]))
 	{
-#ifdef GDB_STUB
-		if ( armcpu_flagIrq( &NDS_ARM7)) 
-#else
 		if ( armcpu_irqException(&NDS_ARM7))
-#endif
 		{
 			//nds.ARM7Cycle = nds.cycles;
 		}
