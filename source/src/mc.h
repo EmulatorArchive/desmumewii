@@ -48,49 +48,22 @@
 
 struct memory_chip_t
 {
-<<<<<<< .mine
 	u8 com;	// persistent command actually handled
 	u32 addr;        // current address for reading/writing
 	u8 addr_shift;   // shift for address (since addresses are transfered by 3 bytes units)
 	u8 addr_size;    // size of addr when writing/reading
 
-	BOOL write_enable;	// is write enabled ?
-=======
-	u8 com;	//persistent command actually handled
-	u32 addr;        //current address for reading/writing
-	u8 addr_shift;   //shift for address (since addresses are transfered by 3 bytes units)
-	u8 addr_size;    //size of addr when writing/reading
-
-	BOOL write_enable;	//is write enabled ?
-
-	u8 *data;       //memory data
-	u32 size;       //memory size
-	BOOL writeable_buffer;	//is "data" writeable ?
-	int type; //type of Memory
-	char *filename;
-	FILE *fp;
-	u8 autodetectbuf[32768];
-	int autodetectsize;
->>>>>>> .r231
+	BOOL write_enable;	// is write enabled?
 	
-<<<<<<< .mine
 	u8 *data;       // memory data
 	u32 size;       // memory size
-	BOOL writeable_buffer;	// is "data" writeable ?
+	BOOL writeable_buffer;	// is "data" writeable?
 	int type; // type of Memory
 	char *filename;
 	FILE *fp;
 	u8 autodetectbuf[32768];
 	int autodetectsize;
-} memory_chip_t;
-=======
-	// needs only for firmware
-	/*
-	bool isFirmware;
-	char userfile[260];
-	//*/
 };
->>>>>>> .r231
 
 //the new backup system by zeromus
 class BackupDevice
