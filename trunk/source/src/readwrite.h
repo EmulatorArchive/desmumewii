@@ -1,5 +1,4 @@
-/*
-    Copyright (C) 2008-2009 DeSmuME team
+ /* Copyright (C) 2008-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii

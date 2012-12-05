@@ -1,5 +1,4 @@
-/*
-    Copyright 2009 DeSmuME team
+/*  Copyright 2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -129,13 +128,8 @@ static FragmentColor screenColor[256*192];
 static FragmentColor toonTable[32];
 static u8 fogTable[32768];
 
-<<<<<<< .mine
-FORCEINLINE int iround(float f) {
-	return (int)f;
-=======
 static FORCEINLINE int iround(float f) {
 	return (int)f; 
->>>>>>> .r231
 }
 
 

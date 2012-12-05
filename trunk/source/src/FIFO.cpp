@@ -104,7 +104,7 @@ u32 IPC_FIFOrecv(u8 proc)
 
 	if ( ipc_fifo[proc_remote].size == 0 )		// FIFO empty
 	{
-		cnt_l |= 0x0101;
+		cnt_l |= 0x0100;
 		cnt_r |= 0x0001;
 	}
 
@@ -121,29 +121,17 @@ void IPC_FIFOcnt(u8 proc, u16 val)
 	u16 cnt_l = T1ReadWord(MMU.MMU_MEM[proc][0x40], 0x184);
 	u16 cnt_r = T1ReadWord(MMU.MMU_MEM[proc^1][0x40], 0x184);
 
-	if (val & IPCFIFOCNT_FIFOERROR)
-	{
-		//at least SPP uses this, maybe every retail game
-		cnt_l &= ~IPCFIFOCNT_FIFOERROR;
-	}
-
-	if (val & IPCFIFOCNT_SENDCLEAR)
+	if (val & 0x4008)
 	{
 		ipc_fifo[proc].head = 0; ipc_fifo[proc].tail = 0; ipc_fifo[proc].size = 0;
-
-		cnt_l |= IPCFIFOCNT_SENDEMPTY;
-		cnt_l &= ~IPCFIFOCNT_SENDFULL;
-		cnt_r |= IPCFIFOCNT_RECVEMPTY;
-		cnt_r &= ~IPCFIFOCNT_RECVFULL;
+		T1WriteWord(MMU.MMU_MEM[proc][0x40], 0x184, (cnt_l & 0x0301) | (val & 0x8404) | 1);
+		T1WriteWord(MMU.MMU_MEM[proc^1][0x40], 0x184, (cnt_r & 0x8407) | 0x100);
+		//MMU.reg_IF[proc^1] |= ((val & 0x0004) << 15);
+		setIF(proc^1, ((val & 0x0004)<<15));
+		return;
 	}
-
-	cnt_l &= ~IPCFIFOCNT_WRITEABLE;
-	cnt_l |= val & IPCFIFOCNT_WRITEABLE;
-
-	T1WriteWord(MMU.MMU_MEM[proc][0x40], 0x184, cnt_l);
-	T1WriteWord(MMU.MMU_MEM[proc^1][0x40], 0x184, cnt_r);
-
-	NDS_Reschedule();
+	
+	T1WriteWord(MMU.MMU_MEM[proc][0x40], 0x184, val);
 }
 
 // ========================================================= GFX FIFO
@@ -166,17 +154,25 @@ void GFX_FIFOclear()
 
 static void GXF_FIFO_handleEvents()
 {
-	bool low = gxFIFO.size <= 127;
-	bool lowchange = MMU_new.gxstat.fifo_low ^ low;
-	MMU_new.gxstat.fifo_low = low;
-	if(low){
+	if(gxFIFO.size <= 127)
+	{
+		//TODO - should this always happen, over and over, until the dma is disabled?
+		//or only when we change to this state?
+		if(MMU_new.gxstat.gxfifo_irq == 1)
+		        setIF(0, (1<<21)); //the half gxfifo irq
+		
+		//might need to trigger a gxfifo dma
 		triggerDma(EDMAMode_GXFifo);
 	}
-	bool empty = gxFIFO.size == 0;
-	bool emptychange = MMU_new.gxstat.fifo_empty ^ empty;
-	MMU_new.gxstat.fifo_empty = empty;
+	
+	
+	
+	if(gxFIFO.size == 0) {
+		//we just went to empty
+		if(MMU_new.gxstat.gxfifo_irq == 2)
+			setIF(0, (1<<21)); //the empty gxfifo irq
+	}
 
-	if(emptychange||lowchange) NDS_Reschedule();
 }
 
 void GFX_FIFOsend(u8 cmd, u32 param)
@@ -231,6 +227,8 @@ void GFX_FIFOcnt(u32 val)
 {
 	////INFO("gxFIFO: write cnt 0x%08X (prev 0x%08X) FIFO size %03i PIPE size %03i\n", val, gxstat, gxFIFO.size, gxPIPE.size);
 
+	//NEW ONE:
+	//*
 	if (val & (1<<29))		// clear? (only in homebrew?)
 	{
 		GFX_PIPEclear();
@@ -246,6 +244,7 @@ void GFX_FIFOcnt(u32 val)
 	//}
 
 	T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x600, val);
+	//*/
 }
 
 // ========================================================= DISP FIFO

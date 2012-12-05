@@ -1,12 +1,10 @@
-/*
-    Copyright (C) 2006 Theo Berkau
+/*  Copyright (C) 2006 Theo Berkau
     Copyright (C) 2012 DeSmuMEWii team
-	Copyright (C) 2006-2010 DeSmuME team
+
+    This file is part of DeSmuMEWii
 
     Ideas borrowed from Stephane Dallongeville's SCSP core
 	
-    This file is part of DeSmuMEWii
-
     DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -21,7 +19,6 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
 #ifndef REGISTERS_H
 #define REGISTERS_H
 

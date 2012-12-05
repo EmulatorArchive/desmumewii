@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012 DeSmuMEWii Team
+/*
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <wiiuse/wpad.h>
 #include "ctrlssdl.h"
 
@@ -58,24 +57,21 @@ static void clear_console(){
 
 static void browse_back(char *str){
 	int length = strlen(str);
-	int idx = length;
-	do{
+	int idx;
+	for( idx = length; idx > 0; idx-- ) {
 		char ch = str[idx];
 		str[idx] = '\0';
 		if( ch == '/' ) {
-			if( str[idx-1] == ':' ) // root folder.
-				str[idx] = '/';     // Check is here, because it happens only once per function call.
+			if( str[idx-1] == ':' )		// root folder.
+				str[idx] = '/';		// Check is here, because it happens only once per function call.
 			break;
 		}
-		--idx;
-	}while(idx > 0);
+	}
 }
-
 
 static ret_action textFileBrowser(file_browser_st *file_struct){
 
 	// Set everything up to read
-
 	DIR* dp = opendir(file_struct->path);
 
 	if(!dp)
@@ -89,7 +85,6 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 	struct dirent *tdir;
 	
 	// Read each entry of the directory
-<<<<<<< .mine
 
 	while ((tdir=readdir(dp))!=NULL) {
 
@@ -119,38 +114,6 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 
 		// If it is a directory or a .nds file:
 		if(S_ISDIR(fstat.st_mode) || TYPE_FILTER(filename)){
-=======
-
-	while ((tdir=readdir(dp))!=NULL) {
-
-		// Skip if it's the '.' folder (that does us no good)
-		if(strcmp(tdir->d_name, ".") == 0)
-			continue;
-		
-		u32 tdirNameLen = strlen(tdir->d_name);
-
-		if(MAXPATHLEN - pathLen - tdirNameLen <= 0){
-			continue; // TOO LONG!
-			// Print an error?
-		}
-		
-		char filename[MAXPATHLEN];
-		char div = '/';
-		memset(filename, 0, MAXPATHLEN);
-		
-		// We have to pass the entire filepath to the stat function
-		strncat(filename, file_struct->path, pathLen);
-		// Add in the divider
-		strncat(filename, &div, 1);
-		// ...And the name
-		strncat(filename, tdir->d_name, tdirNameLen);
-		
-		stat(filename,&fstat);
-
-		// If it is a directory or a .nds file:
-		if(S_ISDIR(fstat.st_mode) || TYPE_FILTER(filename))
-		{
->>>>>>> .r231
 			// Make sure we have room for this one
 			if(i == num_entries) {
 				dir_ent *new_dir;
@@ -166,53 +129,22 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 			dir[i].attr = fstat.st_mode;
 			++i;
 		}
-		
-		
+	
 	}
 
-<<<<<<< .mine
 	closedir(dp);
 	
 	int index = 0;
 
-=======
-	closedir(dp);
-	
->>>>>>> .r231
 	u8 page = 0, start, limit;
 	u8 draw = 1;
 
 	clear_console();
-<<<<<<< .mine
-	
 	
 	//
 	//
 	//--DCN: This is so I don't have to do this every time I test
 	/*
-=======
-	
-	
-	//
-	//
-	//--DCN: This is so I don't have to do this every time I test
-	/*
-	{
-		index++;
-		//
-		sprintf(file_struct->path, "%s/%s", file_struct->path, dir[index].name);
-		free(dir);
-		return BROWSER_FILE_SELECTED;
-	}
-	//*/
-	//
-	//
-	//
-	
-	
-	
-	while(1)
->>>>>>> .r231
 	{
 		index++;
 		//
@@ -229,11 +161,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 	while(1){
 		PAD_ScanPads();
 		WPAD_ScanPads();
-<<<<<<< .mine
 
-=======
-		
->>>>>>> .r231
 		if((WPAD_ButtonsHeld(0) & WPAD_BUTTON_HOME) || (PAD_ButtonsHeld(0) & PAD_TRIGGER_Z)) 
 			return BROWSER_CANCELED;
 
@@ -277,7 +205,7 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 
 		/*if(GetInput(B, B, B)) 
 		{
-				return BROWSER_CANCELED;
+			return BROWSER_CANCELED;
 		}*/
 
 		if(draw){
@@ -295,8 +223,8 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 			printf("\tbrowsing %s\n\n", file_struct->path);
 			
 			for(int temp = start; temp < limit; temp++){
-					printf("\x1b[%um", (index == temp) ? 32 : 37);
-					printf("\t%s\t%s\n", (dir[temp].attr & S_IFDIR) ? "DIR" : "   ", dir[temp].name);
+				printf("\x1b[%um", (index == temp) ? 32 : 37);
+				printf("\t%s\t%s\n", (dir[temp].attr & S_IFDIR) ? "DIR" : "   ", dir[temp].name);
 			}
 
 			printf("\x1b[37m");
@@ -308,27 +236,27 @@ static ret_action textFileBrowser(file_browser_st *file_struct){
 
 int FileBrowser( char *dir ) {
 
-        file_browser_st game_filename;
-        strcpy(game_filename.title, "Welcome to DeSmuME Wii!\n\nWARNING! If you paid for this software, you have been scammed!");
+	file_browser_st game_filename;
+	strcpy(game_filename.title, "Welcome to DeSmuME Wii!\n\nWARNING! If you paid for this software, you have been scammed!");
 
-        sprintf(game_filename.path, "%s", dir);
+	sprintf(game_filename.path, "%s", dir);
 
-        int ret = textFileBrowser(&game_filename);
+	int ret = textFileBrowser(&game_filename);
 
-        if(ret == BROWSER_FILE_NOT_FOUND){
-                browse_back(game_filename.path);
-                browse_back(game_filename.path);        // move to the root if no DS/ROMS folder found
-                ret = textFileBrowser(&game_filename);
-        }
-        
-        while(ret == BROWSER_CHANGE_FOLDER) {
-                ret = textFileBrowser(&game_filename);
-        }
-        
-        if (ret == BROWSER_FILE_SELECTED) {
-                strcpy(dir, game_filename.path);
-        }
+	if(ret == BROWSER_FILE_NOT_FOUND){
+		browse_back(game_filename.path);
+		browse_back(game_filename.path);	// move to the root if no DS/ROMS folder found
+		ret = textFileBrowser(&game_filename);
+	}
+	
+	while(ret == BROWSER_CHANGE_FOLDER) {
+		ret = textFileBrowser(&game_filename);
+	}
+	
+	if (ret == BROWSER_FILE_SELECTED) {
+		strcpy(dir, game_filename.path);
+	}
 
-        clear_console();
-        return ret;
+	clear_console();
+	return ret;
 }

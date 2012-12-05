@@ -1,6 +1,6 @@
 /*  Copyright (C) 2006 yopyop
     Copyright 2008 CrazyMax
-	Copyright 2008-2010 DeSmuME team
+	Copyright 2008-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -28,11 +28,6 @@
 #include "armcpu.h"
 #include <string.h>
 #include "saves.h"
-#ifdef WIN32
-#include "windows/main.h"
-#endif
-#include "movie.h"
-
 
 typedef struct
 {
@@ -96,10 +91,10 @@ static inline u8 toBCD(u8 x)
 }
 
 
+
 static void rtcRecv()
 {
 	//INFO("RTC Read command 0x%02X\n", (rtc.cmd >> 1));
-
 	memset(&rtc.data[0], 0, sizeof(rtc.data));
 	switch (rtc.cmd >> 1)
 	{
@@ -310,11 +305,7 @@ void rtcWrite(u16 val)
 			if( (rtc._prevSCK) && (!rtc._SCK) )
 			{
 				rtc._REG = val;
-<<<<<<< .mine
-				if(rtc.data[(rtc.bitsCount >> 3)] >> (rtc.bitsCount & 0x07) & 0x01) 
-=======
 				if((rtc.data[(rtc.bitsCount >> 3)] >> (rtc.bitsCount & 0x07)) & 0x01) 
->>>>>>> .r231
 					rtc._REG |= 0x01;
 				else
 					rtc._REG &= ~0x01;

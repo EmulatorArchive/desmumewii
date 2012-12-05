@@ -24,27 +24,16 @@
 #include <gctypes.h>
 #include <gccore.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "common.h"
 #include "types.h"
-#include "debug.h"
 #include "render3D.h"
 #include "MMU.h"
 #include "bits.h"
-#include "matrix.h"
 
 //------------------------------------------------------------
 // ------------ GX-specfic Texture Manager ------------------
 //------------------------------------------------------------
-
-//  (Special thanks to the fine people at gl2gx!)
-
-#define MAX_MIP_LEVEL 10
-
-// Defines the initial number of gxTex slots.  
-// If more are needed then the memory will be realloc-ed
-#define NUM_INIT_TEXTURES 128
 
 class TexManager{
 

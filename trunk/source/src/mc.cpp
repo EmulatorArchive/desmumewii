@@ -1,7 +1,7 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006-2007 Theo Berkau
-	Copyright (C) 2008-2010 DeSmuME team
-	Copyright (C) 2012 DeSmuMEWii team
+    Copyright (C) 2008-2009 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
 
@@ -52,10 +52,10 @@
 #define BM_CMD_READHIGH         0x0B
 
 /* FLASH*/
-#define COMM_PAGE_WRITE		0x0A
-#define COMM_PAGE_ERASE		0xDB
-#define COMM_SECTOR_ERASE	0xD8
-#define COMM_CHIP_ERASE		0xC7
+#define COMM_PAGE_WRITE				0x0A
+#define COMM_PAGE_ERASE				0xDB
+#define COMM_SECTOR_ERASE			0xD8
+#define COMM_CHIP_ERASE				0xC7
 #define CARDFLASH_READ_BYTES_FAST	0x0B    /* Not used*/
 #define CARDFLASH_DEEP_POWDOWN		0xB9    /* Not used*/
 #define CARDFLASH_WAKEUP			0xAB    /* Not used*/
@@ -80,12 +80,12 @@ static const u32 saveSizes_count = ARRAY_SIZE(saveSizes);
 
 //the lookup table from user save types to save parameters
 static const int save_types[7][2] = {
-        {MC_TYPE_AUTODETECT,1},
-        {MC_TYPE_EEPROM1,MC_SIZE_4KBITS},
-        {MC_TYPE_EEPROM2,MC_SIZE_64KBITS},
-        {MC_TYPE_EEPROM2,MC_SIZE_512KBITS},
-        {MC_TYPE_FRAM,MC_SIZE_256KBITS},
-        {MC_TYPE_FLASH,MC_SIZE_2MBITS},
+		{MC_TYPE_AUTODETECT,1},
+		{MC_TYPE_EEPROM1,MC_SIZE_4KBITS},
+		{MC_TYPE_EEPROM2,MC_SIZE_64KBITS},
+		{MC_TYPE_EEPROM2,MC_SIZE_512KBITS},
+		{MC_TYPE_FRAM,MC_SIZE_256KBITS},
+		{MC_TYPE_FLASH,MC_SIZE_2MBITS},
 		{MC_TYPE_FLASH,MC_SIZE_4MBITS}
 };
 
@@ -96,30 +96,30 @@ void backup_setManualBackupType(int type)
 
 void mc_init(memory_chip_t *mc, int type)
 {
-        mc->com = 0;
-        mc->addr = 0;
-        mc->addr_shift = 0;
-        mc->data = NULL;
-        mc->size = 0;
-        mc->write_enable = FALSE;
-        mc->writeable_buffer = FALSE;
-        mc->type = type;
-        mc->autodetectsize = 0;
-                               
-        switch(mc->type)
-        {
-           case MC_TYPE_EEPROM1:
-              mc->addr_size = 1;
-              break;
-           case MC_TYPE_EEPROM2:
-           case MC_TYPE_FRAM:
-              mc->addr_size = 2;
-              break;
-           case MC_TYPE_FLASH:
-              mc->addr_size = 3;
-              break;
-           default: break;
-        }
+	mc->com = 0;
+	mc->addr = 0;
+	mc->addr_shift = 0;
+	mc->data = NULL;
+	mc->size = 0;
+	mc->write_enable = FALSE;
+	mc->writeable_buffer = FALSE;
+	mc->type = type;
+	mc->autodetectsize = 0;
+
+	switch(mc->type)
+	{
+		case MC_TYPE_EEPROM1:
+			mc->addr_size = 1;
+			break;
+		case MC_TYPE_EEPROM2:
+		case MC_TYPE_FRAM:
+			mc->addr_size = 2;
+			break;
+		case MC_TYPE_FLASH:
+			mc->addr_size = 3;
+			break;
+		default: break;
+	}
 }
 
 u8 *mc_alloc(memory_chip_t *mc, u32 size)
@@ -127,7 +127,7 @@ u8 *mc_alloc(memory_chip_t *mc, u32 size)
 	u8 *buffer = new u8[size];
 	memset(buffer,0,size);
 
-	if (mc->data) delete [] mc->data;
+	delete [] mc->data;
 	mc->data = buffer;
 	if(!buffer) { return NULL; }
 	mc->size = size;
@@ -178,7 +178,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 						mc->addr++;      /* then increment address */
 					}
 					break;
-					
+
 				case FW_CMD_PAGEWRITE:
 					if(mc->addr < mc->size)
 					{
@@ -187,7 +187,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 					}
 					break;
 			}
-			
+
 		}
 	}
 	else if(mc->com == FW_CMD_READSTATUS)
@@ -219,7 +219,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 	{
 		switch(data)
 		{
-			case 0: break;	//nothing
+			case 0: break;	// nothing
 
 			case FW_CMD_READ_ID:
 				mc->addr = 0;
@@ -232,15 +232,15 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 				mc->com = FW_CMD_READ;
 				break;
 				
-			case FW_CMD_WRITEENABLE:     //enable writing
+			case FW_CMD_WRITEENABLE:     // enable writing
 				if(mc->writeable_buffer) { mc->write_enable = TRUE; }
 				break;
 				
-			case FW_CMD_WRITEDISABLE:    //disable writing
+			case FW_CMD_WRITEDISABLE:    // disable writing
 				mc->write_enable = FALSE;
 				break;
 				
-			case FW_CMD_PAGEWRITE:       //write command
+			case FW_CMD_PAGEWRITE:       // write command
 				if(mc->write_enable)
 				{
 					mc->addr = 0;
@@ -261,7 +261,7 @@ u8 fw_transfer(memory_chip_t *mc, u8 data)
 	}
 	
 	return data;
-}	
+}
 
 bool BackupDevice::save_state(EMUFILE* os)
 {
@@ -277,12 +277,6 @@ bool BackupDevice::save_state(EMUFILE* os)
 	writebuffer(data_autodetect,os);
 	//v1
 	write32le(addr,os);
-	/*
-	//MOTION CONTROLS
-	//v2
-	write8le(motionInitState,os);
-	write8le(motionFlag,os);
-	//*/
 	return true;
 }
 
@@ -290,8 +284,7 @@ bool BackupDevice::load_state(EMUFILE* is)
 {
 	u32 version;
 	if(read32le(&version,is)!=1) return false;
-	if(version>=0)
-	{
+	if(version>=0){
 		readbool(&write_enable,is);
 		read32le(&com,is);
 		read32le(&addr_size,is);
@@ -304,14 +297,7 @@ bool BackupDevice::load_state(EMUFILE* is)
 	}
 	if(version>=1)
 		read32le(&addr,is);
-	/*
-	//MOTION CONTROLS
-	if(version>=2)
-	{
-		read8le(&motionInitState,is);
-		read8le(&motionFlag,is);
-	}
-	//*/
+
 
 	return true;
 }
@@ -338,19 +324,15 @@ void BackupDevice::movie_mode()
 
 void BackupDevice::reset()
 {
-	write_enable = FALSE;
 	com = 0;
 	addr = addr_counter = 0;
-	/*
-	//MOTION CONTROLS
-	motionInitState = MOTION_INIT_STATE_IDLE;
-	motionFlag = MOTION_FLAG_NONE;
-	//*/
-	state = DETECTING;
 	flushPending = false;
 	lazyFlushPending = false;
 	data.resize(0);
+	write_enable = FALSE;
 	data_autodetect.resize(0);
+
+	state = DETECTING;
 	addr_size = 0;
 	loadfile();
 
@@ -374,7 +356,6 @@ void BackupDevice::close_rom()
 
 void BackupDevice::reset_command()
 {
-	//printf("MC RESET\n");
 	//for a performance hack, save files are only flushed after each reset command
 	//(hopefully, after each page)
 	if(flushPending)
@@ -399,32 +380,34 @@ void BackupDevice::reset_command()
 		else //detect based on rules
 			switch(autodetect_size)
 			{
-			case 0:
-			case 1:
-				printf("Catastrophic error while autodetecting save type.\nIt will need to be specified manually\n");
-
-				addr_size = 1; //choose 1 just to keep the busted savefile from growing too big
-				break;
-			case 2:
-				 //the modern typical case for small eeproms
-				addr_size = 1;
-				break;
-			case 3:
-				//another modern typical case..
-				//but unfortunately we select this case for spider-man 3, when what it meant to do was
-				//present the archaic 1+2 case
-				//it seems that over the hedge does this also.
-				addr_size = 2;
-				break;
-			case 4:
-				//a modern typical case
-				addr_size = 3;
-				break;
-			default:
-				//the archaic case: write the address and then some modulo-4 number of bytes
-				//why modulo 4? who knows.
-				addr_size = autodetect_size & 3;
-				break;
+				case 0:
+				case 1:
+					printf("Catastrophic error while autodetecting save type.\nIt will need to be specified manually\n");
+					#ifdef _MSC_VER
+					MessageBox(0,"Catastrophic Error Code: Camel;\nyour save type has not been autodetected correctly;\nplease report to developers",0,0);
+					#endif
+					addr_size = 1; //choose 1 just to keep the busted savefile from growing too big
+					break;
+				case 2:
+					//the modern typical case for small eeproms
+					addr_size = 1;
+					break;
+				case 3:
+					//another modern typical case..
+					//but unfortunately we select this case for spider-man 3, when what it meant to do was
+					//present the archaic 1+2 case
+					//it seems that over the hedge does this also.
+					addr_size = 2;
+					break;
+				case 4:
+					//a modern typical case
+					addr_size = 3;
+					break;
+				default:
+					//the archaic case: write the address and then some modulo-4 number of bytes
+					//why modulo 4? who knows.
+					addr_size = autodetect_size & 3;
+					break;
 			}
 
 		state = RUNNING;
@@ -436,24 +419,6 @@ void BackupDevice::reset_command()
 }
 u8 BackupDevice::data_command(u8 val, int cpu)
 {
-	/*
-	//MOTION CONTROLS
-	//motion: some guessing here... hope it doesn't break anything
-	if(com == BM_CMD_READLOW && motionInitState == MOTION_INIT_STATE_RECEIVED_4_B && val == 0)
-	{
-		motionInitState = MOTION_INIT_STATE_IDLE;
-		motionFlag |= MOTION_FLAG_ENABLED;
-		//return 0x04; //return 0x04 to enable motion!!!!!
-		return 0; //but we return 0 to disable it! since we don't emulate it anyway
-	}
-
-	//if the game firmly believes we have motion support, then ignore all motion commands, since theyre not emulated.
-	if(motionFlag & MOTION_FLAG_SENSORMODE)
-	{
-		return 0;
-	}
-	//*/
-
 	if(com == BM_CMD_READLOW || com == BM_CMD_WRITELOW)
 	{
 		//handle data or address
@@ -482,7 +447,7 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 			{
 				//why does tomb raider underworld access 0x180 and go clear through to 0x280?
 				//should this wrap around at 0 or at 0x100?
-				if(addr_size == 1) addr &= 0x1FF; 
+				if(addr_size == 1) addr &= 0x1FF;
 
 				//address is complete
 				ensure(addr+1);
@@ -504,7 +469,6 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 					}
 				}
 				addr++;
-
 			}
 		}
 	}
@@ -520,50 +484,13 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 		switch(val)
 		{
 			case 0: break; //??
-			/*
-			//MOTION CONTROLS
-			case 0xFE:
-				if(motionInitState == MOTION_INIT_STATE_IDLE) { motionInitState = MOTION_INIT_STATE_FE; return 0; }
-				break;
-			case 0xFD:
-				if(motionInitState == MOTION_INIT_STATE_FE) { motionInitState = MOTION_INIT_STATE_FD; return 0; }
-				break;
-			case 0xFB:
-				if(motionInitState == MOTION_INIT_STATE_FD) { motionInitState = MOTION_INIT_STATE_FB; return 0; }
-				break;
-			case 0xF8:
-				//enable sensor mode
-				if(motionInitState == MOTION_INIT_STATE_FD) 
-				{
-					motionInitState = MOTION_INIT_STATE_IDLE;
-					motionFlag |= MOTION_FLAG_SENSORMODE;
-					return 0;
-				}
-				break;
-			case 0xF9:
-				//disable sensor mode
-				if(motionInitState == MOTION_INIT_STATE_FD) 
-				{
-					motionInitState = MOTION_INIT_STATE_IDLE;
-					motionFlag &= ~MOTION_FLAG_SENSORMODE;
-					return 0;
-				}
-				break;
-			//*/
+
 			case 8:
 				printf("COMMAND%c: Unverified Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
 				val = 0xAA;
 				break;
 
 			case BM_CMD_WRITEDISABLE:
-				//MOTION CONTROLS
-				/*
-				switch(motionInitState)
-				{
-					case MOTION_INIT_STATE_IDLE: motionInitState = MOTION_INIT_STATE_RECEIVED_4; break;
-					case MOTION_INIT_STATE_RECEIVED_4: motionInitState = MOTION_INIT_STATE_RECEIVED_4_B; break;
-				}
-				//*/
 				write_enable = FALSE;
 				break;
 
@@ -604,9 +531,6 @@ u8 BackupDevice::data_command(u8 val, int cpu)
 				printf("COMMAND%c: Unhandled Backup Memory command: %02X FROM %08X\n",(cpu==ARMCPU_ARM9)?'9':'7',val, (cpu==ARMCPU_ARM9)?NDS_ARM9.instruct_adr:NDS_ARM7.instruct_adr);
 				break;
 		} //switch(val)
-
-		//MOTION CONTROLS state machine broke, return to ground
-		//motionInitState = MOTION_INIT_STATE_IDLE;
 	}
 	return val;
 }
@@ -627,9 +551,9 @@ void BackupDevice::ensure(u32 addr)
 u32 BackupDevice::addr_size_for_old_save_size(int bupmem_size)
 {
 	switch(bupmem_size) {
-		case MC_SIZE_4KBITS: 
+		case MC_SIZE_4KBITS:
 			return 1;
-		case MC_SIZE_64KBITS: 
+		case MC_SIZE_64KBITS:
 		case MC_SIZE_256KBITS:
 		case MC_SIZE_512KBITS:
 			return 2;
@@ -653,7 +577,7 @@ u32 BackupDevice::addr_size_for_old_save_type(int bupmem_type)
 			return 1;
 		case MC_TYPE_EEPROM2:
 		case MC_TYPE_FRAM:
-              return 2;
+			return 2;
 		case MC_TYPE_FLASH:
 			return 3;
 		default:
@@ -679,17 +603,6 @@ void BackupDevice::load_old_state(u32 addr_size, u8* data, u32 datasize)
 
 static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 {
-<<<<<<< .mine
-        const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
-        const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
-        u8      *src = (u8 *)in_buf;
-        u8      *dst = (u8 *)out_buf;
-        u32     src_pos = 0;
-        u32     dst_pos = 0;
-        u8      cc = 0;
-        u32     size_unpacked = 0;
-        u32     compressMethod = 0;
-=======
 	const char no_GBA_HEADER_ID[] = "NocashGbaBackupMediaSavDataFile";
 	const char no_GBA_HEADER_SRAM_ID[] = "SRAM";
 	u8	*src = (u8 *)in_buf;
@@ -700,7 +613,6 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 	u32	size_unpacked = 0;
 	u32	size_packed = 0;
 	u32	compressMethod = 0;
->>>>>>> .r231
 
 	if (fsize < 0x50) return (1);
 
@@ -716,7 +628,7 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 
 	compressMethod = *((u32*)(src+0x44));
 
-	if (compressMethod == 0)				// unpacked
+	if (compressMethod == 0)	// unpacked
 	{
 		size_unpacked = *((u32*)(src+0x48));
 		src_pos = 0x4C;
@@ -728,24 +640,17 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 		return (0);
 	}
 
-<<<<<<< .mine
-        if (compressMethod == 1)                                // packed (method 1)
-        {
-                //size_packed = *((u32*)(src+0x48));
-                size_unpacked = *((u32*)(src+0x4C));
-=======
-	if (compressMethod == 1)				// packed (method 1)
+	if (compressMethod == 1)	// packed (method 1)
 	{
 		size_packed = *((u32*)(src+0x48));
 		size_unpacked = *((u32*)(src+0x4C));
->>>>>>> .r231
 
 		src_pos = 0x50;
 		while (true)
 		{
 			cc = src[src_pos++];
 			
-			if (cc == 0) 
+			if (cc == 0)
 			{
 				size = dst_pos;
 				return (0);
@@ -759,7 +664,7 @@ static int no_gba_unpackSAV(void *in_buf, u32 fsize, void *out_buf, u32 &size)
 				src_pos += 3;
 				continue;
 			}
-
+			
 			else if (cc > 0x80)		// repeat
 			{
 				cc -= 0x80;
@@ -782,7 +687,7 @@ static u32 no_gba_savTrim(void *buf, u32 size)
 {
 	u32 rows = size / 16;
 	u32 pos = (size - 16);
-	u8	*src = (u8*)buf;
+	u8 *src = (u8*)buf;
 
 	for (unsigned int i = 0; i < rows; i++, pos -= 16)
 	{
@@ -896,7 +801,7 @@ void BackupDevice::loadfile()
 	if(inf->fail())
 	{
 		delete inf;
-		//no dsv found; we need to try auto-importing a file with .sav extension 
+		//no dsv found; we need to try auto-importing a file with .sav extension
 		printf("DeSmuME .dsv save file not found. Trying to load an old raw .sav file.\n");
 		
 		//change extension to sav
@@ -1040,17 +945,16 @@ void BackupDevice::flush()
 	else
 	{
 		delete outf;
-		printf("Unable to open savefile %s\n",filename.c_str());
+		printf("Unable to open savefile %s\n", filename.c_str());
 	}
 }
 
 void BackupDevice::raw_applyUserSettings(u32& size)
 {
 	//respect the user's choice of backup memory type
-	if(CommonSettings.manualBackupType == MC_TYPE_AUTODETECT)
-	{
+	if(CommonSettings.manualBackupType == MC_TYPE_AUTODETECT){
 		addr_size = addr_size_for_old_save_size(size);
-		data.resize(size);
+
 	}
 	else
 	{
@@ -1058,7 +962,6 @@ void BackupDevice::raw_applyUserSettings(u32& size)
 		int savesize = save_types[CommonSettings.manualBackupType][1];
 		addr_size = addr_size_for_old_save_type(savetype);
 		if((u32)savesize<size) size = savesize;
-		data.resize(savesize);
 	}
 
 	state = RUNNING;
@@ -1074,6 +977,7 @@ bool BackupDevice::load_raw(const char* filename)
 
 	raw_applyUserSettings(size);
 
+	data.resize(size);
 	fread(&data[0],1,size,inf);
 	fclose(inf);
 
@@ -1086,40 +990,40 @@ bool BackupDevice::load_raw(const char* filename)
 
 bool BackupDevice::load_duc(const char* filename)
 {
-  u32 size;
-   char id[16];
-   FILE* file = fopen(filename, "rb");
-   if(file == NULL)
-      return false;
+	u32 size;
+	char id[16];
+	FILE* file = fopen(filename, "rb");
+	if(file == NULL)
+		return false;
 
-   fseek(file, 0, SEEK_END);
-   size = (u32)ftell(file) - 500;
-   fseek(file, 0, SEEK_SET);
+	fseek(file, 0, SEEK_END);
+	size = (u32)ftell(file) - 500;
+	fseek(file, 0, SEEK_SET);
+	
+	// Make sure we really have the right file
+	fread((void *)id, sizeof(char), 16, file);
 
-   // Make sure we really have the right file
-   fread((void *)id, sizeof(char), 16, file);
-
-   if (memcmp(id, "ARDS000000000001", 16) != 0)
-   {
-	   printf("Not recognized as a valid DUC file\n");
-      fclose(file);
-      return false;
-   }
-   // Skip the rest of the header since we don't need it
-   fseek(file, 500, SEEK_SET);
-
-   raw_applyUserSettings(size);
-
-   ensure((u32)size);
-
-   fread(&data[0],1,size,file);
-   fclose(file);
-
-   //choose
-
-   flush();
-
-   return true;
+	if (memcmp(id, "ARDS000000000001", 16) != 0)
+	{
+		printf("Not recognized as a valid DUC file\n");
+		fclose(file);
+		return false;
+	}
+	// Skip the rest of the header since we don't need it
+	fseek(file, 500, SEEK_SET);
+	
+	raw_applyUserSettings(size);
+	
+	ensure((u32)size);
+	
+	fread(&data[0],1,size,file);
+	fclose(file);
+	
+	//choose
+	
+	flush();
+	
+	return true;
 
 }
 
@@ -1159,10 +1063,4 @@ bool BackupDevice::load_movie(EMUFILE* is) {
 	//none of the other fields are used right now
 
 	return true;
-}
-
-void BackupDevice::forceManualBackupType()
-{
-	addr_size = addr_size_for_old_save_size(save_types[CommonSettings.manualBackupType][1]);
-	state = RUNNING;
 }

@@ -1,4 +1,5 @@
-/*  Copyright (C) 2012 DeSmuMEWii team
+/*
+    Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
 
@@ -16,8 +17,6 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-// Placeholder file for later
-
 //--DCN: Copied from earlier version of desmumeWii
 #include <stdio.h>
 #include <stdlib.h>

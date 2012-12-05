@@ -1,7 +1,7 @@
 /*  Copyright (C) 2006 yopyop
 	Copyright (C) 2006-2007 Theo Berkau
 	Copyright (C) 2007 shash
-	Copyright (C) 2009-2010 DeSmuME team
+	Copyright (C) 2009-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -19,19 +19,17 @@
     You should have received a copy of the GNU General Public License
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
 */
-
 #ifndef GPU_H
 #define GPU_H
 
 #include <stdio.h>
+#include <iosfwd>
 #include "mem.h"
 #include "common.h"
 #include "registers.h"
 #include "FIFO.h"
 #include "MMU.h"
-#include <iosfwd>
 
 //#undef FORCEINLINE
 //#define FORCEINLINE
@@ -697,6 +695,9 @@ struct GPU
 
 	//FIFO	fifo;
 
+	BOOL dispBG[4];
+	BOOL dispOBJ;
+
 	u8 bgPrio[5];
 
 	BOOL bg0HasHighestPrio;
@@ -779,8 +780,8 @@ struct GPU
 
 	u16 blend(u16 colA, u16 colB);
 
-	template<bool BACKDROP, BlendFunc FUNC, bool WINDOW>
-	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x);
+	template<BlendFunc FUNC, bool WINDOW>
+	FORCEINLINE FASTCALL bool _master_setFinalBGColor(u16 &color, const u32 x, bool);
 
 	template<BlendFunc FUNC, bool WINDOW>
 	FORCEINLINE FASTCALL void _master_setFinal3dColor(int l, int i16);
@@ -809,8 +810,9 @@ struct GPU
 	}
 
 
-	void setFinalColor3d(int dstX, int srcX);
-
+	void setFinalColor3d(int l, int i16);
+	void setFinalColorSpr(u16 color, u8 alpha, u8 type, u16 x);
+	
 	template<bool BACKDROP, int FUNCNUM> void setFinalColorBG(u16 color, const u32 x);
 	template<bool MOSAIC, bool BACKDROP> FORCEINLINE void __setFinalColorBck(u16 color, const u32 x, const int opaque);
 	template<bool MOSAIC, bool BACKDROP, int FUNCNUM> FORCEINLINE void ___setFinalColorBck(u16 color, const u32 x, const int opaque);
@@ -850,9 +852,6 @@ struct GPU
 		updateBLDALPHA();
 	}
 
-	u32 getHOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxHOFS,0) & 0x1FF; }
-	u32 getVOFS(int bg) { return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxVOFS,0) & 0x1FF; }
-
 	typedef u8 TBlendTable[32][32];
 	TBlendTable *blendTable;
 
@@ -861,6 +860,14 @@ struct GPU
 		blendTable = (TBlendTable*)&gpuBlendTable555[BLDALPHA_EVA][BLDALPHA_EVB][0][0];
 	}
 	
+	typedef bool ( GPU::*FinalBGColor_ptr)(u16 &, u32, bool);
+	static FinalBGColor_ptr FinalBGColor_lut [8];
+	
+	typedef void ( GPU::*Final3dColor_ptr)(int, int);
+	static Final3dColor_ptr Final3dColor_lut [8];
+
+	typedef void ( GPU::*FinalColorSpr_ptr)(u16, u8, u8, u16);
+	static FinalColorSpr_ptr FinalColorSpr_lut [8];
 };
 #if 0
 // normally should have same addresses
@@ -995,16 +1002,10 @@ void SetupFinalPixelBlitter (GPU *gpu);
 
 
 
-#define GPU_setBLDY_EVY(gpu, val) {gpu->BLDY_EVY = ((val)&0x1f) > 16 ? 16 : ((val)&0x1f);}
+#define GPU_setBLDY_EVY(gpu, val) {gpu->BLDY_EVY = (val&0x1f) > 16 ? 16 : (val&0x1f);}
 
-<<<<<<< .mine
-#define GPU_setBGxHOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxHOFS = ((val) & 0x1F)
-#define GPU_setBGxVOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxVOFS = ((val) & 0x1F)
-=======
-//these arent needed right now since the values get poked into memory via default mmu handling and dispx_st
-//#define GPU_setBGxHOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxHOFS = ((val) & 0x1FF)
-//#define GPU_setBGxVOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxVOFS = ((val) & 0x1FF)
->>>>>>> .r231
+#define GPU_setBGxHOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxHOFS = (val & 0x1F)
+#define GPU_setBGxVOFS(bg, gpu, val) gpu->dispx_st->dispx_BGxOFS[bg].BGxVOFS = (val & 0x1F)
 
 // render
 void gpu_UpdateRender();

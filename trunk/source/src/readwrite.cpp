@@ -1,4 +1,4 @@
-/*  
+/*
     Copyright (C) 2006-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 

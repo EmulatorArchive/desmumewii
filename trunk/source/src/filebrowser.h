@@ -1,4 +1,4 @@
-/*  Copyright (C) 2010 DeSmuMEWii Team
+/*  Copyright (C) 2010 DeSmuME Team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -17,6 +17,7 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 #ifndef FILEBROWSER_H
 #define FILEBROWSER_H
 

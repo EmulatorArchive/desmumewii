@@ -1,23 +1,27 @@
-/*
-    Copyright (C) 2008 dhewg
-    Copyright (C) 2012 DeSmuMEWii team
-
-    This file is part of DeSmuMEWii
-
-    DeSmuMEWii is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    DeSmuMEWii is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with DeSmuMEWii; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+/*-------------------------------------------------------------
+ 
+Copyright (C) 2008 dhewg
+ 
+This software is provided 'as-is', without any express or implied
+warranty. In no event will the authors be held liable for any
+damages arising from the use of this software.
+ 
+Permission is granted to anyone to use this software for any
+purpose, including commercial applications, and to alter it and
+redistribute it freely, subject to the following restrictions:
+ 
+1. The origin of this software must not be misrepresented; you
+must not claim that you wrote the original software. If you use
+this software in a product, an acknowledgment in the product
+documentation would be appreciated but is not required.
+ 
+2. Altered source versions must be plainly marked as such, and
+must not be misrepresented as being the original software.
+ 
+3. This notice may not be removed or altered from any source
+distribution.
+ 
+-------------------------------------------------------------*/
  
 #include <sys/iosupport.h>
 #include <reent.h>
@@ -61,26 +65,26 @@ static int __out_write(struct _reent *r, int fd, const char *ptr, size_t len) {
 }
  
 const devoptab_t dot_out = {
-"stdout", // device name
-0, // size of file structure
-NULL, // device open
-NULL, // device close
-__out_write,// device write
-NULL, // device read
-NULL, // device seek
-NULL, // device fstat
-NULL, // device stat
-NULL, // device link
-NULL, // device unlink
-NULL, // device chdir
-NULL, // device rename
-NULL, // device mkdir
-0, // dirStateSize
-NULL, // device diropen_r
-NULL, // device dirreset_r
-NULL, // device dirnext_r
-NULL, // device dirclose_r
-NULL // device statvfs_r
+	"stdout",    // device name
+	0,           // size of file structure
+	NULL,        // device open
+	NULL,        // device close
+	__out_write, // device write
+	NULL,        // device read
+	NULL,        // device seek
+	NULL,        // device fstat
+	NULL,        // device stat
+	NULL,        // device link
+	NULL,        // device unlink
+	NULL,        // device chdir
+	NULL,        // device rename
+	NULL,        // device mkdir
+	0,           // dirStateSize
+	NULL,        // device diropen_r
+	NULL,        // device dirreset_r
+	NULL,        // device dirnext_r
+	NULL,        // device dirclose_r
+	NULL         // device statvfs_r
 };
  
 void log_console_init(GXRModeObj *vmode, u16 logsize, u16 x, u16 y, u16 w, u16 h)
@@ -175,10 +179,9 @@ void log_console_enable_video(bool enable) {
 		return;
 
 	struct _reent *r = _REENT;
-	u16 l; 
 
 	for (u16 i = 0; i < log_size; ++i) {
-		l = (log_next + 1 + i) % log_size;
+		u16 l = (log_next + 1 + i) % log_size;
 		if (log[l]) {
 			dot_video->write_r(r, 0, log[l], strlen(log[l]));
 			free(log[l]);
