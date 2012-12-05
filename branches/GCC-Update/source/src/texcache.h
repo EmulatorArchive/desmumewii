@@ -45,7 +45,10 @@ public:
 		, cacheFormat(TexFormat_None)
 	{}
 	~TexCacheItem() {
-		free(decoded);
+		if(decoded){
+			free(decoded);
+			decoded = NULL;
+		}
 		if(deleteCallback) deleteCallback(this);
 	}
 	u32 decode_len;

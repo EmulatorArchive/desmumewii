@@ -40,7 +40,6 @@
 #include "readwrite.h"
 #include "armcpu.h"
 #include "NDSSystem.h"
-#include "matrix.h"
 
 #include "metaspu/metaspu.h"
 

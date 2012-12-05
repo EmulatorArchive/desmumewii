@@ -26,8 +26,9 @@
 #include <iosfwd>
 #include <string>
 #include <assert.h>
+#include <math.h>
 #include "types.h"
-#include "matrix.h"
+#include "mem.h"
 #include "emufile.h"
 
 
@@ -36,6 +37,31 @@
 
 #define CHANSTAT_STOPPED          0
 #define CHANSTAT_PLAY             1
+
+
+//--MOVED from Matrix.h
+//these functions are an unreliable, inaccurate floor.
+//it should only be used for positive numbers
+//this isnt as fast as it could be if we used a visual c++ intrinsic, but those appear not to be universally available
+FORCEINLINE u32 u32floor(float f){
+	return (u32)f;
+}
+FORCEINLINE u32 u32floor(double d){
+	return (u32)d;
+}
+
+//same as above but works for negative values too.
+//be sure that the results are the same thing as floorf!
+FORCEINLINE s32 s32floor(float f){
+	return (s32)floorf(f);
+}
+
+
+template<int NUM>
+static FORCEINLINE void memset_u16_le(void* dst, u16 val){
+	for(int i=0;i<NUM;i++)
+		T1WriteWord((u8*)dst,i<<1,val);
+}
 
 static FORCEINLINE u32 sputrunc(float f) { return u32floor(f); }
 static FORCEINLINE u32 sputrunc(double d) { return u32floor(d); }
