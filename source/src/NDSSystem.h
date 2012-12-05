@@ -1,5 +1,5 @@
 /*  Copyright (C) 2006 yopyop
-    Copyright (C) 2008-2010 DeSmuME team
+    Copyright (C) 2008-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -18,7 +18,6 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
 #ifndef NDSSYSTEM_H
 #define NDSSYSTEM_H
 
@@ -293,7 +292,7 @@ struct GameInfo
 	u32 crc;
 	NDS_header header;
 	char ROMserial[20];
-	//char ROMfullName[7][0x100];
+	char ROMfullName[7][0x100];
 	void populate();
 	char* romdata;
 	int romsize;
@@ -389,7 +388,6 @@ void nds_savestate(EMUFILE* os);
 bool nds_loadstate(EMUFILE* is, int size);
 
 void NDS_Sleep();
-void NDS_ToggleCardEject();
 
 void NDS_SkipNextFrame();
 #define NDS_SkipFrame(s) if(s) NDS_SkipNext2DFrame();
@@ -401,17 +399,54 @@ template<bool FORCE> void NDS_exec(s32 nb = 560190<<1);
 
 extern int lagframecounter;
 
+static INLINE void NDS_ARM9HBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x10)
+    {
+         //MMU.reg_IF[0] |= 2;// & (MMU.reg_IME[0] << 1);// (MMU.reg_IE[0] & (1<<1));
+		setIF(0, 2);
+    }
+}
+
+static INLINE void NDS_ARM7HBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x10)
+    {
+        // MMU.reg_IF[1] |= 2;// & (MMU.reg_IME[1] << 1);// (MMU.reg_IE[1] & (1<<1));
+		setIF(1, 2);
+    }
+}
+
+static INLINE void NDS_ARM9VBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8)
+    {
+        // MMU.reg_IF[0] |= 1;// & (MMU.reg_IME[0]);// (MMU.reg_IE[0] & 1);
+		setIF(0, 1);
+              //emu_halt();
+              /*logcount++;*/
+    }
+}
+
+static INLINE void NDS_ARM7VBlankInt(void)
+{
+    if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8)
+        // MMU.reg_IF[1] |= 1;// & (MMU.reg_IME[1]);// (MMU.reg_IE[1] & 1);
+		setIF(1, 1);
+         //emu_halt();
+}
 
 void NDS_swapScreen(void);
 
 int NDS_WriteBMP_32bppBuffer(int width, int height, const void* buf, const char *filename);
+
+
 
 extern struct TCommonSettings {
 	TCommonSettings() 
 		: GFX3D_HighResolutionInterpolateColor(true)
 		, GFX3D_EdgeMark(true)
 		, GFX3D_Fog(true)
-		, GFX3D_Texture(true)
 		, UseExtBIOS(false)
 		, SWIFromBIOS(false)
 		, PatchSWI3(false)
@@ -434,7 +469,6 @@ extern struct TCommonSettings {
 		strcpy(Firmware, "firmware.bin");
 		NDS_FillDefaultFirmwareConfigData(&InternalFirmConf);
 
-		// WIFI mode: adhoc = 0, infrastructure = 1
 		wifi.mode = 0;
 		wifi.infraBridgeAdapter = 0;
 
@@ -448,7 +482,6 @@ extern struct TCommonSettings {
 	bool GFX3D_HighResolutionInterpolateColor;
 	bool GFX3D_EdgeMark;
 	bool GFX3D_Fog;
-	bool GFX3D_Texture;
 
 	bool UseExtBIOS;
 	char ARM9BIOS[256];

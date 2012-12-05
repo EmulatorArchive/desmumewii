@@ -17,6 +17,7 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 //Need to convert INFO's into gecko printf()s
 
 #include "firmware.h"
@@ -860,7 +861,7 @@ void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config) {
 	// default to English
 	fw_config->language = 1;
 
-	// default touchscreen calibration 
+	// default touchscreen calibration
 	fw_config->touch_cal[0].adc_x = 0x200;
 	fw_config->touch_cal[0].adc_y = 0x200;
 	fw_config->touch_cal[0].screen_x = 0x20 + 1; // calibration screen coords are 1-based,

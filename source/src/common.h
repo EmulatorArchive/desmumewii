@@ -1,5 +1,6 @@
 /*  Copyright (C) 2006 yopyop
-    Copyright (C) 2006-2010 DeSmuME team
+    Copyright (C) 2006-2008 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
 

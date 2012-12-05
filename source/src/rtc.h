@@ -1,10 +1,10 @@
 /*  Copyright (C) 2006 yopyop
     Copyright 2008 CrazyMax
-	Copyright 2008-2010 DeSmuME team
+	Copyright 2008-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
-	
+
     DeSmuMEWii is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or

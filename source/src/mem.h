@@ -1,4 +1,3 @@
-
 /*  Copyright (C) 2005 Theo Berkau
 	Copyright (C) 2005-2006 Guillaume Duhamel
 	Copyright (C) 2010 DeSmuME team
@@ -27,16 +26,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "types.h"
-
-//this was originally declared in MMU.h but we suffered some organizational problems and had to remove it
-enum MMU_ACCESS_TYPE
-{
-	MMU_AT_CODE, //used for cpu prefetches
-	MMU_AT_DATA, //used for cpu read/write
-	MMU_AT_GPU, //used for gpu read/write
-	MMU_AT_DMA, //used for dma read/write (blocks access to TCM)
-	//MMU_AT_DEBUG, //used for emulator debugging functions (bypasses some debug handling)
-};
 
 /* Type 1 Memory, faster for byte (8 bits) accesses */
 
@@ -106,6 +95,7 @@ static INLINE void T1WriteByte(u8* const mem, const u32 addr, const u8 val)
 
 static INLINE void T1WriteWord(u8* const mem, const u32 addr, const u16 val)
 {
+	
 #ifdef WORDS_BIGENDIAN
    mem[addr + 1] = val >> 8;
    mem[addr] = val & 0xFF;
@@ -142,24 +132,23 @@ static INLINE u16 T2ReadWord(u8* const mem, const u32 addr)
    return *((u16 *) (mem + addr));
 }
 
-//
-//static INLINE u32 T2ReadLong(u8* const mem, const u32 addr)
-//{
-//#ifdef WORDS_BIGENDIAN
-//   return *((u16 *) (mem + addr + 2)) << 16 | *((u16 *) (mem + addr));
-//#else
-//   return *((u32 *) (mem + addr));
-//#endif
-//}
-//
-//static INLINE void T2WriteByte(u8* const mem, const u32 addr, const u8 val)
-//{
-//#ifdef WORDS_BIGENDIAN
-//   mem[addr ^ 1] = val;
-//#else
-//   mem[addr] = val;
-//#endif
-//}
+static INLINE u32 T2ReadLong(u8* const mem, const u32 addr)
+{
+#ifdef WORDS_BIGENDIAN
+   return *((u16 *) (mem + addr + 2)) << 16 | *((u16 *) (mem + addr));
+#else
+   return *((u32 *) (mem + addr));
+#endif
+}
+
+static INLINE void T2WriteByte(u8* const mem, const u32 addr, const u8 val)
+{
+#ifdef WORDS_BIGENDIAN
+   mem[addr ^ 1] = val;
+#else
+   mem[addr] = val;
+#endif
+}
 
 static INLINE void T2WriteWord(u8* const mem, const u32 addr, const u16 val)
 {

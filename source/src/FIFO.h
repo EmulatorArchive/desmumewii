@@ -78,9 +78,9 @@ extern void GFX_FIFOcnt(u32 val);
 //=================================================== Display memory FIFO
 typedef struct
 {
-	u32		buf[0x6000];			// 256x192 32K color
-	u32		head;					// head
-	u32		tail;					// tail
+	u32		buf[0x6000];	// 256x192 32K color
+	u32		head;			// head
+	u32		tail;			// tail
 } DISP_FIFO;
 
 extern DISP_FIFO disp_fifo;

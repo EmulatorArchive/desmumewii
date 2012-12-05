@@ -1,10 +1,10 @@
 /*  Copyright (C) 2006 yopyop
     Copyright (C) 2006 Theo Berkau
-    Copyright (C) 2008-2010 DeSmuME team
+    Copyright (C) 2008-2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
-	
-    Ideas borrowed from Stephane Dallongeville's SCSP core
 
+    Ideas borrowed from Stephane Dallongeville's SCSP core
+	
     This file is part of DeSmuMEWii
 
     DeSmuMEWii is free software; you can redistribute it and/or modify
@@ -125,7 +125,7 @@ int SPU_ChangeSoundCore(int coreid, int buffersize)
 {
 	int i;
 
-	delete SPU_user; SPU_user = 0;
+	delete SPU_user; SPU_user = NULL;
 
 	// Make sure the old core is freed
 	if (SNDCore)
@@ -357,9 +357,6 @@ void SPU_struct::KeyOn(int channel)
 
 	thischan.totlength = thischan.length + thischan.loopstart;
 	adjust_channel_timer(&thischan);
-
-	//printf("keyon %d totlength:%d\n",channel,thischan.totlength);
-
 
 	//LOG("Channel %d key on: vol = %d, datashift = %d, hold = %d, pan = %d, waveduty = %d, repeat = %d, format = %d, source address = %07X,"
 	//		"timer = %04X, loop start = %04X, length = %06X, MMU.ARM7_REG[0x501] = %02X\n", channel, chan->vol, chan->datashift, chan->hold, 

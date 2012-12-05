@@ -1,5 +1,5 @@
 /*  Copyright (C) 2008 Guillaume Duhamel
-	Copyright (C) 2009-2011 DeSmuME team
+	Copyright (C) 2009 DeSmuME team
     Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
@@ -134,14 +134,7 @@ void DebugStatistics::printSequencerExecutionCounters()
 void DEBUG_reset()
 {
 	DEBUG_statistics = DebugStatistics();
-<<<<<<< .mine
-	//printf("DEBUG_reset: %08X\n",&DebugStatistics::print); //force a reference to this function
-=======
-	// This won't print anything:
-	//printf("DEBUG_reset: %08X\n",&DebugStatistics::print); //force a reference to this function
-	// THIS will:
-	//DEBUG_statistics.print();
->>>>>>> .r231
+	printf("DEBUG_reset: %08X\n",&DebugStatistics::print); //force a reference to this function
 }
 
 static void defaultCallback(const Logger& logger, const char * message) {

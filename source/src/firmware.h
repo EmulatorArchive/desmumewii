@@ -17,6 +17,7 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 #ifndef _FIRMWARE_H_
 #define _FIRMWARE_H_
 #include "common.h"
@@ -80,7 +81,6 @@ public:
 int copy_firmware_user_data( u8 *dest_buffer, const u8 *fw_data);
 int NDS_CreateDummyFirmware( struct NDS_fw_config_data *user_settings);
 void NDS_FillDefaultFirmwareConfigData( struct NDS_fw_config_data *fw_config);
-
 
 #endif
 

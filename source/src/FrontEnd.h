@@ -1,4 +1,5 @@
-/*  Copyright (C) 2012 DeSmuMEWii team
+/*
+    Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
 
@@ -16,23 +17,22 @@
     along with DeSmuMEWii; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
 //--DCN: Copied from earlier version of desmumeWii
 #ifndef FRONTEND
 #define FRONTEND
 
-  u16 arm9_gdb_port;
-  u16 arm7_gdb_port;
+u16 arm9_gdb_port;
+u16 arm7_gdb_port;
 
-  int enable_sound;
-  int disable_limiter;
-  int cpu_ratio;
-  int lang;
-  int showfps = 0;
-  int vertical = 1;
-  int frameskip;
-  const char *nds_file;
-  const char *cflash_disk_image_file;
+int enable_sound;
+int disable_limiter;
+int cpu_ratio;
+int lang;
+int showfps = 0;
+int vertical = 1;
+int frameskip;
+const char *nds_file;
+const char *cflash_disk_image_file;
 
 
 // Screen layout/scale etc...

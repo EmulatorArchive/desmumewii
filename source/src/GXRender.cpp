@@ -19,23 +19,14 @@
 */
 
 #include <queue>
-#include <gctypes.h>
-#include <gccore.h>
-
-#include "types.h"
-#include "debug.h"
 #include "GXRender.h"
-#include "MMU.h"
-#include "bits.h"
-#include "matrix.h"
-#include "NDSSystem.h"
 #include "GXTexManager.h"
+#include "NDSSystem.h"
 #include "gfx3d.h"
-#include "shaders.h"
 #include "texcache.h"
 
 // ------------------- EXTERNAL VARIABLES ------------------
-// We need to keep it from continuing whilst we render our 3D 
+// We need to keep it from continuing whilst we render our 3D
 extern mutex_t vidmutex;
 // We need to reset all the variables for video when we're done with 3D
 extern GXRModeObj *rmode;
@@ -65,17 +56,17 @@ static std::queue<u32> freeTextureIds;
 static TexCacheItem* currTexture = NULL;
 
 //------------------------------------------------------------
-// Texture Variables 
+// Texture Variables
 //------------------------------------------------------------
 
 // The number that we expand our texture array by
 #define EXPAND_FREE_TEX_NUM 128
 
 // Our texture manager (keeps track of which textures we're using)
-TexManager* texMan;	
+TexManager* texMan;
 
 // When we need to apply a texture, we use this matrix
-static Mtx textureView; 
+static Mtx textureView;
 
 //------------------------------------------------------------
 // Function Prototypes
@@ -160,12 +151,8 @@ static void texDeleteCallback(TexCacheItem* item){
 static void GXReset(){
 
 	TexCache_Reset();
-<<<<<<< .mine
+
 	delete currTexture;
-=======
-	
-	delete currTexture;
->>>>>>> .r231
 	currTexture = NULL;
 
 	texMan->reset();
@@ -268,7 +255,7 @@ static void setTexture(u32 format, u32 texpal){
 					const u8 g = *src++;
 					const u8 r = *src++;
 
-				    const u32 offset = (((y >> 2)<<4)*curTexSizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
+					const u32 offset = (((y >> 2)<<4)*curTexSizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
 
 					tmp_texture[offset]    = a;
 					tmp_texture[offset+1]  = r;
@@ -279,18 +266,18 @@ static void setTexture(u32 format, u32 texpal){
 			}
 
 			memcpy(currTexture->decoded, tmp_texture, currTexture->decode_len);
-					
+
 			// Make sure everything is finished before we move on.
 			DCFlushRange(currTexture->decoded, currTexture->decode_len);
-			
+
 			// Put that data into a texture
 			GX_InitTexObj(texMan->gxObj(currTexture->texid),
-				currTexture->decoded, 
-				curTexSizeX, 
-				curTexSizeY, 
+				currTexture->decoded,
+				curTexSizeX,
+				curTexSizeY,
 				GX_TF_RGBA8,
-				(BIT16(currTexture->texformat) ? (BIT18(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP), 
-				(BIT17(currTexture->texformat) ? (BIT19(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP), 
+				(BIT16(currTexture->texformat) ? (BIT18(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP),
+				(BIT17(currTexture->texformat) ? (BIT19(currTexture->texformat)?GX_MIRROR:GX_REPEAT) : GX_CLAMP),
 				GX_FALSE
 			);
 		}else{
@@ -298,16 +285,16 @@ static void setTexture(u32 format, u32 texpal){
 		}
 		GX_LoadTexObj(texMan->gxObj(currTexture->texid), GX_TEXMAP0);
 
-		// Configure the texture matrix 
+		// Configure the texture matrix
 		/*
-		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);			
+		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);
 		GX_LoadTexMtxImm(textureView, GX_TEXMTX0, GX_MTX2x4);
 		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_POS, GX_TEXMTX0);
 		//*/
 		//*
 		//Old version (possibly better?)
 		//guMtxIdentity(textureView);
-		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);	
+		guMtxScale(textureView, currTexture->invSizeX, currTexture->invSizeY, 1.0f);
 		GX_LoadTexMtxImm(textureView, GX_TEXMTX0,GX_MTX3x4);
 		GX_SetTexCoordGen(GX_TEXCOORD0,GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0);
 		//*/
@@ -355,29 +342,29 @@ static void BeginRenderPoly(){
 			if(stencilStateSet!=0) {
 				stencilStateSet = 0;
 				//when the polyID is zero, we are writing the shadow mask.
-                //set stencilbuf = 1 where the shadow volume is obstructed by geometry.
-                //do not write color or depth information.
+				//set stencilbuf = 1 where the shadow volume is obstructed by geometry.
+				//do not write color or depth information.
 
-				// 2. The second parameter (65) is a reference value that we will test in glStensilOp, 
+				// 2. The second parameter (65) is a reference value that we will test in glStensilOp,
 				// 3. The third parameter is a mask.
-				// If a pixel should have been drawn to the screen, we want that spot marked with a 1. 
+				// If a pixel should have been drawn to the screen, we want that spot marked with a 1.
 				// GL_ALWAYS does exactly that.
-                glStencilFunc(GL_ALWAYS,65,255);
+				glStencilFunc(GL_ALWAYS,65,255);
 
 				// This tests for three different conditions based on the stencil function we decided to use.
 
-				// 1. The first parameter tells OpenGL what to do if the test fails. 
-				// Because the first parameter is GL_KEEP, if the test fails 
-				// (which it can't because we have the funtion set to GL_ALWAYS), 
-				// we would leave the stencil value set at whatever it currently is. 
-				// 2. The second parameter tells OpenGL what do do if the stencil test passes, but the depth test fails. 
-				// 3. The third parameter tells OpenGL what to do if the test passes! 
+				// 1. The first parameter tells OpenGL what to do if the test fails.
+				// Because the first parameter is GL_KEEP, if the test fails
+				// (which it can't because we have the funtion set to GL_ALWAYS),
+				// we would leave the stencil value set at whatever it currently is.
+				// 2. The second parameter tells OpenGL what do do if the stencil test passes, but the depth test fails.
+				// 3. The third parameter tells OpenGL what to do if the test passes!
 				// The value we put into the stencil buffer is our reference value ANDed with our mask value which is 255.
-                glStencilOp(GL_KEEP,GL_REPLACE,GL_KEEP);
+				glStencilOp(GL_KEEP,GL_REPLACE,GL_KEEP);
 
 				// We don't want anything drawn to the screen at the moment, with all of the values set to 0 (GL_FALSE),
-				// colors will not be drawn to the screen. 
-                glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
+				// colors will not be drawn to the screen.
+				glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
 
 			}
 		} else {
@@ -385,20 +372,20 @@ static void BeginRenderPoly(){
 			if(stencilStateSet!=1) {
 				stencilStateSet = 1;
 				//when the polyid is nonzero, we are drawing the shadow poly.
-                //only draw the shadow poly where the stencilbuf==1.
-                //I am not sure whether to update the depth buffer here--so I chose not to.
+				//only draw the shadow poly where the stencilbuf==1.
+				//I am not sure whether to update the depth buffer here--so I chose not to.
 
 				// We're using GL_EQUAL to get where in the buffer the test passed (where it equals 1)
-                glStencilFunc(GL_EQUAL,65,255);
+				glStencilFunc(GL_EQUAL,65,255);
 
 				// As long as stencil testing is enabled pixels will ONLY be drawn if the stencil buffer has a value of 1.
-				// If the stencil value is not 1 where the current pixel is being drawn it will not show up! GL_KEEP just 
-				// tells OpenGL not to modify any values in the stencil buffer if the test passes OR fails! 
-                glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
+				// If the stencil value is not 1 where the current pixel is being drawn it will not show up! GL_KEEP just
+				// tells OpenGL not to modify any values in the stencil buffer if the test passes OR fails!
+				glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
 
 				// We want to draw colors to the screen now.
-                glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
-             }
+				glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
+			}
 		}
 	} else {
 		xglEnable(GL_STENCIL_TEST);
@@ -475,15 +462,15 @@ static void InstallPolygonAttrib(unsigned long val){
 //
 //----------------------------------------
 
-static void ReadFramebuffer(){ 
+static void ReadFramebuffer(){
 
 	GX_DrawDone();
 
-	GX_SetTexCopySrc(0, 0, 256, 192); 
+	GX_SetTexCopySrc(0, 0, 256, 192);
 	GX_SetTexCopyDst(256, 192, GX_TF_RGBA8, GX_FALSE);
 
 	// Turn off vertical de-flicker filter temporary
-    // (to avoid filtering during the framebuffer-to-texture copy)
+	// (to avoid filtering during the framebuffer-to-texture copy)
 	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
 
 	// Copy the screen into a texture
@@ -498,11 +485,11 @@ static void ReadFramebuffer(){
 
 	u8 *truc = (u8*)GPU_screen3D;
 	u8 r, g, b, a;
-    u32 offset;
+	u32 offset;
 
 	for(u32 y = 0; y < 192; y++){
 		for(u32 x = 0; x < 256; x++){
-	        
+
 			offset = ((y >> 2)<< 12) + ((x >> 2)<<6) + ((((y%4) << 2) + (x%4)) << 1);
 
 			a = *(truc+offset);
@@ -520,7 +507,7 @@ static void ReadFramebuffer(){
 
 	DCFlushRange(gfx3d_convertedScreen, 256*192*4);
 
-    // Restore vertical de-flicker filter mode
+	// Restore vertical de-flicker filter mode
 	GX_SetCopyFilter(rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter);
 
 }
@@ -552,13 +539,13 @@ static void GXRender(){
 	for(u32 i = 0; i < polyListCount; ++i) {
 
 		POLY *poly = &gfx3d.polylist->list[gfx3d.indexlist[i]];
-		
+
 		int type = poly->type;
-		u8 alpha = (poly->getAlpha() << 3);	
+		u8 alpha = (poly->getAlpha() << 3);
 
 		// If we have a new polygon texture...
-		if( lastTextureFormat != poly->texParam || 
-			lastTexturePalette != poly->texPalette || 
+		if( lastTextureFormat != poly->texParam ||
+			lastTexturePalette != poly->texPalette ||
 			lastPolyAttr != poly->polyAttr || i == 0 ){
 
 			isTranslucent = poly->isTranslucent();
@@ -566,26 +553,6 @@ static void GXRender(){
 			lastTextureFormat = textureFormat = poly->texParam;
 			lastTexturePalette = texturePalette = poly->texPalette;
 
-#ifdef GX_3D_FUNCTIONS	
-
-			// Copy our texture matrix from the poly
-			guMtxCopy(poly->texMatrix, textureView);
-
-			BeginRenderPoly();
-
-
-			GX_LoadProjectionMtx(poly->projMatrix, GX_PERSPECTIVE);
-			/*
-			if(poly->projMatrix[3][2] != 1){					
-				GX_LoadProjectionMtx(poly->projMatrix, GX_PERSPECTIVE); 
-			}else{
-				GX_LoadProjectionMtx(poly->projMatrix, GX_ORTHOGRAPHIC); 
-			}
-			//*/
-
-			GX_LoadPosMtxImm(poly->mvMatrix, GX_PNMTX0);
-			GX_LoadNrmMtxImm(poly->normMatrix, GX_PNMTX0);
-#else
 			BeginRenderPoly();
 
 			// Create our own, DS-to-Wii specific projection matrix
@@ -602,8 +569,7 @@ static void GXRender(){
 			projection[2][2] = (projection[2][2] - projection[3][2])*0.5f;
 			projection[2][3] = (projection[2][3] - projection[3][3])*0.5f;
 
-			if(projection[3][2] != 1) 
-			{		
+			if(projection[3][2] != 1){
 				//Frustum or perspective ?
 				/* -- do we need this? just comment for now to remind me in future
 
@@ -617,7 +583,6 @@ static void GXRender(){
 			}else{
 				GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC); 
 			}
-#endif
 		}
 
 		//--DCN: I still don't see the point of this:
@@ -630,24 +595,6 @@ static void GXRender(){
 		}
 		//*/
 
-<<<<<<< .mine
-=======
-#ifdef TESTING
-
-	static u32 count = 0;
-	count++;
-	if(count>1200){
-		VERT *vert = &gfx3d.vertlist->list[poly->vertIndexes[0]];
-
-		printf("\nx:%f, y:%f, z:%f, u:%f, v:%f",
-			vert->x, vert->y, vert->z, vert->u, vert->v);
-
-		count = 0;
-	}
-#endif
-
-
->>>>>>> .r231
 		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, type);
 
 			int j = type - 1;
@@ -706,10 +653,10 @@ static void Set3DVideoSettings(){
 	// Load in an identity matrix to be our position matrix
 	GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
-
 	//The only EFB pixel format supporting an alpha buffer is GX_PF_RGBA6_Z24
 	GX_SetPixelFmt(GX_PF_RGBA6_Z24, GX_ZC_LINEAR);
 
+	//See: GX_SetTevAlphaOp  and GX_SetTevColorOp
 	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
 
 	GX_InvVtxCache();
@@ -730,12 +677,12 @@ static void Set3DVideoSettings(){
 		GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
 		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
-		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_VA_TEX0, GX_IDENTITY); 
+		GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_VA_TEX0, GX_IDENTITY);
 
 		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 
 	}else{
-		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);			
+		GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
 	}
 
 	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
@@ -746,7 +693,7 @@ static void Set3DVideoSettings(){
 		
 		// We need two comparisons, so we ignore the second parameter (for now)
 		GX_SetAlphaCompare(GX_GREATER, s32(s32(gfx3d.alphaTestRef)/31.f), GX_AOP_OR, GX_NEVER, 0);
-	}else{		
+	}else{
 		// We might be able to just ignore this instruction,
 		// since we're not alpha blending.
 		GX_SetAlphaCompare(GX_GREATER, 0, GX_AOP_OR , GX_NEVER, 0);
@@ -787,14 +734,14 @@ static void Set3DVideoSettings(){
 		GX_InitFogAdjTable(&table, 256, projection);
 		// 
 		// I believe that GX_SetFogRangeAdj does not do
-		// what it is supposed to do, seeing as how none of 
+		// what it is supposed to do, seeing as how none of
 		// the variables passed are used in the function.
 		GX_SetFogRangeAdj(GX_ENABLE, 256/2 , &table);
 		//*/
 	}
 
 
-	// In general, if alpha compare is enabled, Z-buffering 
+	// In general, if alpha compare is enabled, Z-buffering
 	// should occur AFTER texture lookup.
 	GX_SetZCompLoc(GX_FALSE);
 
@@ -828,7 +775,7 @@ static void ResetVideoSettings(){
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
 	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
-	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);	
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
 	
 	guOrtho(perspective,0,479,0,639,0,300);
 	GX_LoadProjectionMtx(perspective, GX_ORTHOGRAPHIC);

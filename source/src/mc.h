@@ -1,7 +1,7 @@
 /*  Copyright (C) 2006 thoduv
     Copyright (C) 2006 Theo Berkau
-	Copyright (C) 2008-2011 DeSmuME team
-	Copyright (C) 2012 DeSmuMEWii team
+	Copyright (C) 2008-2009 DeSmuME team
+    Copyright (C) 2012 DeSmuMEWii team
 
     This file is part of DeSmuMEWii
 
@@ -78,8 +78,6 @@ public:
 
 	void reset();
 	void close_rom();
-	void forceManualBackupType();
-
 
 	bool save_state(EMUFILE* os);
 	bool load_state(EMUFILE* is);
@@ -123,29 +121,12 @@ private:
 	u32 com;	//persistent command actually handled
 	u32 addr_size, addr_counter;
 	u32 addr;
-	//bool isMovieMode;
 
 	std::vector<u8> data;
 	std::vector<u8> data_autodetect;
 	enum STATE {
 		DETECTING = 0, RUNNING = 1
 	} state;
-
-	//MOTION CONTROLS
-	/*
-	enum MOTION_INIT_STATE
-	{
-		MOTION_INIT_STATE_IDLE, MOTION_INIT_STATE_RECEIVED_4, MOTION_INIT_STATE_RECEIVED_4_B,
-		MOTION_INIT_STATE_FE, MOTION_INIT_STATE_FD, MOTION_INIT_STATE_FB
-	};
-	enum MOTION_FLAG
-	{
-		MOTION_FLAG_NONE=0,
-		MOTION_FLAG_ENABLED=1,
-		MOTION_FLAG_SENSORMODE=2
-	};
-	u8 motionInitState, motionFlag;
-	//*/
 
 	void loadfile();
 	bool _loadfile(const char *fname);
