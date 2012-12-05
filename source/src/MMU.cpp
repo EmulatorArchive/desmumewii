@@ -38,7 +38,7 @@
 #include "mc.h"
 #include "addons.h"
 #include "mic.h"
-#include "movie.h"
+#include "matrix.h"
 #include "readwrite.h"
 #include "MMU_timing.h"
 
