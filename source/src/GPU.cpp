@@ -28,13 +28,12 @@
 #include <iostream>
 #include "MMU.h"
 #include "GPU.h"
-#include "debug.h"
 #include "render3D.h"
 #include "gfx3d.h"
 #include "debug.h"
-//#include "GPU_osd.h"
 #include "NDSSystem.h"
 #include "readwrite.h"
+#include "guDesmume.h"
 
 #ifdef FASTBUILD
 	#undef FORCEINLINE
@@ -589,55 +588,53 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	u8* dst = currDst;
 	u16 final;
 
-		bool windowEffect = blend1; //bomberman land touch dialogbox will fail without setting to blend1
-	
-		//TODO - should we do an alpha==0 -> bail out entirely check here?
+	bool windowEffect = blend1; //bomberman land touch dialogbox will fail without setting to blend1
 
-		if(WINDOW)
+	//TODO - should we do an alpha==0 -> bail out entirely check here?
+
+	if(WINDOW)
+	{
+		bool windowDraw = false;
+		renderline_checkWindows(dstX, windowDraw, windowEffect);
+
+		//we never have anything more to do if the window rejected us
+		if(!windowDraw) return;
+	}
+
+	int bg_under = bgPixels[dstX];
+	if(blend2[bg_under])
+	{
+		alpha++;
+		if(alpha<32)
 		{
-			bool windowDraw = false;
-			renderline_checkWindows(dstX, windowDraw, windowEffect);
+			//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
+			COLOR c2, cfinal;
+			c2.val = HostReadWord(dst, passing);
 
-			//we never have anything more to do if the window rejected us
-			if(!windowDraw) return;
+			cfinal.bits.red		= ((red * alpha) + ((c2.bits.red<<1) * (32 - alpha)))>>6;
+			cfinal.bits.green	= ((green * alpha) + ((c2.bits.green<<1) * (32 - alpha)))>>6;
+			cfinal.bits.blue	= ((blue * alpha) + ((c2.bits.blue<<1) * (32 - alpha)))>>6;
+
+			final = cfinal.val;
 		}
-	
-		int bg_under = bgPixels[dstX];
-		if(blend2[bg_under])
-		{
-			alpha++;
-			if(alpha<32)
-			{
-				//if the layer underneath is a blend bottom layer, then 3d always alpha blends with it
-				COLOR c2, cfinal;
-				c2.val = HostReadWord(dst, passing);
-
-				cfinal.bits.red		= ((red * alpha) + ((c2.bits.red<<1) * (32 - alpha)))>>6;
-				cfinal.bits.green	= ((green * alpha) + ((c2.bits.green<<1) * (32 - alpha)))>>6;
-				cfinal.bits.blue	= ((blue * alpha) + ((c2.bits.blue<<1) * (32 - alpha)))>>6;
-
-				final = cfinal.val;
+		else final = R6G6B6TORGB15(red,green,blue);
+	}
+	else
+	{
+		final = R6G6B6TORGB15(red,green,blue);
+		//perform the special effect
+		if(windowEffect)
+			switch(FUNC) {
+				case Increase: final = currentFadeInColors[final&0x7FFF]; break;
+				case Decrease: final = currentFadeOutColors[final&0x7FFF]; break;
+				case None: 
+				case Blend:
+					break;
 			}
-			else final = R6G6B6TORGB15(red,green,blue);
-	
-	
-		}
-		else
-		{
-			final = R6G6B6TORGB15(red,green,blue);
-			//perform the special effect
-			if(windowEffect)
-				switch(FUNC) {
-					case Increase: final = currentFadeInColors[final&0x7FFF]; break;
-					case Decrease: final = currentFadeOutColors[final&0x7FFF]; break;
-					case None: 
-					case Blend:
-						break;
-				}
-		}
+	}
 
-		HostWriteWord(dst, passing, (final | 0x8000));
-		bgPixels[x] = 0;
+	HostWriteWord(dst, passing, (final | 0x8000));
+	bgPixels[x] = 0;
 }
 
 

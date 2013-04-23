@@ -936,17 +936,14 @@ void SetUp_Lookups()
 	p=i;
 };
 
-void MMU_Init() 
-{
-	
-	int i;
+void MMU_Init(){
+
 	//LOG("MMU init\n");
 
 	memset(&MMU, 0, sizeof(MMU_struct));
 
 	// allocate the mem here !
-	if (MMU.MMU_Alloc() < 0) 
-	{
+	if (MMU.MMU_Alloc() < 0){
 		exit(1); // ran out of mem!!!!
 	}
 	
@@ -954,8 +951,7 @@ void MMU_Init()
 
 	MMU.CART_ROM = MMU.UNUSED_RAM;
 
-    for(i = 0x80; i<0xA0; ++i)
-    {
+    for(int i = 0x80; i<0xA0; ++i){
 		MMU_struct::MMU_MEM[0][i] = MMU.CART_ROM;
 		MMU_struct::MMU_MEM[1][i] = MMU.CART_ROM;
     }
@@ -1258,61 +1254,47 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 	{
 		// Dummy
 		case 0x9F:
-			{
-				card.address = 0;
-				card.transfer_count = 0x800;
-			}
+			card.address = 0;
+			card.transfer_count = 0x800;
 			break;
 
 		// Nand Init
 		case 0x94:
-			{
-				card.address = 0;
-				card.transfer_count = 0x80;
-			}
+			card.address = 0;
+			card.transfer_count = 0x80;
 			break;
 
 		// Nand Error?
 		case 0xD6:
-			{
-				card.address = 0;
-				card.transfer_count = 1;
-			}
+			card.address = 0;
+			card.transfer_count = 1;
 			break;
 		// Nand Write?
 		//case 0x8B:
 		case 0x85:
-			{
-				card.address = 0;
-				card.transfer_count = 0x80;
-			}
+			card.address = 0;
+			card.transfer_count = 0x80;
 			break;
 
 		// Data read
 		case 0x00:
 		case 0xB7:
-			{
-				card.address = 	(card.command[1] << 24) | (card.command[2] << 16) | (card.command[3] << 8) | card.command[4];
-				card.transfer_count = 0x80;
-			}
+			card.address = 	(card.command[1] << 24) | (card.command[2] << 16) | (card.command[3] << 8) | card.command[4];
+			card.transfer_count = 0x80;
 			break;
 
 		// Get ROM chip ID
 		case 0x90:
 		case 0xB8:
-			{
-				card.address = 0;
-				card.transfer_count = 1;
-			}
+			card.address = 0;
+			card.transfer_count = 1;
 			break;
 
 		// Switch to KEY1 mode
 		case 0x3C:
-			{
-				card.address = 0;
-				card.transfer_count = 0;
-				card.mode = CardMode_KEY1;
-			}
+			card.address = 0;
+			card.transfer_count = 0;
+			card.mode = CardMode_KEY1;
 			break;
 
 
@@ -1320,19 +1302,15 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 
 		// NJSD init/reset
 		case 0x20:
-			{
-				card.address = 0;
-				card.transfer_count = 0;
-			}
+			card.address = 0;
+			card.transfer_count = 0;
 			break;
 
 		// NJSD_sendCLK()
 		case 0xE0:
-			{
-				card.address = 0;
-				card.transfer_count = 0;
-				NDS_makeIrq(PROCNUM, 20);
-			}
+			card.address = 0;
+			card.transfer_count = 0;
+			NDS_makeIrq(PROCNUM, 20);
 			break;
 
 		// NJSD_sendCMDN() / NJSD_sendCMDR()
@@ -1380,15 +1358,13 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 
 
 		default:
-			{
-				INFO("WRITE CARD command: %02X%02X%02X%02X%02X%02X%02X%02X\t", 
-					card.command[0], card.command[1], card.command[2], card.command[3],
-					card.command[4], card.command[5], card.command[6], card.command[7]);
-				INFO("FROM: %08X\n", (PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
+			INFO("WRITE CARD command: %02X%02X%02X%02X%02X%02X%02X%02X\t", 
+				card.command[0], card.command[1], card.command[2], card.command[3],
+				card.command[4], card.command[5], card.command[6], card.command[7]);
+			INFO("FROM: %08X\n", (PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
 
-				card.address = 0;
-				card.transfer_count = 0;
-			}
+			card.address = 0;
+			card.transfer_count = 0;
 			break;
 	}
 
@@ -1571,6 +1547,7 @@ static void validateIF_arm9()
 
 }
 /*
+// Potential update:
 template<int PROCNUM> static void REG_IF_WriteByte(u32 addr, u8 val)
 {
 	//the following bits are generated from logic and should not be affected here

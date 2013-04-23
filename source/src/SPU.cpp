@@ -188,18 +188,16 @@ int SPU_Init(int coreid, int buffersize)
 	SPU_Reset();
 
 	//create adpcm decode accelerator lookups
-	for(i = 0; i < 16; i++)
-	{
-		for(j = 0; j < 89; j++)
-		{
+	
+	for(j = 0; j < 89; j++){
+		for(i = 0; i < 16; i++){
 			precalcdifftbl[j][i] = (((i & 0x7) * 2 + 1) * adpcmtbl[j] / 8);
 			if(i & 0x8) precalcdifftbl[j][i] = -precalcdifftbl[j][i];
 		}
 	}
-	for(i = 0; i < 8; i++)
-	{
-		for(j = 0; j < 89; j++)
-		{
+	
+	for(j = 0; j < 89; j++){
+		for(i = 0; i < 8; i++){
 			precalcindextbl[j][i] = MinMax((j + indextbl[i]), 0, 88);
 		}
 	}
@@ -246,8 +244,6 @@ void SPU_SetVolume(int volume)
 
 void SPU_Reset(void)
 {
-	int i;
-
 	SPU_core->reset();
 
 	if(SPU_user) {
@@ -261,7 +257,7 @@ void SPU_Reset(void)
 	}
 
 	// Reset Registers
-	for (i = 0x400; i < 0x51D; i++)
+	for (int i = 0x400; i < 0x51D; i++)
 		T1WriteByte(MMU.ARM7_REG, i, 0);
 
 	samples = 0;
@@ -296,8 +292,8 @@ SPU_struct::SPU_struct(int buffersize)
 
 SPU_struct::~SPU_struct()
 {
-	if(sndbuf) delete[] sndbuf;
-	if(outbuf) delete[] outbuf;
+	delete[] sndbuf;
+	delete[] outbuf;
 }
 
 void SPU_DeInit(void)
@@ -320,7 +316,7 @@ void SPU_struct::ShutUp()
 
 static FORCEINLINE void adjust_channel_timer(channel_struct *chan)
 {
-	chan->sampinc = (((double)ARM7_CLOCK) / (DESMUME_SAMPLE_RATE * 2)) / (double)(0x10000 - chan->timer);
+	chan->sampinc = (((double)ARM7_CLOCK) / ((DESMUME_SAMPLE_RATE * 2) * (double)(0x10000 - chan->timer)));
 }
 
 void SPU_struct::KeyOn(int channel)

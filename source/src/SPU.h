@@ -100,35 +100,35 @@ struct channel_struct
 	channel_struct()
 	{}
 	u32 num;
-   u8 vol;
-   u8 datashift;
-   u8 hold;
-   u8 pan;
-   u8 waveduty;
-   u8 repeat;
-   u8 format;
-   u8 status;
-   u32 addr;
-   u16 timer;
-   u16 loopstart;
-   u32 length;
-   u32 totlength;
-   double double_totlength_shifted;
-   union {
+	u8 vol;
+	u8 datashift;
+	u8 hold;
+	u8 pan;
+	u8 waveduty;
+	u8 repeat;
+	u8 format;
+	u8 status;
+	u32 addr;
+	u16 timer;
+	u16 loopstart;
+	u32 length;
+	u32 totlength;
+	double double_totlength_shifted;
+	union {
 		s8 *buf8;
 		s16 *buf16;
-   };
-   double sampcnt;
-   double sampinc;
-   // ADPCM specific
-   u32 lastsampcnt;
-   s16 pcm16b, pcm16b_last;
-   s16 loop_pcm16b;
-   int index;
-   int loop_index;
-   u16 x;
-   s16 psgnoise_last;
-} ;
+	};
+	double sampcnt;
+	double sampinc;
+	// ADPCM specific
+	u32 lastsampcnt;
+	s16 pcm16b, pcm16b_last;
+	s16 loop_pcm16b;
+	int index;
+	int loop_index;
+	u16 x;
+	s16 psgnoise_last;
+};
 
 class SPU_struct
 {

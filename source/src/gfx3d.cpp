@@ -571,7 +571,7 @@ static void SetVertex(){
 
 	if (texCoordinateTransform == 3){
 	
-		guMtxDesmumeTrans(lastTexCoord.st, mtxCurrent[3], coord, currentTexCoord.st);
+		texCoordTrans(lastTexCoord.st, mtxCurrent[3], coord, currentTexCoord.st);
 		/*
 		lastTexCoord.s =((coord[0]*mtxCurrent[3][0] +
 					coord[1]*mtxCurrent[3][4] +
