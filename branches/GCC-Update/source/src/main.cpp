@@ -44,10 +44,10 @@
 #include "GXRender.h"
 #include "rasterize.h"
 #include "filebrowser.h"
-
-
 #include "gekko_utils/usb2storage.h"
 #include "gekko_utils/mload.h"
+
+#include <ogc/system.h>
 
 #define NUM_FRAMES_TO_TIME 60
 #define FPS_LIMITER_FRAME_PERIOD 8
@@ -172,8 +172,7 @@ static bool FindIOS(u32 ios)
 extern "C"
 #endif
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
 
 	IO::SD OurSD;
 	OurSD.Mount();
@@ -181,10 +180,6 @@ int main(int argc, char **argv)
 	OurUSB.Startup();
 	OurUSB.Mount();
 
-//	struct armcpu_memory_iface *arm9_memio = &arm9_base_memory_iface;
-//	struct armcpu_memory_iface *arm7_memio = &arm7_base_memory_iface;
-//	struct armcpu_ctrl_iface *arm9_ctrl_iface;
-//	struct armcpu_ctrl_iface *arm7_ctrl_iface;
 	char filename[MAXPATHLEN];
 	char *rom_filename = filename;
   
@@ -500,10 +495,9 @@ static void do_screen_layout()
 	}
 };
 
-static void *draw_thread(void*)
-{
-	while(1)
-	{
+static void *draw_thread(void*){
+
+	while(1){
 		if (abort_thread)
 			break;
 
@@ -529,8 +523,7 @@ static void *draw_thread(void*)
 		GX_LoadPosMtxImm (mv, GX_PNMTX0);
 
 		// TOP SCREEN
-		if ((screen_layout != SCREEN_SUB_NORMAL) && (screen_layout != SCREEN_SUB_STRETCH))
-		{
+		if ((screen_layout != SCREEN_SUB_NORMAL) && (screen_layout != SCREEN_SUB_STRETCH)){
 			GX_LoadTexObj(&TopTex, GX_TEXMAP0);
 			GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 				GX_Position2f32(topX, topY);
@@ -544,9 +537,7 @@ static void *draw_thread(void*)
 			GX_End();
 		}
 		// BOTTOM SCREEN
-		if (screen_layout != SCREEN_MAIN_NORMAL && (screen_layout != SCREEN_MAIN_STRETCH))
-		{
- 
+		if (screen_layout != SCREEN_MAIN_NORMAL && (screen_layout != SCREEN_MAIN_STRETCH)){
 			GX_LoadTexObj(&BottomTex, GX_TEXMAP0);
 			GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 				GX_Position2f32(bottomX, bottomY);
@@ -560,17 +551,16 @@ static void *draw_thread(void*)
 			GX_End();
 
 			// CURSOR
-			if (drawcursor)
-			{
+			if (drawcursor){
 				GX_LoadTexObj(&CursorTex, GX_TEXMAP0);
 				GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-					GX_Position2f32(bottomX+mouse.x-5, bottomY+mouse.y-5);
+					GX_Position2f32(bottomX+cursor.x-5, bottomY+cursor.y-5);
 					GX_TexCoord2f32(0, 0);
-					GX_Position2f32(bottomX+mouse.x-5, bottomY+mouse.y+5);
+					GX_Position2f32(bottomX+cursor.x-5, bottomY+cursor.y+5);
 					GX_TexCoord2f32(0, 1);
-					GX_Position2f32(bottomX+mouse.x+5, bottomY+mouse.y+5);
+					GX_Position2f32(bottomX+cursor.x+5, bottomY+cursor.y+5);
 					GX_TexCoord2f32(1, 1);
-					GX_Position2f32(bottomX+mouse.x+5, bottomY+mouse.y-5);
+					GX_Position2f32(bottomX+cursor.x+5, bottomY+cursor.y-5);
 					GX_TexCoord2f32(1, 0);
 				GX_End();
 			}
@@ -607,6 +597,17 @@ void Execute() {
 		if(SkipFrameTracker > SkipFrame) SkipFrameTracker = 0;
 		
 	}
+	
+	/*
+	int sys1 = SYS_GetArena1Size();
+	int sys2 = SYS_GetArena2Size();
+	//for(int i = 0; i < 500; i++)
+	display_mallinfo();
+	//
+	printf("\n\n SYS1: %d || SYS2: %d", sys1,sys2);
+	sleep(1);
+	//*/
+	
 
 	abort_thread = true;
 	LWP_MutexDestroy(vidmutex);
@@ -658,26 +659,24 @@ void DSExec(){
 
 	process_ctrls_event(&keypad, nds_screen_size_ratio);
 	
-	// Update mouse position and click
-	if(mouse.down) {
-		NDS_setTouchPos(mouse.x, mouse.y);//ir.x, ir.y
+	// Update cursor position and click
+	if(cursor.down) {
+		NDS_setTouchPos(cursor.x, cursor.y);//ir.x, ir.y
 	}
 	
-	if(mouse.click){ 
+	if(cursor.click){ 
 		NDS_releaseTouch();
-		mouse.click = FALSE;
+		cursor.click = false;
 	}
 
 	update_keypad(keypad);     /* Update keypad */
 
-	if ((wpad & WPAD_BUTTON_1) || (pad & PAD_BUTTON_LEFT))
-	{
+	if ((wpad & WPAD_BUTTON_1) || (pad & PAD_BUTTON_LEFT)){
 		show_console = !show_console;
 		log_console_enable_video(show_console);
 	}
 	
-	if ((wpad & WPAD_BUTTON_2) || (pad & PAD_BUTTON_UP))
-	{
+	if ((wpad & WPAD_BUTTON_2) || (pad & PAD_BUTTON_UP)){
 		change_screen_layout = true;
 	}
 	
@@ -708,13 +707,11 @@ void DSExec(){
 }
 
 void Pause(){
-
 	for(;;){
 		WPAD_ScanPads();
 		if(WPAD_ButtonsDown(WPAD_CHAN_0)&WPAD_BUTTON_A)
 			break;
 	}
-
 }
 
 bool PickDevice(){
@@ -844,7 +841,7 @@ bool CheckBios(bool device){
 	}
 
 	fclose(biosfile);
-	biosfile = 0;
+	biosfile = NULL;
 
 	CommonSettings.UseExtBIOS = true;
 

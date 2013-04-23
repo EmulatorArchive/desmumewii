@@ -21,9 +21,15 @@
 #include <queue>
 #include "GXRender.h"
 #include "GXTexManager.h"
+#include "guDesmume.h"
 #include "NDSSystem.h"
 #include "gfx3d.h"
 #include "texcache.h"
+
+#define SET_GQR(quantno, power, type) \
+({	register uint32_t gqrValue = (((((u8)(power)) << 8)\
+		| ((u8)(type))) << 16) | ((((u8)(power)) << 8) | ((u8)(type)));\
+	asm volatile("mtspr %0, %1" : : "K"(912 + quantno), "r"(gqrValue)); })
 
 // ------------------- EXTERNAL VARIABLES ------------------
 // We need to keep it from continuing whilst we render our 3D
@@ -48,7 +54,8 @@ static bool alpha31 = false;
 //*/
 static u32 depthFuncMode = GX_LESS;
 static u32 cullingMask = 0;
-static u32 textureFormat = 0, texturePalette = 0;
+static u32 textureFormat = 0;
+static u32 texturePalette = 0;
 static bool alphaDepthWrite;
 static bool isTranslucent;
 
@@ -67,6 +74,8 @@ TexManager* texMan;
 
 // When we need to apply a texture, we use this matrix
 static Mtx textureView;
+
+GXTexObj shadowObj; // Shadow texture object
 
 //------------------------------------------------------------
 // Function Prototypes
@@ -175,13 +184,15 @@ static void GXReset(){
 
 static char GXInit(){
 
+	SET_GQR(1,  0, 4);     //load/store and do nothing when using gqr1
+	SET_GQR(2, -1, 4);     //load  and multiply by 2 when using gqr2
+	SET_GQR(3, -6, 4);     //store and divide by 64 when using gqr3
+	SET_GQR(4, -2, 4);     //store and divide by 2 when using gqr4
+
 	// Create our Texture Manager
 	texMan = new TexManager();
-
 	expandFreeTextures();
-	
 	GXReset();
-
 	return 1;
 }
 
@@ -249,13 +260,15 @@ static void setTexture(u32 format, u32 texpal){
 			u32 curTexSizeY = currTexture->sizeY;
 			u32 curTexSizeX = currTexture->sizeX;
 			for(u32 y = 0; y < curTexSizeY; y++){
+				u32 ybySizeX = (((y >> 2)<<4)*curTexSizeX);
+				u32 yby2 = ((y%4) << 2);
 				for(u32 x = 0; x < curTexSizeX; x++){
 					const u8 a = *src++;
 					const u8 b = *src++;
 					const u8 g = *src++;
 					const u8 r = *src++;
 
-					const u32 offset = (((y >> 2)<<4)*curTexSizeX) + ((x >> 2)<<6) + (((y%4 << 2) + x%4 ) <<1);
+					const u32 offset = ybySizeX + ((x >> 2)<<6) + ((yby2 + x%4 ) <<1);
 
 					tmp_texture[offset]    = a;
 					tmp_texture[offset+1]  = r;
@@ -333,7 +346,114 @@ static void BeginRenderPoly(){
 
 #ifdef TODO
 	//--DCN: GX has no stencil buffer! We'll have to find another way.
+	// We need to use shadow mapping
 
+	// From Graphicos3D:
+	
+		// Earlier Set up:
+		void * shadow_mem = memalign(32,size_textshadow);
+		int screen_sx = rmode->fbWidth;
+		int screen_sy = rmode->efbHeight;
+
+	///////////////////////////////////////
+	// Each frame:
+
+	// From tg-shadow2:
+	static const u1632 shadowSize = 256;
+	GX_SetViewport(0, 0, shadowSize, shadowSize, 0.0F, 1.0F);
+    GX_SetScissor(0, 0, (u32)shadowSize, (u32)shadowSize);
+
+    SetCamera(&sc->light.cam); // Set it to where the light is
+    
+	//
+	// Set render mode which only draws ID number as a color
+	GX_SetNumChans(1);
+	GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_REG, GX_LIGHTNULL, GX_DF_CLAMP, GX_AF_NONE);
+	// Set up ambient color
+	GX_SetChanAmbColor(GX_COLOR0A0, (GxColor){0x00, 0x00, 0x00, 0x00});
+	GX_SetNumTevStages(1);
+	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
+	GX_SetNumTexGens(0);
+	//
+
+    // Scale adjustment factor which can be used to enlarge
+    // drawing area of each object in the first pass
+    adjf = ( sc->adjMode ) ? 1.15F : 1.0F;
+
+    // Draw models with ID
+    guMtxIdentity(mtg);
+
+	// Draw everything
+    DrawModels(sc->light.cam.view, mtg, adjf, &sc->anim);
+
+
+	
+	//////////////////////////////////////////////
+	// From graphicos 3D
+	GX_SetScissor(1, 1, rmode->fbWidth-2, rmode->efbHeight-2);
+	guPerspective(projection, 45,  1.3333f, 1.0F, 10000.0F);
+	GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
+
+	guVecSub(&light_look, &light_pos, &light_up);
+
+#define Adjust_Up(v) do { \
+							if(v.x == 0.0f && v.y == 0.0f && v.z == 0.0f) v.z=1.0f;\
+							guVecNormalize(&v);v.y = 1.0f-v.y;\
+						} while(0)
+
+	Adjust_Up(light_up);
+
+	guLookAt(lightView, &light_pos, &light_up, &light_look);
+
+
+	guMtxCopy(lightView, camera);
+
+	/////////////////////////////////////////////
+
+	// Each frame set up:
+	GX_SetCopyFilter(GX_FALSE, NULL, GX_FALSE, NULL);
+
+	GX_SetTexCopySrc(0, 0, screen_sx, screen_sy);
+	GX_SetTexCopyDst(screen_sx, screen_sy, GX_CTF_R8 , GX_FALSE);
+	GX_CopyTex(shadow_mem, GX_TRUE); // capture the texture and clear the framebuffer
+	GX_PixModeSync(); 
+
+	// This is the same as below:
+	GX_SetCopyFilter(rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter);
+	GX_SetViewport(0, 0, screen_sx, screen_sy, 0, 1.0f);
+	GX_SetScissor(0, 0, screen_sx, screen_sy); //Useless?!
+
+	GX_InitTexObj(&shadowObj, shadow_mem,screen_sx,screen_sy, GX_TF_I8, GX_CLAMP,GX_CLAMP,GX_FALSE);
+	GX_InitTexObjLOD(&shadowObj, GX_NEAR, GX_NEAR, 0, 0, 0, 0, 0, GX_ANISO_1);
+	GX_LoadTexObj(&shadowObj, GX_TEXMAP0);
+
+		GX_SetTevOrder(tevstage, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
+		GX_SetTevColorIn(tevstage,GX_CC_ZERO, GX_CC_ZERO , GX_CC_ZERO,GX_CC_RASC ); // pass in the rasterized Alpha 
+		GX_SetTevAlphaIn(tevstage,GX_CA_ZERO,GX_CA_ZERO,GX_CA_ZERO,GX_CA_RASA);     // pass in the rasterized Color 
+		GX_SetTevColorOp(tevstage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaOp(tevstage,GX_TEV_ADD,GX_TB_ZERO,GX_CS_SCALE_1,GX_TRUE,GX_TEVPREV);
+		tevstage++;
+		data_engine.tevstage_for_lighting=tevstage;
+
+
+		// texture
+		GX_SetTevOrder(tevstage, GX_TEXCOORD0, GX_TEXMAP1,  GX_COLOR0A0);
+		GX_SetTevColorIn(tevstage,GX_CC_ZERO,GX_CC_TEXA ,GX_CC_CPREV, GX_CC_ZERO ); // COLOR=TEXA*CPREV: we are only interested in the Alpha texture to make "holes"
+		GX_SetTevAlphaIn(tevstage,GX_CA_ZERO,GX_CA_ZERO,GX_CA_ZERO,GX_CA_TEXA); // we pass the alpha texture
+		GX_SetTevColorOp(tevstage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaOp(tevstage,GX_TEV_ADD,GX_TB_ZERO,GX_CS_SCALE_1,GX_TRUE,GX_TEVPREV);
+		tevstage++;
+		data_engine.tevstage_for_texture=tevstage;
+		data_engine.max_tevstages=tevstage;
+		GX_SetNumChans(1);
+		GX_SetNumTevStages(data_engine.tevstage_for_lighting);
+		GX_SetNumTexGens(1);
+
+	////////////////////////////////////////
+
+
+	////////////////////////////////////////
 	//handle shadow polys
 	if(envMode == 3){
 		xglEnable(GL_STENCIL_TEST);
@@ -476,8 +596,6 @@ static void ReadFramebuffer(){
 	// Copy the screen into a texture
 	GX_CopyTex((void*)GPU_screen3D, GX_TRUE);
 	GX_PixModeSync();
-	//--DCN: PixModeSync should take care of flushing.
-	//DCFlushRange(GPU_screen3D, 256*192*4);
 
 	// Bleh, another "conversion" problem. In order to make our GX scene
 	// jive with Desmume, we need to convert it OUT of its native format.
@@ -488,9 +606,11 @@ static void ReadFramebuffer(){
 	u32 offset;
 
 	for(u32 y = 0; y < 192; y++){
+		u32 yshift = (y >> 2)<< 12;
+		u32 ymod = (y%4) << 2;
 		for(u32 x = 0; x < 256; x++){
 
-			offset = ((y >> 2)<< 12) + ((x >> 2)<<6) + ((((y%4) << 2) + (x%4)) << 1);
+			offset = yshift + ((x >> 2)<<6) + ((ymod + (x%4)) << 1);
 
 			a = *(truc+offset);
 			r = *(truc+offset+1);
@@ -571,7 +691,7 @@ static void GXRender(){
 
 			if(projection[3][2] != 1){
 				//Frustum or perspective ?
-				/* -- do we need this? just comment for now to remind me in future
+				/* -- Do we need this? Just comment it out for now to remind me in the future
 
 				if(projection[0][2] != 0)
 					//frustrum
@@ -623,9 +743,8 @@ static void GXRender(){
 
 	// Unlock the thread
 	LWP_MutexUnlock(vidmutex);
-		
+	
 }
-
 
 //----------------------------------------
 //

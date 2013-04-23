@@ -95,15 +95,14 @@ extern u16 joypad_cfg[NB_KEYS];
 extern u16 nbr_joy;
 
 #ifndef GTK_UI
-struct mouse_status
-{
+struct cursor_status{
   signed long x;
   signed long y;
-  BOOL click;
-  BOOL down;
+  bool click;
+  bool down;
 };
 
-extern mouse_status mouse;
+extern cursor_status cursor;
 
 #endif // !GTK_UI
 
@@ -118,11 +117,7 @@ void update_keypad(u16 keys);
 u16 get_keypad( void);
 u16 lookup_key (u16 keyval);
 u16 lookup_joy_key (u16 keyval);
-void
-process_ctrls_event( u16 *keypad,
-                      float nds_screen_size_ratio);
-
-void
-process_joystick_events( u16 *keypad);
+void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio);
+void process_joystick_events( u16 *keypad);
 
 #endif /* CTRLSSDL_H */

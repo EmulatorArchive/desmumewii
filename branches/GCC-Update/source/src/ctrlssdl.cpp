@@ -28,7 +28,7 @@
 u16 wiimote_cfg[NB_KEYS];
 u16 gamecube_cfg[NB_KEYS];
 //u16 nbr_joy;
-mouse_status mouse;
+cursor_status cursor;
 
 extern volatile BOOL execute;
 
@@ -122,13 +122,13 @@ void load_default_config(const u16 kbCfg[])
   memcpy(gamecube_cfg, default_gamecube_cfg, sizeof(gamecube_cfg));
 }
 
-/* Set mouse coordinates */
-static void set_mouse_coord(signed long x,signed long y)
+/* Set cursor coordinates */
+static void set_cursor_coord(signed long x,signed long y)
 {
   if(x<0) x = 0; else if(x>255) x = 255;
   if(y<0) y = 0; else if(y>192) y = 192;
-  mouse.x = x;
-  mouse.y = y;
+  cursor.x = x;
+  cursor.y = y;
 }
 
 /* Update NDS keypad */
@@ -228,8 +228,7 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	s32 pad_substickx = PAD_SubStickX(0);
 	s32 pad_substicky = PAD_SubStickY(0);
 
-	int i;
-	for(i = FIRST_KEY; i <= LAST_KEY; i++) {
+	for(int i = FIRST_KEY; i <= LAST_KEY; i++) {
 		CHECK_KEY(i, wpad_h & default_wiimote_cfg[i], pad_h & default_gamecube_cfg[i]);
 	}
 
@@ -247,56 +246,37 @@ void process_ctrls_event( u16 *keypad, float nds_screen_size_ratio )
 	}
 
 	if ((wpad_h & WPAD_BUTTON_A) || (pad_h & PAD_TRIGGER_Z))
-		mouse.down = TRUE;
+		cursor.down = true;
 	  
 	if (!(wpad_h & WPAD_BUTTON_A) && !(pad_h & PAD_TRIGGER_Z)) {
-		if(mouse.down) {
-			mouse.click = TRUE;
-			mouse.down = FALSE;
+		if(cursor.down) {
+			cursor.click = true;
+			cursor.down = false;
 		}
 	}
 
 	if ((wpad_h & WPAD_BUTTON_LEFT) || (pad_substickx < -20)){
-		--mouse.x;
+		--cursor.x;
 	} 
 
 	if ((wpad_h & WPAD_BUTTON_RIGHT) || (pad_substickx > 20)){
-		++mouse.x;
+		++cursor.x;
 	} 
 
 	if ((wpad_h & WPAD_BUTTON_DOWN) || (pad_substicky < -20)) {
-		++mouse.y;
+		++cursor.y;
 	} 
 		
 	if ((wpad_h & WPAD_BUTTON_UP) || (pad_substicky > 20)){
-		--mouse.y;
+		--cursor.y;
 	}
-	// WiiMote Mouse co-ords
-	if (wd_one->ir.valid)
-	{
-		mouse.x = wd_one->ir.x;
-		mouse.y = wd_one->ir.y;
+	// WiiMote cursor co-ords
+	if (wd_one->ir.valid){
+		cursor.x = wd_one->ir.x;
+		cursor.y = wd_one->ir.y;
 	}
 
-	set_mouse_coord( mouse.x, mouse.y );
-
-		  
-		  /*
-		        signed long scaled_x =
-					screen_to_touch_range_x( event.button.x,
-											 nds_screen_size_ratio);
-				  signed long scaled_y =
-					screen_to_touch_range_y( event.button.y,
-											 nds_screen_size_ratio);
-	
-				  if( scaled_y >= 192)
-					set_mouse_coord( scaled_x, scaled_y - 192);
-				}
-*/
-        //  SDL_WarpMouse(mouse.x, mouse.y);
-//		  set_mouse_coord( mouse.x, mouse.y );
-	  //}
-  
+	set_cursor_coord( cursor.x, cursor.y );  
 
 }
 

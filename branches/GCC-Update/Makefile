@@ -26,7 +26,7 @@ INCLUDES	:=
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	    =   -D__BIG_ENDIAN__ -g -O3 -fsigned-char -Wall $(MACHDEP) $(INCLUDE)
+CFLAGS	    =   -D__BIG_ENDIAN__ -DENABLE_PAIRED_SINGLE -g -O3 -fsigned-char -Wall $(MACHDEP) $(INCLUDE)
 CXXFLAGS	=	$(CFLAGS)
 LDFLAGS	    =	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
 

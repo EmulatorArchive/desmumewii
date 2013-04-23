@@ -27,8 +27,6 @@
 #include "types.h"
 #include "mem.h"
 
-#define ENABLE_PAIRED_SINGLE
-
 #ifdef ENABLE_PAIRED_SINGLE
 #include "guDesmume.h"
 #endif
@@ -57,27 +55,7 @@ float*	MatrixStackGetPos			(MatrixStack *stack, int pos);
 float*	MatrixStackGet				(MatrixStack *stack);
 void	MatrixStackLoadMatrix		(MatrixStack *stack, int pos, const float *ptr);
 
-void Vector2Copy(float *dst, const float *src);
-void Vector2Add(float *dst, const float *src);
-void Vector2Subtract(float *dst, const float *src);
-float Vector2Dot(const float *a, const float *b);
-float Vector2Cross(const float *a, const float *b);
-
-float Vector3Dot(const float *a, const float *b);
-void Vector3Cross(float* dst, const float *a, const float *b);
-float Vector3Length(const float *a);
-void Vector3Add(float *dst, const float *src);
-void Vector3Subtract(float *dst, const float *src);
-void Vector3Scale(float *dst, const float scale);
-void Vector3Copy(float *dst, const float *src);
-void Vector3Normalize(float *dst);
-
-void Vector4Copy(float *dst, const float *src);
-
-
 //---------------------------
-//switched SSE functions
-
 #ifdef ENABLE_PAIRED_SINGLE
 #define MatrixMultVec4x4  ps_MatrixMultVec4x4
 #define MatrixMultVec3x3  ps_MatrixMultVec3x3
@@ -85,7 +63,6 @@ void Vector4Copy(float *dst, const float *src);
 #define MatrixTranslate   ps_MatrixTranslate
 #define MatrixScale       ps_MatrixScale
 #define MatrixCopy        ps_MatrixCopy
-#define guMtxDesmumeTrans ps_guMtxDesmumeTrans
 
 #else // c versions
 
@@ -96,20 +73,10 @@ void MatrixTranslate(float *matrix, const float *ptr);
 void MatrixScale(float * matrix, const float * ptr);
 void MatrixCopy(float * matrixDST, const float * matrixSRC);
 
-FORCEINLINE void mtx_fix2float4x4(float* matrix, const float divisor){
-	for(int i=0;i<4*4;i++)
-		matrix[i] /= divisor;
-}
+#endif
 
-FORCEINLINE void mtx_fix2float3x4(float* matrix, const float divisor){
-	for(int i=0;i<3*4;i++)
-		matrix[i] /= divisor;
-}
-
-// Defines
-#define guMtxDesmumeTrans c_guMtxDesmumeTrans
-
-#endif //switched SSE functions
+FORCEINLINE void mtx_fix2float4x4(float* matrix, const float divisor);
+FORCEINLINE void mtx_fix2float3x4(float* matrix, const float divisor);
 
 FORCEINLINE void MatrixMultVec4x4_M2(const float *matrix, float *vecPtr)
 {
